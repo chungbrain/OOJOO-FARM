@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220" width="480" height="220">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#43A047"/>
+      <stop offset="0.55" stop-color="#2E7D32"/>
+      <stop offset="1" stop-color="#1B5E20"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="130" fill="url(#bg)"/>
+      <circle cx="172" cy="205" r="52" fill="#fff"/>
+      <circle cx="340" cy="205" r="52" fill="#fff"/>
+      <circle cx="172" cy="205" r="52" fill="none" stroke="#1B5E20" stroke-width="3" opacity="0.12"/>
+      <circle cx="340" cy="205" r="52" fill="none" stroke="#1B5E20" stroke-width="3" opacity="0.12"/>
+      <g>
+        <circle cx="178" cy="211" r="19" fill="#1B5E20"/>
+        <circle cx="184" cy="205" r="6" fill="#fff"/>
+        <animateTransform attributeName="transform" type="translate" values="0 0;10 -4;4 -8;-8 -4;0 0" keyTimes="0;0.26;0.5;0.76;1" dur="5s" repeatCount="indefinite"/>
+      </g>
+      <g>
+        <circle cx="334" cy="211" r="19" fill="#1B5E20"/>
+        <circle cx="340" cy="205" r="6" fill="#fff"/>
+        <animateTransform attributeName="transform" type="translate" values="0 0;10 -4;4 -8;-8 -4;0 0" keyTimes="0;0.26;0.5;0.76;1" dur="5s" repeatCount="indefinite"/>
+      </g>
+      <path d="M 256 245 C 256 278 250 298 236 304" fill="none" stroke="#1B5E20" stroke-width="13" stroke-linecap="round"/>
+      <path d="M 228 332 Q 256 352 284 332" fill="none" stroke="#1B5E20" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+  <use href="#mark" x="12" y="12" width="196" height="196"/>
+  <text x="232" y="128" font-family="Segoe UI,Arial,sans-serif" font-size="98" font-weight="900" fill="#1B5E20" letter-spacing="10">FARM</text>
+</svg>

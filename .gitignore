@@ -1,0 +1,26 @@
+# node
+node_modules/
+npm-debug.log*
+*.log
+
+# backend data (SQLite)
+backend/data/*.db
+backend/data/*.db-*
+backend/out.log
+backend/err.log
+
+# android
+**/build/
+**/.gradle/
+**/local.properties
+**/*.iml
+.idea/
+captures/
+.cxx/
+
+# env
+.env
+
+# os
+.DS_Store
+Thumbs.db

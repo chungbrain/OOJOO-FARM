@@ -1,0 +1,17 @@
+{
+  "name": "oojoo-farm-backend",
+  "version": "1.0.0",
+  "description": "OOJOO FARM backend - master/slave pairing, plants, events, watering",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --experimental-sqlite src/server.js",
+    "dev": "node --watch --experimental-sqlite src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "nanoid": "^5.0.7"
+  }
+}
