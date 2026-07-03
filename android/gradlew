@@ -1,0 +1,3 @@
+#!/bin/sh
+# Gradle wrapper bootstrap - Android Studio will regenerate proper wrapper
+exec gradle "$@"
