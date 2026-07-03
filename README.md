@@ -133,7 +133,10 @@ OOJOO-FARM/
 │   └── demo.gif            # Animated prototype walkthrough
 ├── prototype/
 │   ├── index.html          # Interactive HTML prototype (open in browser)
-│   └── DEMO.mp4            # Video walkthrough of all prototype screens
+│   ├── DEMO.mp4            # Video walkthrough of all prototype screens
+│   ├── 38758.gif           # Master app UI showcase
+│   ├── 38759.gif           # Master app UI showcase
+│   └── 38760.gif           # Master app UI showcase
 ├── backend/                # Node.js + Express + SQLite
 │   └── src/
 │       ├── server.js
@@ -178,6 +181,18 @@ Don't want to set up the whole development environment? You can experience OOJOO
 The project ships with a **fully interactive HTML prototype** that simulates both the Master and Slave (Farmer) apps on realistic phone frames. No build tools, no emulator — just open the file and tap around.
 
 The video above shows a walkthrough of all screens — Master app (splash, onboarding, home dashboard, plant detail, AI scan, remote watering, notifications, harvest alert, pest detection, pairing, settings, marketplace, listing, chat, profile, tools) and Slave/Farmer app (splash, intro, pairing, camera guide, hardware pairing, autonomous dashboard, watering event).
+
+### Master App UX/UI Showcase
+
+<p align="center">
+  <img src="prototype/38758.gif" width="280" alt="Master App UI - Home & Plant Management" />
+  &nbsp;
+  <img src="prototype/38759.gif" width="280" alt="Master App UI - Alerts & Pairing" />
+  &nbsp;
+  <img src="prototype/38760.gif" width="280" alt="Master App UI - Community & Marketplace" />
+</p>
+
+<p align="center"><sub>Master app screens: dashboard, plant monitoring, remote watering, alerts, pairing, and community marketplace</sub></p>
 
 ### How to Open
 
