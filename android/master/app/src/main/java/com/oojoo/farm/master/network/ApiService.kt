@@ -39,4 +39,13 @@ interface ApiService {
 
     @GET("api/watering/{plantId}")
     suspend fun waterings(@Path("plantId") plantId: String): WateringsResponse
+
+    @POST("api/commands")
+    suspend fun sendCommand(@Body body: CommandRequest): CommandResponse
+
+    @GET("api/commands/history/{slaveId}")
+    suspend fun commandHistory(@Path("slaveId") slaveId: String): CommandsResponse
+
+    @GET("api/weather/{region}")
+    suspend fun weather(@Path("region") region: String): WeatherResponse
 }

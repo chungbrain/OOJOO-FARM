@@ -44,6 +44,24 @@ npm start
 | POST | /api/watering/log | { slaveId, plantId, amountMl, source, weatherFactor } | { logId } |
 | GET | /api/watering/:plantId | | { waterings[] } |
 
+### 원격 지시 큐 (마스터→슬레이브)
+| 메서드 | 경로 | 본문 | 응답 |
+|--------|------|------|------|
+| POST | /api/commands | { slaveId, plantId, action, amountMl, weatherFactor } | { commandId, status } |
+| GET | /api/commands/pending/:slaveId | | { commands[] } |
+| POST | /api/commands/:id/done | | { ok } |
+| GET | /api/commands/history/:slaveId | | { commands[] } |
+
+### 날씨 (Open-Meteo 연동)
+| 메서드 | 경로 | 응답 |
+|--------|------|------|
+| GET | /api/weather/:region | { region, temp, humidity, precipitation, weatherCode, weatherFactor } |
+
+### 식물 (슬레이브 할당)
+| 메서드 | 경로 | 응답 |
+|--------|------|------|
+| GET | /api/plants/slave/:slaveId | { plants[] } |
+
 ## 빠른 테스트 (curl)
 ```bash
 curl http://localhost:4000/health
@@ -54,4 +72,4 @@ curl -X POST http://localhost:4000/api/pairing/verify -H "Content-Type: applicat
 
 ## 데이터
 - SQLite 파일: `data/oojoo.db` (자동 생성)
-- 테이블: users, slaves, pairings, plants, events, waterings
+- 테이블: users, slaves, pairings, plants, events, waterings, commands, weather_cache

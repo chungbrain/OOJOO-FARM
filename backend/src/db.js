@@ -57,6 +57,25 @@ CREATE TABLE IF NOT EXISTS waterings (
   weather_factor REAL,
   created_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS commands (
+  id TEXT PRIMARY KEY,
+  slave_id TEXT,
+  plant_id TEXT,
+  action TEXT,
+  amount_ml INTEGER,
+  weather_factor REAL,
+  status TEXT DEFAULT 'queued',
+  created_at TEXT DEFAULT (datetime('now')),
+  executed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS weather_cache (
+  region TEXT PRIMARY KEY,
+  temp REAL,
+  humidity REAL,
+  precipitation REAL,
+  weather_code INTEGER,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
 export default db;

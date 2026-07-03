@@ -107,3 +107,41 @@ data class Watering(
     val weather_factor: Double,
     val created_at: String? = null
 )
+
+@Serializable
+data class CommandRequest(
+    val slaveId: String,
+    val plantId: String? = null,
+    val action: String = "water",
+    val amountMl: Int = 300,
+    val weatherFactor: Double = 1.0
+)
+@Serializable
+data class CommandResponse(
+    val commandId: String,
+    val status: String
+)
+@Serializable
+data class Command(
+    val id: String,
+    val slave_id: String,
+    val plant_id: String? = null,
+    val action: String,
+    val amount_ml: Int = 300,
+    val weather_factor: Double = 1.0,
+    val status: String = "queued",
+    val created_at: String? = null,
+    val executed_at: String? = null
+)
+@Serializable
+data class CommandsResponse(val commands: List<Command>)
+
+@Serializable
+data class WeatherResponse(
+    val region: String,
+    val temp: Double? = null,
+    val humidity: Double? = null,
+    val precipitation: Double? = null,
+    val weatherCode: Int? = null,
+    val weatherFactor: Double = 1.0
+)

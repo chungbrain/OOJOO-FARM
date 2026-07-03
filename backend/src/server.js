@@ -5,6 +5,8 @@ import pairing from './routes/pairing.js';
 import plants from './routes/plants.js';
 import events from './routes/events.js';
 import watering from './routes/watering.js';
+import commands from './routes/commands.js';
+import weather from './routes/weather.js';
 import './db.js';
 
 dotenv.config();
@@ -18,6 +20,8 @@ app.use('/api/pairing', pairing);
 app.use('/api/plants', plants);
 app.use('/api/events', events);
 app.use('/api/watering', watering);
+app.use('/api/commands', commands);
+app.use('/api/weather', weather);
 
 app.use((err, req, res, next) => {
   console.error(err);

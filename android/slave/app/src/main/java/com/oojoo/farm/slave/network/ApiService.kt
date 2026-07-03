@@ -15,4 +15,16 @@ interface ApiService {
 
     @POST("api/events")
     suspend fun reportEvent(@Body body: EventRequest): EventIdResponse
+
+    @GET("api/plants/slave/{slaveId}")
+    suspend fun slavePlants(@Path("slaveId") slaveId: String): PlantsResponse
+
+    @GET("api/commands/pending/{slaveId}")
+    suspend fun pendingCommands(@Path("slaveId") slaveId: String): CommandsResponse
+
+    @POST("api/commands/{id}/done")
+    suspend fun commandDone(@Path("id") id: String): OkResponse
+
+    @GET("api/weather/{region}")
+    suspend fun weather(@Path("region") region: String): WeatherResponse
 }

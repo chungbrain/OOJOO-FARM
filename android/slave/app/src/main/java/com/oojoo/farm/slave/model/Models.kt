@@ -31,3 +31,41 @@ data class EventRequest(
 )
 @Serializable
 data class EventIdResponse(val eventId: String)
+
+@Serializable
+data class Plant(
+    val id: String,
+    val user_id: String? = null,
+    val slave_id: String? = null,
+    val name: String,
+    val species: String? = null,
+    val planted_at: String? = null,
+    val stage: String? = null
+)
+@Serializable
+data class PlantsResponse(val plants: List<Plant>)
+
+@Serializable
+data class Command(
+    val id: String,
+    val slave_id: String,
+    val plant_id: String? = null,
+    val action: String,
+    val amount_ml: Int = 300,
+    val weather_factor: Double = 1.0,
+    val status: String = "queued",
+    val created_at: String? = null,
+    val executed_at: String? = null
+)
+@Serializable
+data class CommandsResponse(val commands: List<Command>)
+
+@Serializable
+data class WeatherResponse(
+    val region: String,
+    val temp: Double? = null,
+    val humidity: Double? = null,
+    val precipitation: Double? = null,
+    val weatherCode: Int? = null,
+    val weatherFactor: Double = 1.0
+)
