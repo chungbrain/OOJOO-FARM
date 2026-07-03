@@ -131,7 +131,7 @@ OOJOO-FARM/
 │   ├── logo.svg            # App logo
 │   └── icon.svg            # App icon
 ├── prototype/
-│   └── index.html          # UX/UI prototype
+│   └── index.html          # Interactive HTML prototype (open in browser)
 ├── backend/                # Node.js + Express + SQLite
 │   └── src/
 │       ├── server.js
@@ -160,6 +160,59 @@ OOJOO-FARM/
             ├── vision/     # CameraX preview + PlantAnalyzer
             └── ui/         # Pairing, Dashboard, Settings screens
 ```
+
+---
+
+## Try the Interactive Prototype
+
+Don't want to set up the whole development environment? You can experience OOJOO FARM right now in your browser.
+
+The project ships with a **fully interactive HTML prototype** that simulates both the Master and Slave (Farmer) apps on realistic phone frames. No build tools, no emulator — just open the file and tap around.
+
+### How to Open
+
+Open `prototype/index.html` directly in any modern browser:
+
+```
+prototype/index.html
+```
+
+Or clone the repo and double-click the file. That's it.
+
+### What You Can Explore
+
+The prototype lets you switch between two simulated devices with a toggle at the top:
+
+#### Master App (green theme)
+| Screen | What to try |
+|--------|-------------|
+| **Onboarding** | Swipe through the 3-step intro — "Command from your phone", "Pair with a code", "Farmer manages autonomously" |
+| **Home Dashboard** | View weather card, Farmer device status, plant carousel, quick-water button, recent alerts (harvest & pest) |
+| **Plant Detail** | Tap any plant to see AI analysis results, growth stats (fruit count, ripeness %), remote control panel, and event log |
+| **AI Scan Result** | View a simulated camera capture with on-device AI detection (water stress, fruit count, pest detection) |
+| **Remote Watering** | Press "Water now" and watch the progress bar as the command is sent to the Farmer |
+| **Harvest Alert** | See the harvest-ready notification with ripeness indicators and "mark as harvested" action |
+| **Pest Detection** | View the autonomous Fan response log and manual Laser override option |
+| **Pairing** | Generate a 6-digit pairing code or QR for connecting a Farmer device |
+| **Settings** | Manage Farmer devices, autonomous policies (water auto / Fan auto / Laser approval), notification preferences |
+| **Marketplace** *(Phase 3-4 preview)* | Browse nearby crop sharing/selling listings, categories, affiliate tool shop, write a post, chat with a neighbor, view profiles with reputation |
+| **Notifications** | Full notification center with harvest, pest, watering, and reconnection events |
+
+#### Slave / Farmer App (teal theme)
+| Screen | What to try |
+|--------|-------------|
+| **Onboarding** | "On-device AI autonomous management", "Pair via code", "Direct hardware control" |
+| **Pairing** | Type the 6-digit code on the on-screen keypad, or scan QR to connect |
+| **Camera Guide** | See the live camera frame with alignment guide and plant recognition confidence |
+| **Hardware Pairing** | Watch BLE scan find ESP32 modules (water valve, fan, laser), then connect |
+| **Autonomous Dashboard** | Live camera preview, on-device AI status (water stress, fruit detection, insect detection, AI decision), autonomous policy table, last watering info, action log, headless mode toggle, connection/battery status |
+| **Autonomous Watering Event** | Trigger a watering action and watch the valve progress bar with fail-safe timer |
+
+> **Tip:** The prototype uses mock data and simulated animations — it reflects the intended UX, not live backend data. It's the same prototype used during product design review.
+
+<p align="center">
+  <img src="assets/icon.svg" width="48" /> &nbsp; <em>Open the prototype and switch between Master and Farmer to see the full flow.</em>
+</p>
 
 ---
 
