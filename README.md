@@ -129,7 +129,8 @@ OOJOO-FARM/
 ├── prd.md                  # Product Requirements Document (v1.1.0)
 ├── assets/
 │   ├── logo.svg            # App logo
-│   └── icon.svg            # App icon
+│   ├── icon.svg            # App icon
+│   └── demo.gif            # Animated prototype walkthrough
 ├── prototype/
 │   └── index.html          # Interactive HTML prototype (open in browser)
 ├── backend/                # Node.js + Express + SQLite
@@ -165,9 +166,15 @@ OOJOO-FARM/
 
 ## Try the Interactive Prototype
 
+<p align="center">
+  <img src="assets/demo.gif" width="400" alt="OOJOO FARM Prototype Demo" />
+</p>
+
 Don't want to set up the whole development environment? You can experience OOJOO FARM right now in your browser.
 
 The project ships with a **fully interactive HTML prototype** that simulates both the Master and Slave (Farmer) apps on realistic phone frames. No build tools, no emulator — just open the file and tap around.
+
+The GIF above shows a walkthrough of all screens — Master app (splash, onboarding, home dashboard, plant detail, AI scan, remote watering, notifications, harvest alert, pest detection, pairing, settings, marketplace, listing, chat, profile, tools) and Slave/Farmer app (splash, intro, pairing, camera guide, hardware pairing, autonomous dashboard, watering event).
 
 ### How to Open
 
