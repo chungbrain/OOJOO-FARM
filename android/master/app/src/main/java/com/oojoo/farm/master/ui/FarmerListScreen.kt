@@ -14,14 +14,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
 class FarmerListViewModel : ViewModel() {
-    private val api = ApiClient.api
-    val userId = "u1"
+    private val api get() = ApiClient.api
+    val userId get() = Session.userId
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
@@ -48,6 +49,27 @@ class FarmerListViewModel : ViewModel() {
         }
     }
 
+    fun unpair(slaveId: String) {
+        viewModelScope.launch {
+            try { api.unpair(slaveId); msg = "연결 해제됨"; refresh() }
+            catch (e: Exception) { msg = e.message }
+        }
+    }
+
+    fun pestFan(slaveId: String) {
+        viewModelScope.launch {
+            try { api.sendCommand(CommandRequest(slaveId, null, "fan")); msg = "Fan 퇴치 지시 전송" }
+            catch (e: Exception) { msg = e.message }
+        }
+    }
+
+    fun pestLaser(slaveId: String) {
+        viewModelScope.launch {
+            try { api.sendCommand(CommandRequest(slaveId, null, "laser")); msg = "Laser 퇴치 승인·지시 전송" }
+            catch (e: Exception) { msg = e.message }
+        }
+    }
+
     init { refresh() }
 }
 
@@ -55,7 +77,7 @@ class FarmerListViewModel : ViewModel() {
 @Composable
 fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Farmer 관리") }) },
+        topBar = { TopAppBar(title = { Text("Farmer 관리") }, actions = { TextButton(onClick = { nav.navigate("subscription") }) { Text("⭐ 구독") } }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { nav.navigate("pairing") }) {
                 Icon(Icons.Default.Add, contentDescription = "Farmer 연결")
@@ -86,12 +108,21 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                                 Text(s.name, fontWeight = FontWeight.Bold)
                                 Text(if (s.online == 1) "온라인" else "오프라인", style = MaterialTheme.typography.bodySmall)
                                 s.last_seen?.let { Text("마지막 통신: $it", style = MaterialTheme.typography.bodySmall) }
+                                s.battery?.let { Text("배터리: $it%", style = MaterialTheme.typography.bodySmall) }
                             }
                             AssistChip(onClick = {}, label = { Text(if (s.online == 1) "●" else "○") })
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { vm.pauseSlave(s.id) }, modifier = Modifier.weight(1f)) { Text("일시정지") }
                             OutlinedButton(onClick = { vm.resumeSlave(s.id) }, modifier = Modifier.weight(1f)) { Text("재개") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { vm.pestFan(s.id) }, modifier = Modifier.weight(1f)) { Text("Fan 퇴치") }
+                            OutlinedButton(onClick = { vm.pestLaser(s.id) }, modifier = Modifier.weight(1f)) { Text("Laser 승인") }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text("📊 리포트") }
+                            TextButton(onClick = { vm.unpair(s.id) }) { Text("연결 해제", color = MaterialTheme.colorScheme.error) }
                         }
                     }
                 }

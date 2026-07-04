@@ -12,12 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
 class PlantDetailViewModel : ViewModel() {
-    private val api = ApiClient.api
+    private val api get() = ApiClient.api
 
     var plant by mutableStateOf<Plant?>(null)
     var waterings by mutableStateOf<List<Watering>>(emptyList())
@@ -37,6 +38,7 @@ class PlantDetailViewModel : ViewModel() {
                         try { events = api.events(p.slave_id).events } catch (_: Exception) {}
                     }
                 }
+                try { weather = api.weather(Session.region) } catch (_: Exception) {}
             } catch (e: Exception) {
                 msg = e.message
             }

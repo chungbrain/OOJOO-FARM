@@ -10,14 +10,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CreatePlantRequest
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
 class PlantRegistrationViewModel : ViewModel() {
-    private val api = ApiClient.api
-    val userId = "u1"
+    private val api get() = ApiClient.api
+    val userId get() = Session.userId
 
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var name by mutableStateOf("")

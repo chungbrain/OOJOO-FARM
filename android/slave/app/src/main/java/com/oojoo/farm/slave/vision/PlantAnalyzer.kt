@@ -14,7 +14,9 @@ data class AnalysisResult(
     val brightness: Double,
     val healthStatus: String,
     val needWater: Boolean,
-    val confidence: Double
+    val confidence: Double,
+    val fruitRipeness: Double = 0.0,   // 열매 익음도(붉은 비율 추정) 0~1
+    val pestSuspected: Boolean = false // 해충 의심(어두운 반점 휴리스틱)
 )
 
 object PlantAnalyzer {
@@ -40,6 +42,8 @@ object PlantAnalyzer {
 
         var totalBrightness = 0
         var totalGreen = 0
+        var redCount = 0
+        var darkCount = 0
         var sampleCount = 0
 
         val step = 8
@@ -58,6 +62,11 @@ object PlantAnalyzer {
                 val g = yVal - ((u * 39192) shr 8) - ((v * 32800) shr 8)
                 totalGreen += g.coerceIn(0, 255)
 
+                // 붉은 열매: 높은 Cr(v) + 낮은 Cb(u)
+                if (vVal > 150 && uVal < 118 && yVal > 40) redCount++
+                // 어두운 반점(해충 의심)
+                if (yVal < 45) darkCount++
+
                 sampleCount++
             }
         }
@@ -66,6 +75,8 @@ object PlantAnalyzer {
         val avgGreen = if (sampleCount > 0) totalGreen.toDouble() / sampleCount else 0.0
         val greenness = avgGreen / 255.0
         val brightnessNorm = avgBrightness / 255.0
+        val redRatio = if (sampleCount > 0) redCount.toDouble() / sampleCount else 0.0
+        val darkRatio = if (sampleCount > 0) darkCount.toDouble() / sampleCount else 0.0
 
         val healthStatus = when {
             brightnessNorm < 0.1 -> "너무 어두움 (카메라 위치 확인 필요)"
@@ -77,8 +88,10 @@ object PlantAnalyzer {
 
         val needWater = brightnessNorm > 0.15 && greenness < 0.3
         val confidence = (0.5 + greenness * 0.3 + (1.0 - abs(brightnessNorm - 0.5)) * 0.2).coerceIn(0.0, 1.0)
+        val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
+        val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
 
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence)
+        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
     }
 
     fun analyzeBitmap(bitmap: Bitmap): AnalysisResult {
@@ -87,15 +100,20 @@ object PlantAnalyzer {
         var totalR = 0
         var totalG = 0
         var totalB = 0
+        var redCount = 0
+        var darkCount = 0
         var sampleCount = 0
 
         val step = 16
         for (y in 0 until height step step) {
             for (x in 0 until width step step) {
                 val pixel = bitmap.getPixel(x, y)
-                totalR += (pixel shr 16) and 0xFF
-                totalG += (pixel shr 8) and 0xFF
-                totalB += pixel and 0xFF
+                val rr = (pixel shr 16) and 0xFF
+                val gg = (pixel shr 8) and 0xFF
+                val bb = pixel and 0xFF
+                totalR += rr; totalG += gg; totalB += bb
+                if (rr > 140 && rr > gg * 1.4 && rr > bb * 1.4) redCount++
+                if (rr + gg + bb < 90) darkCount++
                 sampleCount++
             }
         }
@@ -106,6 +124,8 @@ object PlantAnalyzer {
         val total = avgR + avgG + avgB
         val greenness = if (total > 0) avgG / total else 0.0
         val brightnessNorm = total / (3.0 * 255.0)
+        val redRatio = if (sampleCount > 0) redCount.toDouble() / sampleCount else 0.0
+        val darkRatio = if (sampleCount > 0) darkCount.toDouble() / sampleCount else 0.0
 
         val healthStatus = when {
             brightnessNorm < 0.1 -> "너무 어두움 (카메라 위치 확인 필요)"
@@ -117,7 +137,9 @@ object PlantAnalyzer {
 
         val needWater = brightnessNorm > 0.15 && greenness < 0.28
         val confidence = (0.5 + greenness * 0.3 + (1.0 - abs(brightnessNorm - 0.5)) * 0.2).coerceIn(0.0, 1.0)
+        val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
+        val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
 
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence)
+        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
     }
 }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 새싹(sprout) 심볼 — 흰색, 안전영역 내 중앙 배치 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,78 C54,78 54,60 54,52 C54,52 54,44 54,44 L58,44 C58,44 58,52 58,52 C58,60 58,78 58,78 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,54 C56,54 44,54 38,46 C33,39 34,30 34,30 C34,30 44,30 50,38 C55,45 56,54 56,54 Z" />
+    <path
+        android:fillColor="#E8F5E9"
+        android:pathData="M56,54 C56,54 68,54 74,46 C79,39 78,30 78,30 C78,30 68,30 62,38 C57,45 56,54 56,54 Z" />
+</vector>

@@ -3,13 +3,23 @@ package com.oojoo.farm.slave.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class PairingVerifyRequest(val code: String)
+data class PairingVerifyRequest(val code: String, val name: String? = null)
 @Serializable
-data class PairingVerifyResponse(val slaveId: String, val sessionKey: String, val userId: String)
+data class PairingVerifyResponse(val slaveId: String, val sessionKey: String, val userId: String, val name: String? = null)
 @Serializable
-data class HeartbeatRequest(val slaveId: String)
+data class HeartbeatRequest(val slaveId: String, val battery: Int? = null)
 @Serializable
 data class OkResponse(val ok: Boolean)
+
+@Serializable
+data class PolicyResponse(
+    val slaveId: String,
+    val water_auto: Int = 1,
+    val fan_auto: Int = 1,
+    val laser_approval: Int = 1,
+    val capture_interval: Int = 60,
+    val region: String? = null
+)
 
 @Serializable
 data class WateringLogRequest(

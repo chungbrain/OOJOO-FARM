@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
+import { slaveAuthOptional } from '../middleware/auth.js';
 const r = Router();
 
 // 슬레이브: 이벤트 보고 (수확감지/해충탐지/캡처/이상 등)
-r.post('/', (req, res) => {
+r.post('/', slaveAuthOptional, (req, res) => {
   const { slaveId, plantId, type, payload = {} } = req.body;
   if (!slaveId || !type) return res.status(400).json({ error: 'slaveId, type required' });
   const id = nanoid(12);

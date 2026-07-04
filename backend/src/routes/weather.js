@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { computeWateringFactor } from '../lib/wateringFactor.js';
 const r = Router();
 
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -27,7 +28,10 @@ r.get('/:region', async (req, res) => {
 
   const cached = db.prepare('SELECT * FROM weather_cache WHERE region=?').get(region);
   if (cached && cached.updated_at) {
-    const ageMin = (Date.now() - new Date(cached.updated_at + 'Z').getTime()) / 60000;
+    // SQLite datetime('now') 는 'YYYY-MM-DD HH:MM:SS'(UTC, 공백 구분) 형식이므로
+    // ISO 로 변환해 안정적으로 파싱한다.
+    const iso = cached.updated_at.replace(' ', 'T') + 'Z';
+    const ageMin = (Date.now() - new Date(iso).getTime()) / 60000;
     if (ageMin < 30) {
       return res.json({ region, ...cached, cached: true });
     }
@@ -50,14 +54,9 @@ r.get('/:region', async (req, res) => {
       ON CONFLICT(region) DO UPDATE SET temp=excluded.temp, humidity=excluded.humidity, precipitation=excluded.precipitation, weather_code=excluded.weather_code, updated_at=datetime('now')`)
       .run(region, temp, humidity, precipitation, weatherCode);
 
-    // 관수량 가중치 계산: 기준량 × 온도가중치 × 습도가중치 × 강수보정
-    let weatherFactor = 1.0;
-    if (temp >= 28) weatherFactor *= 1.2 + Math.min(0.3, (temp - 28) * 0.05);
-    else if (temp <= 15) weatherFactor *= 0.6 + Math.max(-0.2, (15 - temp) * 0.04);
-    if (humidity >= 70) weatherFactor *= 0.7;
-    if (precipitation > 0) weatherFactor *= 0.3;
+    const weatherFactor = computeWateringFactor(temp, humidity, precipitation);
 
-    res.json({ region, temp, humidity, precipitation, weatherCode, weatherFactor: Math.round(weatherFactor * 100) / 100, cached: false });
+    res.json({ region, temp, humidity, precipitation, weatherCode, weatherFactor, cached: false });
   } catch (e) {
     if (cached) return res.json({ region, ...cached, cached: true, stale: true });
     res.status(502).json({ error: 'weather fetch failed', detail: e.message });

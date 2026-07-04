@@ -25,6 +25,9 @@ interface ApiService {
     @POST("api/commands/{id}/done")
     suspend fun commandDone(@Path("id") id: String): OkResponse
 
+    @GET("api/policy/{slaveId}")
+    suspend fun policy(@Path("slaveId") slaveId: String): PolicyResponse
+
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
 }

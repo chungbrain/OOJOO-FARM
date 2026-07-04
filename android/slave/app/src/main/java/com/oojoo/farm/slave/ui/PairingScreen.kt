@@ -19,7 +19,6 @@ import com.oojoo.farm.slave.network.ApiClient
 import kotlinx.coroutines.launch
 
 class PairingViewModel : ViewModel() {
-    private val api = ApiClient.api
     var code by mutableStateOf("")
     var serverUrl by mutableStateOf("http://10.0.2.2:4000/")
     var loading by mutableStateOf(false)
@@ -36,8 +35,9 @@ class PairingViewModel : ViewModel() {
         error = null
         viewModelScope.launch {
             try {
-                val r = api.pairVerify(PairingVerifyRequest(code.trim()))
+                val r = ApiClient.api.pairVerify(PairingVerifyRequest(code.trim()))
                 Prefs.saveSession(ctx, r.slaveId, r.sessionKey, r.userId)
+                ApiClient.setSessionKey(r.sessionKey)
                 onDone()
             } catch (e: Exception) {
                 error = e.message ?: "오류"

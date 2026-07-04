@@ -12,6 +12,8 @@ object Prefs {
     private const val K_WEATHER_FACTOR = "weatherFactor"
     private const val K_CAPTURE_INTERVAL = "captureInterval"
     private const val K_AUTO_WATER = "autoWater"
+    private const val K_HEADLESS = "headless"
+    private const val K_QUEUE = "offlineQueue"
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -25,7 +27,23 @@ object Prefs {
 
     fun slaveId(ctx: Context) = sp(ctx).getString(K_SLAVE, null)
     fun userId(ctx: Context) = sp(ctx).getString(K_USER, null)
+    fun sessionKey(ctx: Context) = sp(ctx).getString(K_SESSION, null)
     fun isPaired(ctx: Context) = slaveId(ctx) != null
+
+    fun clearSession(ctx: Context) {
+        sp(ctx).edit().remove(K_SLAVE).remove(K_SESSION).remove(K_USER).apply()
+    }
+
+    fun headless(ctx: Context): Boolean = sp(ctx).getBoolean(K_HEADLESS, false)
+    fun setHeadless(ctx: Context, on: Boolean) {
+        sp(ctx).edit().putBoolean(K_HEADLESS, on).apply()
+    }
+
+    // 오프라인 이벤트 큐 (JSON 배열 문자열)
+    fun offlineQueue(ctx: Context): String = sp(ctx).getString(K_QUEUE, "[]") ?: "[]"
+    fun setOfflineQueue(ctx: Context, json: String) {
+        sp(ctx).edit().putString(K_QUEUE, json).apply()
+    }
 
     fun serverUrl(ctx: Context): String =
         sp(ctx).getString(K_SERVER, "http://10.0.2.2:4000/") ?: "http://10.0.2.2:4000/"

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 자립형(self-contained) 벡터 런처 아이콘 — minSdk 24 호환 (어댑티브 미사용) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00897B"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+    <!-- 새싹 심볼 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,80 C52,80 52,60 52,52 L56,52 C56,60 56,80 56,80 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54 C54,54 42,54 36,46 C31,39 32,30 32,30 C32,30 42,30 48,38 C53,45 54,54 54,54 Z" />
+    <path
+        android:fillColor="#B2DFDB"
+        android:pathData="M54,54 C54,54 66,54 72,46 C77,39 76,30 76,30 C76,30 66,30 60,38 C55,45 54,54 54,54 Z" />
+</vector>

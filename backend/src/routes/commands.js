@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
+import { slaveAuth } from '../middleware/auth.js';
 const r = Router();
 
 // 마스터: 슬레이브에 원격 지시 등록 (관수/퇴치/모드변경 등)
@@ -13,8 +14,8 @@ r.post('/', (req, res) => {
   res.json({ commandId: id, status: 'queued' });
 });
 
-// 슬레이브: 대기 중 명령 조회 (폴링)
-r.get('/pending/:slaveId', (req, res) => {
+// 슬레이브: 대기 중 명령 조회 (폴링) — 세션키 인증
+r.get('/pending/:slaveId', slaveAuth, (req, res) => {
   const rows = db.prepare("SELECT * FROM commands WHERE slave_id=? AND status='queued' ORDER BY created_at ASC").all(req.params.slaveId);
   res.json({ commands: rows });
 });

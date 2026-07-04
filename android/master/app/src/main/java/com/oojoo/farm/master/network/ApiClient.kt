@@ -33,12 +33,18 @@ object ApiClient {
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
 
-    val api: ApiService by lazy { build().create(ApiService::class.java) }
+    @Volatile
+    private var cached: ApiService? = null
+    val api: ApiService
+        get() = cached ?: synchronized(this) {
+            cached ?: build().create(ApiService::class.java).also { cached = it }
+        }
 
     fun setBaseUrl(url: String) {
         val normalized = if (url.endsWith("/")) url else "$url/"
         if (normalized != baseUrl) {
             baseUrl = normalized
+            cached = null // 재생성 유도
         }
     }
 }

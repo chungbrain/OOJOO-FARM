@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node --experimental-sqlite src/server.js",
-    "dev": "node --watch --experimental-sqlite src/server.js"
+    "dev": "node --watch --experimental-sqlite src/server.js",
+    "test": "node --experimental-sqlite --test"
   },
   "dependencies": {
     "cors": "^2.8.5",

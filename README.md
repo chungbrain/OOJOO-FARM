@@ -81,30 +81,34 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 ## Key Features
 
 ### Master App
-- **Dashboard** — Plant & Farmer overview, weather, quick remote watering
+- **Onboarding** — Create an account (nickname + growing region) and set the backend URL on first launch
+- **Dashboard** — Plant & Farmer overview, region-based weather, quick remote watering
 - **Plant Management** — Register crops, track growth stages, view watering history & events
 - **Farmer Management** — Device status (online/offline), autonomous policy settings, pause/resume
 - **Pairing** — Generate a random 6-digit code or QR; valid for 10 minutes
 - **Remote Commands** — Queue watering or mode-change instructions for offline Farmers
-- **Community** *(Phase 3)* — Location-based crop sharing, posts, reputation
-- **Marketplace** *(Phase 4)* — Gardening supplies, recommended slave phones, affiliate links
+- **Community** — Region-based neighbor feed for **share / sell / buy** posts (crop, quantity, price), comments, reserve/complete with reputation, and report/block moderation
+- **Marketplace** — Category-browsable supplies (fertilizer, seeds, valves, ESP32, sensors, recommended slave phones), search, plant-based recommendations, curated bundle kits, cart & checkout with order history, and affiliate links (CPS/CPA) for external items
 
 ### Slave (Farmer) App
 - **Continuous Camera Monitoring** — CameraX live preview with periodic capture
 - **On-Device AI** — Lightweight image analysis (green-ness, brightness, health status) running entirely on-device; no cloud required for decisions
 - **Autonomous Watering** — Detects water stress and triggers the valve automatically, adjusted by cached weather data
-- **Pest Detection & Control** *(Phase 2)* — Insect detection with Fan/Laser response
-- **Harvest Detection** *(Phase 2)* — Fruit tracking with push notifications to the Master
-- **Hardware Control** *(Phase 2)* — Direct BLE/Wi-Fi control of solenoid valves, fans, and laser modules
-- **Offline Resilience** — Operates autonomously for 24+ hours without network; syncs events on reconnection
-- **Headless Mode** — Screen off, foreground service, auto-restart on error
+- **Pest Detection & Control** — On-device insect heuristic → autonomous Fan (per policy) and Laser (auto or Master-approved) response
+- **Harvest Detection** — Fruit-ripeness heuristic → harvest-ready alerts to the Master (debounced)
+- **Hardware Control** — Pluggable `HardwareController` abstraction: BLE (ESP32 / Nordic UART Service) control of solenoid valve, fan, and laser with a built-in **fail-safe auto-off timer**; falls back to a simulation controller when no hardware is paired. Watering opens the valve for a volume-proportional duration.
+- **Offline Resilience** — Operates autonomously for 24+ hours without network; failed event/watering reports are queued locally and **synced on reconnection**
+- **Headless Mode** — Foreground service + wake lock keep the autonomous engine running with the screen off; auto-restarts after reboot (BootReceiver) and reports battery on heartbeat
 
 ### Backend
-- Pairing authentication & session management
-- Plant, event, and watering data store
+- **Account API** — Anonymous account (nickname + region) used for onboarding & weather
+- Pairing authentication & **session-key auth** (slave endpoints require `x-session-key`)
+- Plant, event, and watering data store (indexed for fast lookups)
 - **Command queue** — Master posts commands; Slave polls & executes
+- **Autonomous policy API** — Master sets per-Farmer policy (auto-water / fan / laser approval / capture interval / region); Slave syncs it on boot
 - **Weather API** — Open-Meteo integration with 30-minute cache and watering-factor calculation
-- Community & marketplace *(planned)*
+- **Marketplace API** — Products (categories/search), curated bundles, plant-based recommendations, affiliate click tracking, cart checkout (orders + stock decrement) & order history
+- **Community API** — Region-scoped feed (share/sell/buy) with filters & search, comments, status (reserve/complete) with reputation scoring, and report/block moderation
 
 ---
 
@@ -117,7 +121,7 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 | Camera | CameraX (Preview, ImageCapture, ImageAnalysis) |
 | Backend | Node.js, Express, SQLite (node:sqlite) |
 | Weather | Open-Meteo API |
-| Hardware | ESP32 via BLE/Wi-Fi *(planned)* |
+| Hardware | ESP32 via BLE (Nordic UART Service) — valve/fan/laser with fail-safe |
 | AI | On-device lightweight vision (TFLite/ONNX planned; heuristic analyzer in MVP) |
 
 ---
@@ -270,11 +274,13 @@ For development with auto-reload: `npm run dev`
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **Phase 1 — MVP** | Pairing, camera capture, on-device analysis, autonomous watering, command queue, weather | In Progress |
-| Phase 2 | Harvest detection, pest detection, Fan/Laser control, BLE hardware | Planned |
-| Phase 3 | Location-based community, sharing, reputation | Planned |
-| Phase 4 | Marketplace, payments, affiliate links | Planned |
-| Phase 5 | AI model refinement, multi-Farmer, subscriptions | Planned |
+| **Phase 1 — MVP** | Pairing, camera capture, on-device analysis, autonomous watering, command queue, weather | ✅ Done |
+| **Phase 2** | Harvest/pest detection, Fan/Laser control, BLE hardware, offline sync, reports | ✅ Done |
+| **Phase 3** | Location-based community (share/sell/buy), comments, reputation, moderation | ✅ Done |
+| **Phase 4** | Marketplace, cart/checkout, affiliate links, subscription plans | ✅ Done |
+| Phase 5 | AI model refinement (TFLite), FCM push, multi-Farmer/crop refinement | Partial — multi-Farmer/crop supported; TFLite & FCM need model file / Firebase config |
+
+> Heuristic on-device analysis stands in for TFLite models; FCM push requires a Firebase `google-services.json`.
 
 See [`prd.md`](prd.md) for the full product requirements document.
 

@@ -11,13 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.PairingCodeRequest
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
 class PairingViewModel : ViewModel() {
-    private val api = ApiClient.api
-    var userId by mutableStateOf("u1")
+    private val api get() = ApiClient.api
+    val userId get() = Session.userId
     var code by mutableStateOf<String?>(null)
     var expiresAt by mutableStateOf<String?>(null)
     var loading by mutableStateOf(false)
@@ -48,13 +49,7 @@ fun PairingScreen(nav: NavController, vm: PairingViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("마스터에서 생성한 코드를 Farmer에 입력하세요", style = MaterialTheme.typography.bodyMedium)
-            OutlinedTextField(
-                value = vm.userId,
-                onValueChange = { vm.userId = it },
-                label = { Text("사용자 ID") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text("계정: ${Session.nickname.ifBlank { Session.userId }}", style = MaterialTheme.typography.bodySmall)
             Button(
                 onClick = { vm.generate() },
                 enabled = !vm.loading && vm.userId.isNotBlank(),

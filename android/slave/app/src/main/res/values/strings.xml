@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OOJOO Farmer</string>
+    <string name="service_channel_name">Farmer 자율 관리</string>
+    <string name="service_channel_desc">식물 자율 관리(관찰·관수·명령 수신) 상시 동작 알림</string>
+    <string name="service_running">Farmer 자율 관리 동작 중</string>
+</resources>

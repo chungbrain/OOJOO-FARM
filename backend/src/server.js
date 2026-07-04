@@ -1,32 +1,7 @@
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import pairing from './routes/pairing.js';
-import plants from './routes/plants.js';
-import events from './routes/events.js';
-import watering from './routes/watering.js';
-import commands from './routes/commands.js';
-import weather from './routes/weather.js';
-import './db.js';
+import app from './app.js';
 
 dotenv.config();
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-app.get('/health', (req, res) => res.json({ ok: true, service: 'oojoo-farm', ts: Date.now() }));
-
-app.use('/api/pairing', pairing);
-app.use('/api/plants', plants);
-app.use('/api/events', events);
-app.use('/api/watering', watering);
-app.use('/api/commands', commands);
-app.use('/api/weather', weather);
-
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'internal' });
-});
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`OOJOO FARM backend on :${port}`));

@@ -1,5 +1,9 @@
 package com.oojoo.farm.slave.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -8,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.oojoo.farm.slave.data.Prefs
+import com.oojoo.farm.slave.hardware.Hardware
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -16,6 +21,18 @@ fun SettingsScreen(nav: NavController) {
     var region by remember { mutableStateOf(Prefs.region(ctx)) }
     var captureInterval by remember { mutableStateOf(Prefs.captureIntervalMinutes(ctx).toString()) }
     var autoWater by remember { mutableStateOf(Prefs.autoWater(ctx)) }
+    var hwMsg by remember { mutableStateOf<String?>(null) }
+
+    val blePermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        if (granted.values.all { it }) {
+            Hardware.useBle(ctx)
+            hwMsg = "ESP32 BLE 스캔/연결 시도 중…"
+        } else {
+            hwMsg = "블루투스 권한이 필요합니다"
+        }
+    }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Farmer 설정") }) }) { p ->
         Column(
@@ -42,6 +59,24 @@ fun SettingsScreen(nav: NavController) {
                 Text("자율 관수", Modifier.weight(1f))
                 Switch(checked = autoWater, onCheckedChange = { autoWater = it })
             }
+
+            HorizontalDivider()
+            Text("하드웨어 (ESP32)", style = MaterialTheme.typography.titleSmall)
+            OutlinedButton(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        blePermLauncher.launch(arrayOf(
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ))
+                    } else {
+                        blePermLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("급수/Fan/Laser 하드웨어 BLE 연결") }
+            hwMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
             Button(
                 onClick = {
                     Prefs.setRegion(ctx, region.trim())

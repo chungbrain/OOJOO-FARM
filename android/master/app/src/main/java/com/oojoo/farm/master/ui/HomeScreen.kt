@@ -13,13 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
 class HomeViewModel : ViewModel() {
-    private val api = ApiClient.api
-    val userId = "u1"
+    private val api get() = ApiClient.api
+    val userId get() = Session.userId
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var plants by mutableStateOf<List<Plant>>(emptyList())
     var weather by mutableStateOf<WeatherResponse?>(null)
@@ -33,7 +34,7 @@ class HomeViewModel : ViewModel() {
             try {
                 slaves = api.slaves(userId).slaves
                 plants = api.plants(userId).plants
-                try { weather = api.weather("Seoul") } catch (_: Exception) {}
+                try { weather = api.weather(Session.region) } catch (_: Exception) {}
             } catch (e: Exception) {
                 msg = e.message
             }
@@ -62,7 +63,12 @@ class HomeViewModel : ViewModel() {
 @Composable
 fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("OOJOO FARM") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("OOJOO FARM") },
+                actions = { TextButton(onClick = { nav.navigate("notifications") }) { Text("알림") } }
+            )
+        }
     ) { p ->
         LazyColumn(
             Modifier.fillMaxSize().padding(p).padding(16.dp),
