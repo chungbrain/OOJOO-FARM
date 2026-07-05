@@ -17,6 +17,14 @@
   <img src="https://img.shields.io/badge/status-Phase%201%20MVP-orange" />
 </p>
 
+<p align="center">
+  <a href="https://www.youtube.com/shorts/wbNv0V2V0TQ">
+    <img src="https://img.youtube.com/vi/wbNv0V2V0TQ/maxresdefault.jpg" width="480" alt="OOJOO FARM Demo Video" />
+  </a>
+</p>
+
+<p align="center"><sub>▶ Watch the OOJOO FARM demo on YouTube Shorts</sub></p>
+
 ---
 
 ## What is OOJOO FARM?
