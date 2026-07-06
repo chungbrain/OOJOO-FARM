@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Compose 전용 앱: 프레임워크 테마를 상속하여 별도 material 컴포넌트 의존성 불필요 -->
     <style name="Theme.OojooFarm" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@color/oojoo_green</item>
-        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowBackground">@color/oojoo_bg</item>
     </style>
 </resources>

@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +31,8 @@ import androidx.navigation.compose.rememberNavController
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
+import com.oojoo.farm.master.ui.OojooMasterTheme
+import com.oojoo.farm.master.ui.OojooTheme
 import com.oojoo.farm.master.ui.FarmerListScreen
 import com.oojoo.farm.master.ui.CartScreen
 import com.oojoo.farm.master.ui.CommunityPostScreen
@@ -55,7 +58,7 @@ class MainActivity : ComponentActivity() {
         ApiClient.setBaseUrl(Prefs.serverUrl(this))
         Session.load(this)
         setContent {
-            MaterialTheme {
+            OojooMasterTheme {
                 MainApp()
             }
         }
@@ -83,7 +86,7 @@ fun MainApp() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(containerColor = OojooTheme.Card) {
                     items.forEach { item ->
                         NavigationBarItem(
                             selected = currentRoute == item.route,
@@ -95,12 +98,18 @@ fun MainApp() {
                                 }
                             },
                             icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) }
+                            label = { Text(item.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = OojooTheme.Green,
+                                selectedTextColor = OojooTheme.Green,
+                                indicatorColor = OojooTheme.GreenBg
+                            )
                         )
                     }
                 }
             }
-        }
+        },
+        containerColor = OojooTheme.Bg
     ) { p ->
         NavHost(
             nav,

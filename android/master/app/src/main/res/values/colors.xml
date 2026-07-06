@@ -2,6 +2,7 @@
 <resources>
     <color name="oojoo_green">#2E7D32</color>
     <color name="oojoo_green_dark">#1B5E20</color>
+    <color name="oojoo_bg">#F3F4F6</color>
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
     <color name="ic_launcher_background">#2E7D32</color>

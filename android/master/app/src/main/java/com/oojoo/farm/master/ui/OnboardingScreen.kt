@@ -1,14 +1,19 @@
 package com.oojoo.farm.master.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
@@ -16,10 +21,6 @@ import com.oojoo.farm.master.model.UserRequest
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
-/**
- * 최초 실행 온보딩: 닉네임/재배 지역/서버 주소를 입력받아 계정을 생성한다.
- * 하드코딩된 userId("u1") 를 대체하며, 지역은 홈 날씨 조회에 사용된다.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingScreen(nav: NavController) {
@@ -32,42 +33,38 @@ fun OnboardingScreen(nav: NavController) {
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("OOJOO FARM 시작하기") }) }) { p ->
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+    ) {
+        TopAppBar(
+            title = { Text("OOJOO FARM 시작하기", color = OojooTheme.Green, fontWeight = FontWeight.Bold) },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Card)
+        )
         Column(
-            Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
+            Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("계정 만들기", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-            Text("닉네임과 재배 지역을 입력하세요. 지역은 날씨 기반 관수량 계산에 사용됩니다.",
-                style = MaterialTheme.typography.bodyMedium)
+            Text("계정 만들기", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink)
+            Text(
+                "닉네임과 재배 지역을 입력하세요. 지역은 날씨 기반 관수량 계산에 사용됩니다.",
+                color = OojooTheme.Muted, fontSize = 13.sp
+            )
+            Spacer(Modifier.height(4.dp))
 
-            OutlinedTextField(
-                value = nickname,
-                onValueChange = { nickname = it },
-                label = { Text("닉네임") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = region,
-                onValueChange = { region = it },
-                label = { Text("재배 지역 (예: Seoul, Busan, 수원)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                label = { Text("서버 주소") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text("닉네임", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(value = nickname, onValueChange = { nickname = it }, placeholder = "예: 홍길동")
 
-            Button(
+            Text("재배 지역", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(value = region, onValueChange = { region = it }, placeholder = "예: Seoul, Busan, 수원")
+
+            Text("서버 주소", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(value = serverUrl, onValueChange = { serverUrl = it }, placeholder = "http://10.0.2.2:4000/")
+
+            GradientButton(
+                text = "시작하기",
                 onClick = {
-                    if (region.isBlank()) { error = "재배 지역을 입력하세요"; return@Button }
-                    loading = true
-                    error = null
+                    if (region.isBlank()) { error = "재배 지역을 입력하세요"; return@GradientButton }
+                    loading = true; error = null
                     Prefs.setServerUrl(ctx, serverUrl.trim())
                     ApiClient.setBaseUrl(serverUrl.trim())
                     scope.launch {
@@ -86,11 +83,38 @@ fun OnboardingScreen(nav: NavController) {
                 },
                 enabled = !loading && region.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (loading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text("시작하기")
+            )
+            if (loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green)
             }
-            error?.let { Text("⚠️ $it", color = MaterialTheme.colorScheme.error) }
+            error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp) }
+            Text(
+                "Live 연결 시 실제 /api/users 로 계정이 생성됩니다.",
+                color = OojooTheme.Muted.copy(alpha = 0.7f), fontSize = 11.sp
+            )
         }
     }
+}
+
+@Composable
+fun OojooField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean = true
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(placeholder, color = OojooTheme.Muted) },
+        singleLine = singleLine,
+        shape = OojooTheme.FieldShape,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = OojooTheme.Green,
+            unfocusedBorderColor = OojooTheme.Line,
+            focusedContainerColor = OojooTheme.Card,
+            unfocusedContainerColor = OojooTheme.Card
+        ),
+        modifier = Modifier.fillMaxWidth()
+    )
 }

@@ -17,6 +17,7 @@ import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.service.FarmerService
 import com.oojoo.farm.slave.ui.DashboardScreen
+import com.oojoo.farm.slave.ui.OojooSlaveTheme
 import com.oojoo.farm.slave.ui.PairingScreen
 import com.oojoo.farm.slave.ui.SettingsScreen
 
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            OojooSlaveTheme {
                 val nav = rememberNavController()
                 val start = if (Prefs.isPaired(this)) "dashboard" else "pairing"
                 NavHost(nav, startDestination = start) {

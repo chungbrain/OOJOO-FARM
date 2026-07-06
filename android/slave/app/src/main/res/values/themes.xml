@@ -2,6 +2,6 @@
 <resources>
     <style name="Theme.OojooFarmer" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@color/oojoo_teal</item>
-        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowBackground">@color/oojoo_bg</item>
     </style>
 </resources>

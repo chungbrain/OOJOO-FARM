@@ -3,15 +3,25 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
@@ -28,16 +38,13 @@ class HomeViewModel : ViewModel() {
     var msg by mutableStateOf<String?>(null)
 
     fun refresh() {
-        loading = true
-        msg = null
+        loading = true; msg = null
         viewModelScope.launch {
             try {
                 slaves = api.slaves(userId).slaves
                 plants = api.plants(userId).plants
                 try { weather = api.weather(Session.region) } catch (_: Exception) {}
-            } catch (e: Exception) {
-                msg = e.message
-            }
+            } catch (e: Exception) { msg = e.message }
             loading = false
         }
     }
@@ -50,9 +57,7 @@ class HomeViewModel : ViewModel() {
                 val wf = weather?.weatherFactor ?: 1.0
                 api.sendCommand(CommandRequest(s.id, null, "water", (300 * wf).toInt(), wf))
                 msg = "관수 지시 전송 완료 (Farmer: ${s.name})"
-            } catch (e: Exception) {
-                msg = e.message
-            }
+            } catch (e: Exception) { msg = e.message }
         }
     }
 
@@ -65,76 +70,145 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("OOJOO FARM") },
-                actions = { TextButton(onClick = { nav.navigate("notifications") }) { Text("알림") } }
+                title = { Text("OOJOO FARM", color = Color.White, fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = { nav.navigate("notifications") }) {
+                        Icon(Icons.Default.Notifications, contentDescription = "알림", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)
             )
-        }
+        },
+        containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(
             Modifier.fillMaxSize().padding(p).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                vm.weather?.let { w ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("날씨: ${w.region}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                            Text("${w.temp?.toInt() ?: "?"}°C / 습도 ${w.humidity?.toInt() ?: "?"}% / 강수 ${w.precipitation ?: 0}mm", style = MaterialTheme.typography.bodyMedium)
-                            Text("관수 가중치: ${"%.2f".format(w.weatherFactor)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+                WeatherCard(weather = vm.weather, region = Session.region)
             }
 
             item {
-                Text("Farmer 기기 (${vm.slaves.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Farmer 기기 (${vm.slaves.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
+                    Text("+ 추가", color = OojooTheme.Green, fontSize = 13.sp, modifier = Modifier.clickable { nav.navigate("pairing") })
+                }
             }
             if (vm.slaves.isEmpty() && !vm.loading) {
-                item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate("pairing") }) {
-                        Text("Farmer 연결하기 →", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                item { EmptyCard(text = "Farmer 연결하기 →") { nav.navigate("pairing") } }
             }
-            items(vm.slaves) { s ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(s.name, fontWeight = FontWeight.Bold)
-                            Text(if (s.online == 1) "온라인" else "오프라인", style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (s.online == 1) AssistChip(onClick = { vm.quickWater() }, label = { Text("관수") })
-                    }
-                }
-            }
+            items(vm.slaves) { s -> FarmerRowCard(s) { vm.quickWater() } }
 
-            item { Text("내 식물 (${vm.plants.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
-            if (vm.plants.isEmpty() && !vm.loading) {
-                item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate("plant_register") }) {
-                        Text("식물 등록하기 →", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-                    }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("내 식물 (${vm.plants.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
+                    Text("+ 등록", color = OojooTheme.Green, fontSize = 13.sp, modifier = Modifier.clickable { nav.navigate("plant_register") })
                 }
+            }
+            if (vm.plants.isEmpty() && !vm.loading) {
+                item { EmptyCard(text = "식물 등록하기 →") { nav.navigate("plant_register") } }
             }
             items(vm.plants) { p ->
-                Card(Modifier.fillMaxWidth().clickable { nav.navigate("plant_detail/${p.id}") }) {
-                    Row(Modifier.padding(16.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(p.name, fontWeight = FontWeight.Bold)
-                            Text("${p.species ?: "?"}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text(p.slave_id?.take(6) ?: "미연결", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                PlantRowCard(p) { nav.navigate("plant_detail/${p.id}") }
             }
 
             item {
-                Button(onClick = { vm.quickWater() }, enabled = vm.slaves.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                    Text("빠른 관수 (원격 지시)")
-                }
+                GradientButton(
+                    text = "빠른 관수 (원격 지시)",
+                    onClick = { vm.quickWater() },
+                    enabled = vm.slaves.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            item { TextButton(onClick = { vm.refresh() }) { Text("새로고침") } }
-            item { vm.msg?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) } }
+            item { TextButton(onClick = { vm.refresh() }) { Text("새로고침", color = OojooTheme.Green) } }
+            item { vm.msg?.let { Text(it, fontSize = 13.sp, color = OojooTheme.Green) } }
         }
+    }
+}
+
+@Composable
+private fun WeatherCard(weather: WeatherResponse?, region: String) {
+    val w = weather
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.horizontalGradient(OojooTheme.WeatherGradient))
+            .padding(16.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column {
+                Text(w?.region ?: region, color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
+                Text("${w?.temp?.toInt() ?: "?"}°", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Text("☀️", fontSize = 38.sp)
+        }
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("💧 ${w?.humidity?.toInt() ?: "?"}%", color = Color.White.copy(alpha = 0.95f), fontSize = 12.sp)
+            Text("·", color = Color.White.copy(alpha = 0.95f), fontSize = 12.sp)
+            Text("🌧️ ${w?.precipitation ?: 0}mm", color = Color.White.copy(alpha = 0.95f), fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Text("⚡ 권장 관수 가중치 ×${"%.2f".format(w?.weatherFactor ?: 1.0)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun FarmerRowCard(s: Slave, onWater: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape),
+        shape = OojooTheme.CardShape,
+        colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("🤖", fontSize = 26.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(s.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                val sub = buildString {
+                    append(if (s.online == 1) "온라인" else "오프라인")
+                    s.battery?.let { append(" · 🔋$it%") }
+                }
+                Text(sub, color = OojooTheme.Muted, fontSize = 13.sp)
+            }
+            if (s.online == 1) {
+                OutlineButton(text = "관수", onClick = onWater, modifier = Modifier)
+            } else {
+                AssistChip(onClick = {}, label = { Text("오프라인", fontSize = 11.sp) }, colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFFECEFF1), labelColor = Color(0xFF607D8B)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlantRowCard(p: Plant, onClick: () -> Unit) {
+    val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
+    Card(
+        Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { onClick() },
+        shape = OojooTheme.CardShape,
+        colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(p.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                Text("${p.species ?: "?"} · ${stageK[p.stage] ?: p.stage ?: "?"}", color = OojooTheme.Muted, fontSize = 13.sp)
+            }
+            Text(if (p.slave_id != null) "🤖 연결" else "미연결", color = OojooTheme.Muted, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun EmptyCard(text: String, onClick: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { onClick() },
+        shape = OojooTheme.CardShape,
+        colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
+    ) {
+        Text(text, Modifier.padding(16.dp), color = OojooTheme.Ink)
     }
 }
