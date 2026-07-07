@@ -1,6 +1,5 @@
 package com.oojoo.farm.slave.vision
 
-import android.content.Context
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -8,6 +7,10 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.VideoCapture
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,11 +38,11 @@ fun CameraPreview(
     val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
     val executor = remember { Executors.newSingleThreadExecutor() }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var imageAnalyzer by remember { mutableStateOf<ImageAnalysis?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
             executor.shutdown()
+            CameraHolder.setCapture(null)
             val providerFuture = ProcessCameraProvider.getInstance(context)
             providerFuture.addListener({
                 try { providerFuture.get().unbindAll() } catch (_: Exception) {}
@@ -64,17 +67,35 @@ fun CameraPreview(
                         onAnalysisResult(result)
                     }
                 }
+
+            // VideoCapture — Preview/ImageCapture/ImageAnalysis 와 **함께** 바인딩
+            // (CameraX 는 모든 use case 를 단일 bindToLifecycle 에 포함해야 함)
+            val recorder = Recorder.Builder()
+                .setQualitySelector(QualitySelector.from(Quality.SD))
+                .build()
+            val videoCapture = VideoCapture.withOutput(recorder)
+
             imageCapture = capture
-            imageAnalyzer = analysis
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
                     context as androidx.lifecycle.LifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview, capture, analysis
+                    preview, capture, analysis, videoCapture
                 )
+                CameraHolder.setCapture(videoCapture)
             } catch (e: Exception) {
-                onAnalysisResult(AnalysisResult(0.0, 0.0, "카메라 바인딩 실패: ${e.message}", false, 0.0))
+                // VideoCapture 미지원 기기: Preview + ImageCapture + ImageAnalysis 만 바인딩
+                try {
+                    cameraProvider.bindToLifecycle(
+                        context as androidx.lifecycle.LifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview, capture, analysis
+                    )
+                } catch (e2: Exception) {
+                    onAnalysisResult(AnalysisResult(0.0, 0.0, "카메라 바인딩 실패: ${e2.message}", false, 0.0))
+                }
+                CameraHolder.setCapture(null)
             }
         }, ContextCompat.getMainExecutor(context))
     }

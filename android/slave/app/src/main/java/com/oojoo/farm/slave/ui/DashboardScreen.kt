@@ -29,7 +29,6 @@ fun DashboardScreen(nav: NavController) {
     LaunchedEffect(Unit) {
         FarmerEngine.start(ctx)
         FarmerService.start(ctx)
-        FarmerEngine.bindVideoRecorder(ctx as androidx.lifecycle.LifecycleOwner)
     }
 
     val status by FarmerEngine.status.collectAsState()

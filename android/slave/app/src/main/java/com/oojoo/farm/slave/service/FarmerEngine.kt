@@ -7,7 +7,7 @@ import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.model.*
 import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.vision.AnalysisResult
-import com.oojoo.farm.slave.vision.VideoRecorder
+import com.oojoo.farm.slave.vision.CameraHolder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,10 +81,6 @@ object FarmerEngine {
     private var lastPestNotify = 0L
     private val HARVEST_COOLDOWN = 60 * 60 * 1000L // 1시간
     private val PEST_COOLDOWN = 15 * 60 * 1000L    // 15분
-
-    // 3초 비디오 캡처 (Master 요청 시)
-    @Volatile
-    private var videoRecorder: VideoRecorder? = null
 
     private fun now() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
@@ -322,21 +318,18 @@ object FarmerEngine {
     }
 
     // ---------- 3초 비디오 캡처 + 업로드 ----------
-    fun bindVideoRecorder(lifecycleOwner: androidx.lifecycle.LifecycleOwner) {
-        if (videoRecorder == null) videoRecorder = VideoRecorder(appCtx)
-        videoRecorder?.bind(lifecycleOwner)
-    }
-
+    // CameraPreview 가 바인딩한 VideoCapture 를 CameraHolder 를 통해 사용.
+    // 별도 바인딩 불필요 — CameraPreview 의 LaunchedEffect 가 통합 바인딩함.
     private fun captureAndUploadVideo(commandId: String) {
         scope.launch {
-            val recorder = videoRecorder
-            if (recorder == null || !recorder.ready) {
-                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비")
+            if (!CameraHolder.ready) {
+                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비 (대시보드 화면이 켜져 있어야 함)")
                 return@launch
             }
+            addLog("[${now()}] 3초 영상 캡처 시작…")
             // 3초 캡처 (블로킹 콜백을 await로 변환)
             val file = suspendCancellableCoroutine<File?> { cont ->
-                recorder.capture3s { f -> if (cont.isActive) cont.resume(f) {} }
+                CameraHolder.capture3s(appCtx) { f -> if (cont.isActive) cont.resume(f) }
             }
             if (file == null || !file.exists()) {
                 addLog("[${now()}] 영상 캡처 실패: 파일 없음")
