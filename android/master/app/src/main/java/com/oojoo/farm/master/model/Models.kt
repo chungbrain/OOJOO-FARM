@@ -340,3 +340,14 @@ data class WeatherResponse(
     val weatherCode: Int? = null,
     val weatherFactor: Double = 1.0
 )
+
+@Serializable
+data class VideoInfoResponse(
+    val videoId: String,
+    val slaveId: String,
+    val commandId: String? = null,
+    val url: String,
+    val mime: String? = null,
+    val size: Int = 0,
+    val created_at: String? = null
+)

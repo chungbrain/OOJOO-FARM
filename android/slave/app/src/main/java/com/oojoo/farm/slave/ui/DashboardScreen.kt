@@ -26,7 +26,11 @@ import com.oojoo.farm.slave.service.FarmerService
 @Composable
 fun DashboardScreen(nav: NavController) {
     val ctx = LocalContext.current
-    LaunchedEffect(Unit) { FarmerEngine.start(ctx); FarmerService.start(ctx) }
+    LaunchedEffect(Unit) {
+        FarmerEngine.start(ctx)
+        FarmerService.start(ctx)
+        FarmerEngine.bindVideoRecorder(ctx as androidx.lifecycle.LifecycleOwner)
+    }
 
     val status by FarmerEngine.status.collectAsState()
     val logs by FarmerEngine.logs.collectAsState()

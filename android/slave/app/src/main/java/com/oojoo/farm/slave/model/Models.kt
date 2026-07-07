@@ -79,3 +79,9 @@ data class WeatherResponse(
     val weatherCode: Int? = null,
     val weatherFactor: Double = 1.0
 )
+
+@Serializable
+data class VideoUploadResponse(
+    val videoId: String,
+    val url: String
+)

@@ -7,12 +7,19 @@ import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.model.*
 import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.vision.AnalysisResult
+import com.oojoo.farm.slave.vision.VideoRecorder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.coroutines.resume
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -74,6 +81,10 @@ object FarmerEngine {
     private var lastPestNotify = 0L
     private val HARVEST_COOLDOWN = 60 * 60 * 1000L // 1시간
     private val PEST_COOLDOWN = 15 * 60 * 1000L    // 15분
+
+    // 3초 비디오 캡처 (Master 요청 시)
+    @Volatile
+    private var videoRecorder: VideoRecorder? = null
 
     private fun now() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
@@ -270,6 +281,11 @@ object FarmerEngine {
                         postEventSafe("pest_control", mapOf("response" to "laser_approved"))
                         ApiClient.api.commandDone(cmd.id)
                     }
+                    "capture_video" -> {
+                        addLog("[${now()}] 마스터 요청: 3초 영상 캡처")
+                        captureAndUploadVideo(cmd.id)
+                        ApiClient.api.commandDone(cmd.id)
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -302,6 +318,43 @@ object FarmerEngine {
                 mapOf("amount" to "$amount", "weatherFactor" to "%.2f".format(factor), "confidence" to "%.2f".format(confidence)),
                 pid
             )
+        }
+    }
+
+    // ---------- 3초 비디오 캡처 + 업로드 ----------
+    fun bindVideoRecorder(lifecycleOwner: androidx.lifecycle.LifecycleOwner) {
+        if (videoRecorder == null) videoRecorder = VideoRecorder(appCtx)
+        videoRecorder?.bind(lifecycleOwner)
+    }
+
+    private fun captureAndUploadVideo(commandId: String) {
+        scope.launch {
+            val recorder = videoRecorder
+            if (recorder == null || !recorder.ready) {
+                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비")
+                return@launch
+            }
+            // 3초 캡처 (블로킹 콜백을 await로 변환)
+            val file = suspendCancellableCoroutine<File?> { cont ->
+                recorder.capture3s { f -> if (cont.isActive) cont.resume(f) {} }
+            }
+            if (file == null || !file.exists()) {
+                addLog("[${now()}] 영상 캡처 실패: 파일 없음")
+                return@launch
+            }
+            addLog("[${now()}] 영상 캡처 완료 (${file.length() / 1024}KB) → 업로드")
+            try {
+                val reqFile = file.asRequestBody("video/mp4".toMediaTypeOrNull())
+                val sId = slaveId().toRequestBody("text/plain".toMediaTypeOrNull())
+                val cId = commandId.toRequestBody("text/plain".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("video", file.name, reqFile)
+                val resp = ApiClient.api.uploadVideo(part, sId, cId)
+                addLog("[${now()}] 영상 업로드 완료 (id:${resp.videoId.take(8)})")
+            } catch (e: Exception) {
+                addLog("[${now()}] 영상 업로드 실패: ${e.message}")
+            } finally {
+                file.delete()
+            }
         }
     }
 

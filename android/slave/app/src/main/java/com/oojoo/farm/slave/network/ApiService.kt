@@ -1,6 +1,8 @@
 package com.oojoo.farm.slave.network
 
 import com.oojoo.farm.slave.model.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.*
 
 interface ApiService {
@@ -30,4 +32,12 @@ interface ApiService {
 
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
+
+    @Multipart
+    @POST("api/videos/upload")
+    suspend fun uploadVideo(
+        @Part video: MultipartBody.Part,
+        @Part("slaveId") slaveId: RequestBody,
+        @Part("commandId") commandId: RequestBody?
+    ): VideoUploadResponse
 }

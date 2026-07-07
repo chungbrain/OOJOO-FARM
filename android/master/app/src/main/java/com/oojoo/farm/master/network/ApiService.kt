@@ -135,4 +135,8 @@ interface ApiService {
 
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
+
+    // ---------- 비디오 캡처 ----------
+    @GET("api/videos/latest/{slaveId}")
+    suspend fun latestVideo(@Path("slaveId") slaveId: String): VideoInfoResponse
 }

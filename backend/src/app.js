@@ -13,6 +13,7 @@ import community from './routes/community.js';
 import report from './routes/report.js';
 import subscription from './routes/subscription.js';
 import weather from './routes/weather.js';
+import videos from './routes/videos.js';
 import './db.js';
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/community', community);
 app.use('/api/report', report);
 app.use('/api/subscription', subscription);
 app.use('/api/weather', weather);
+app.use('/api/videos', videos);
 
 // 알 수 없는 경로
 app.use((req, res) => {

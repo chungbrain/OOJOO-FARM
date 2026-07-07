@@ -87,6 +87,12 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                             OutlineButton(text = "Fan 퇴치", onClick = { vm.pestFan(s.id) }, modifier = Modifier.weight(1f))
                             OutlineButton(text = "Laser 승인", onClick = { vm.pestLaser(s.id) }, modifier = Modifier.weight(1f))
                         }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GradientButton(text = "📹 카메라 보기 (3초)", onClick = {
+                                val encoded = android.net.Uri.encode(s.name)
+                                nav.navigate("live_camera/${s.id}/$encoded")
+                            }, modifier = Modifier.fillMaxWidth())
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text("📊 리포트", color = OojooTheme.Green, fontSize = 13.sp) }
                             TextButton(onClick = { vm.unpair(s.id) }) { Text("연결 해제", color = OojooTheme.Red, fontSize = 13.sp) }
