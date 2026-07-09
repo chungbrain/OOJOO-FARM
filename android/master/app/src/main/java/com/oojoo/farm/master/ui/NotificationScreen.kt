@@ -3,12 +3,14 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -43,25 +45,25 @@ private fun notiColor(t: String): Color = when (t) {
 @Composable
 fun NotificationScreen(nav: NavController, vm: NotificationViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("알림 센터", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("🔔 알림 센터", color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
-        LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
+        LazyColumn(Modifier.fillMaxSize().padding(p).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) } }
             if (vm.items.isEmpty() && !vm.loading) {
-                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("알림이 없습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("📭", fontSize = 56.sp); Spacer(Modifier.height(14.dp)); Text("알림이 없어요!", color = OojooTheme.Muted, fontWeight = FontWeight.Bold) } } }
             }
             items(vm.items) { n ->
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
-                    Column(Modifier.padding(12.dp).padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(notiLabel(n.type), fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffsetSm, RoundedCornerShape(18.dp)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(18.dp)), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = OojooTheme.Yellow)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(notiLabel(n.type), fontWeight = FontWeight.ExtraBold, color = OojooTheme.Ink, fontSize = 15.sp)
                         val target = listOfNotNull(n.plant_name, n.slave_name).joinToString(" · ")
-                        if (target.isNotBlank()) Text(target, color = OojooTheme.Muted, fontSize = 13.sp)
-                        n.created_at?.let { Text(it, color = OojooTheme.Muted.copy(alpha = 0.7f), fontSize = 11.sp) }
+                        if (target.isNotBlank()) Text(target, color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        n.created_at?.let { Text(it, color = OojooTheme.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
-            item { TextButton(onClick = { vm.refresh() }) { Text("새로고침", color = OojooTheme.Green) } }
+            item { TextButton(onClick = { vm.refresh() }) { Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
         }
     }
 }

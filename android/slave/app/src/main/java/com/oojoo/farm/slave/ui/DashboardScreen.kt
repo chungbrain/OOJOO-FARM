@@ -1,6 +1,7 @@
 package com.oojoo.farm.slave.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +49,7 @@ fun DashboardScreen(nav: NavController) {
     ) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // 자율 관리 카드
-            Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+            Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("온디바이스 AI 자율 관리", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
                     Text("Slave: ${(Prefs.slaveId(ctx) ?: "").take(8)}…  ${if (online) "● 온라인" else "○ 오프라인"}", color = OojooTheme.Muted, fontSize = 13.sp)
@@ -69,7 +70,7 @@ fun DashboardScreen(nav: NavController) {
             }
 
             // 카메라 프리뷰 (프로토타입 .cam 스타일)
-            Card(Modifier.fillMaxWidth().height(180.dp).shadow(OojooTheme.CardElevation, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp)) {
+            Card(Modifier.fillMaxWidth().height(180.dp).shadow(OojooTheme.ShadowOffset, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp)) {
                 Box(Modifier.fillMaxSize().background(Brush.linearGradient(OojooTheme.CamGradient))) {
                     com.oojoo.farm.slave.vision.CameraPreview(
                         onAnalysisResult = { FarmerEngine.onAnalysis(it) },
@@ -85,13 +86,13 @@ fun DashboardScreen(nav: NavController) {
             }
 
             if (pendingLaser) {
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
                     Text("🐛 해충 감지 — Laser 퇴치 마스터 승인 대기 중", Modifier.padding(12.dp), color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
             lastAnalysis?.let { a ->
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("최근 분석", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
                         Text("상태: ${a.healthStatus}", color = OojooTheme.Muted, fontSize = 13.sp)
@@ -108,7 +109,7 @@ fun DashboardScreen(nav: NavController) {
             }
 
             Text("이벤트 로그", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
-            Card(Modifier.fillMaxWidth().heightIn(min = 120.dp).shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+            Card(Modifier.fillMaxWidth().heightIn(min = 120.dp).shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (logs.isEmpty()) Text("로그 없음", color = OojooTheme.Muted, fontSize = 13.sp)
                     else logs.forEach { Text(it, color = OojooTheme.Ink, fontSize = 11.sp) }

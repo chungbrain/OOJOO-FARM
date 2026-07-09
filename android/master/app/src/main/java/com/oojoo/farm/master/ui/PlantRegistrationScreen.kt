@@ -3,6 +3,7 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -92,7 +93,7 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
             GradientButton(text = "식물 등록", onClick = { vm.register() }, enabled = !vm.loading && vm.name.isNotBlank(), modifier = Modifier.fillMaxWidth())
             if (vm.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
             if (vm.done) {
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape) {
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape) {
                     Text("🌱 식물이 등록되었습니다!", Modifier.padding(16.dp), fontWeight = FontWeight.Bold, color = OojooTheme.Green)
                 }
                 GradientButton(text = "완료", onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())

@@ -3,6 +3,8 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,10 +33,7 @@ class PlantListViewModel : ViewModel() {
     val userId get() = Session.userId
     var plants by mutableStateOf<List<Plant>>(emptyList())
     var loading by mutableStateOf(false)
-    fun refresh() {
-        loading = true
-        viewModelScope.launch { try { plants = api.plants(userId).plants } catch (_: Exception) {}; loading = false }
-    }
+    fun refresh() { loading = true; viewModelScope.launch { try { plants = api.plants(userId).plants } catch (_: Exception) {}; loading = false } }
     init { refresh() }
 }
 
@@ -42,36 +41,38 @@ class PlantListViewModel : ViewModel() {
 @Composable
 fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("내 식물", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { nav.navigate("plant_register") }) { Text("+ 등록", color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("🌱 내 식물", color = Color.White, fontWeight = FontWeight.Black) }, actions = { TextButton(onClick = { nav.navigate("plant_register") }) { Text("＋ 등록", color = Color.White, fontWeight = FontWeight.Bold) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("plant_register") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "식물 등록") } },
         containerColor = OojooTheme.Bg
     ) { p ->
-        LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
+        LazyColumn(Modifier.fillMaxSize().padding(p).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) } }
             if (vm.plants.isEmpty() && !vm.loading) {
                 item {
-                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
-                        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🌱", fontSize = 40.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text("등록된 식물이 없습니다", color = OojooTheme.Ink, fontWeight = FontWeight.Bold)
+                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                        Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🌱", fontSize = 56.sp); Spacer(Modifier.height(14.dp))
+                            Text("등록된 식물이 없어요!", color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(Modifier.height(4.dp))
-                            Text("+ 버튼으로 식물을 등록하세요", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("＋ 버튼으로 등록해요!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
             items(vm.plants) { p ->
                 val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("plant_detail/${p.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                val stageEmoji = when (p.stage) { "fruiting" -> "🍅"; "flowering" -> "🌸"; "vegetative" -> "🌿"; else -> "🌱" }
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("plant_detail/${p.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stageEmoji, fontSize = 32.sp)
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(p.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
-                            Text("${p.species ?: "?"} / 식재 ${p.planted_at ?: "?"}", color = OojooTheme.Muted, fontSize = 13.sp)
-                            Text("Farmer: ${p.slave_id?.take(8) ?: "미연결"}", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("${p.species ?: "?"} / 식재 ${p.planted_at ?: "?"}", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Farmer: ${p.slave_id?.take(8) ?: "미연결"}", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
-                        Surface(shape = RoundedCornerShape(50), color = Color(0xFFE8F5E9)) {
-                            Text(stageK[p.stage] ?: p.stage ?: "?", Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Surface(shape = OojooTheme.PillShape, color = OojooTheme.GreenBg, border = BorderStroke(2.dp, OojooTheme.Ink)) {
+                            Text(stageK[p.stage] ?: p.stage ?: "?", Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }

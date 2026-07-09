@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -82,7 +83,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(vm.recommendations) { pr ->
-                            Card(Modifier.width(130.dp).shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("market_product/${pr.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                            Card(Modifier.width(130.dp).shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("market_product/${pr.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(pr.image ?: "🛒", fontSize = 26.sp)
                                     Text(pr.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2, color = OojooTheme.Ink)
@@ -96,7 +97,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
             if (vm.selected == "all" && vm.query.isBlank() && vm.bundles.isNotEmpty()) {
                 item { Text("추천 번들 키트", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
                 items(vm.bundles) { b ->
-                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(b.image ?: "📦", fontSize = 26.sp); Spacer(Modifier.width(10.dp))
@@ -114,7 +115,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
             items(vm.products.chunked(2)) { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { pr ->
-                        Card(Modifier.weight(1f).shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("market_product/${pr.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                        Card(Modifier.weight(1f).shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("market_product/${pr.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(pr.image ?: "🛒", fontSize = 30.sp)
                                 Text(pr.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, color = OojooTheme.Ink)
@@ -184,10 +185,10 @@ fun CartScreen(nav: NavController) {
     Scaffold(topBar = { TopAppBar(title = { Text("장바구니", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (Cart.lines.isEmpty()) {
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("장바구니가 비어 있습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) }
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("장바구니가 비어 있습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) }
             } else {
                 Cart.lines.forEach { line ->
-                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(line.product.image ?: "🛒", fontSize = 26.sp); Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) { Text(line.product.name, fontWeight = FontWeight.Bold, maxLines = 1, color = OojooTheme.Ink); Text(won(line.product.price), color = OojooTheme.Muted, fontSize = 13.sp) }
@@ -224,9 +225,9 @@ fun OrdersScreen(nav: NavController, vm: OrdersViewModel = viewModel()) {
     Scaffold(topBar = { TopAppBar(title = { Text("주문 내역", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
-            if (vm.orders.isEmpty() && !vm.loading) item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("주문 내역이 없습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+            if (vm.orders.isEmpty() && !vm.loading) item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("주문 내역이 없습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
             items(vm.orders) { o ->
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("주문 ${o.id.take(8)}", fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
