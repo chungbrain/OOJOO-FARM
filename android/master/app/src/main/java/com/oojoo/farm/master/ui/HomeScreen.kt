@@ -109,8 +109,13 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
             if (vm.plants.isEmpty() && !vm.loading) {
                 item { EmptyCard(text = "식물 등록하기 →") { nav.navigate("plant_register") } }
             }
-            items(vm.plants) { p ->
-                PlantRowCard(p) { nav.navigate("plant_detail/${p.id}") }
+            items(vm.plants.chunked(2)) { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { p ->
+                        PlantGridCard(p, Modifier.weight(1f)) { nav.navigate("plant_detail/${p.id}") }
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
             }
 
             item {
@@ -185,19 +190,21 @@ private fun FarmerRowCard(s: Slave, onWater: () -> Unit) {
 }
 
 @Composable
-private fun PlantRowCard(p: Plant, onClick: () -> Unit) {
+private fun PlantGridCard(p: Plant, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
+    val stageEmoji = when (p.stage) { "fruiting" -> "🍅"; "flowering" -> "🌸"; "vegetative" -> "🌿"; else -> "🌱" }
     Card(
-        Modifier.fillMaxWidth().shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { onClick() },
+        modifier.shadow(OojooTheme.CardElevation, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { onClick() },
         shape = OojooTheme.CardShape,
         colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(p.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
-                Text("${p.species ?: "?"} · ${stageK[p.stage] ?: p.stage ?: "?"}", color = OojooTheme.Muted, fontSize = 13.sp)
-            }
-            Text(if (p.slave_id != null) "🤖 연결" else "미연결", color = OojooTheme.Muted, fontSize = 13.sp)
+        Column(Modifier.padding(14.dp)) {
+            Text(stageEmoji, fontSize = 28.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(p.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
+            Text("${p.species ?: "?"} · ${stageK[p.stage] ?: p.stage ?: "?"}", color = OojooTheme.Muted, fontSize = 11.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(if (p.slave_id != null) "🤖 연결" else "🍴 미연결", color = OojooTheme.Muted, fontSize = 11.sp)
         }
     }
 }
