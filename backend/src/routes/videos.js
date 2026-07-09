@@ -42,19 +42,33 @@ const upload = multer({
 });
 
 // 슬레이브: 비디오 업로드 (multipart/form-data, 필드명: video)
-//   body: slaveId, commandId?
+//   slaveId 는 URL path 에서 읽음 (multer 가 body 를 파싱하기 전에 slaveAuth 가 동작하므로)
+//   body: commandId?
 //   세션키 인증
-r.post('/upload', slaveAuth, upload.single('video'), (req, res) => {
+r.post('/upload/:slaveId', slaveAuth, upload.single('video'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'video file required' });
-  const { slaveId, commandId } = req.body;
-  if (!slaveId) {
-    fs.unlink(req.file.path, () => {});
-    return res.status(400).json({ error: 'slaveId required' });
-  }
+  const { commandId } = req.body;
+  const slaveId = req.params.slaveId;
   const id = nanoid(12);
   db.prepare('INSERT INTO videos(id, slave_id, command_id, filename, mime, size) VALUES(?,?,?,?,?,?)')
     .run(id, slaveId, commandId || null, req.file.filename, req.file.mimetype, req.file.size);
   res.json({ videoId: id, url: `/api/videos/file/${req.file.filename}` });
+});
+
+// 마스터: 특정 명령(commandId)에 대한 비디오 조회 — 폴링용
+//   해당 commandId 로 업로드된 영상이 있으면 반환, 없으면 404
+r.get('/by-command/:commandId', (req, res) => {
+  const row = db.prepare('SELECT * FROM videos WHERE command_id=? ORDER BY created_at DESC LIMIT 1').get(req.params.commandId);
+  if (!row) return res.status(404).json({ error: 'no video yet' });
+  res.json({
+    videoId: row.id,
+    slaveId: row.slave_id,
+    commandId: row.command_id,
+    url: `/api/videos/file/${row.filename}`,
+    mime: row.mime,
+    size: row.size,
+    created_at: row.created_at,
+  });
 });
 
 // 마스터: 최신 비디오 조회 (slaveId 기준)

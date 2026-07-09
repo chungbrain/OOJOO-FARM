@@ -338,10 +338,9 @@ object FarmerEngine {
             addLog("[${now()}] 영상 캡처 완료 (${file.length() / 1024}KB) → 업로드")
             try {
                 val reqFile = file.asRequestBody("video/mp4".toMediaTypeOrNull())
-                val sId = slaveId().toRequestBody("text/plain".toMediaTypeOrNull())
                 val cId = commandId.toRequestBody("text/plain".toMediaTypeOrNull())
                 val part = MultipartBody.Part.createFormData("video", file.name, reqFile)
-                val resp = ApiClient.api.uploadVideo(part, sId, cId)
+                val resp = ApiClient.api.uploadVideo(slaveId(), part, cId)
                 addLog("[${now()}] 영상 업로드 완료 (id:${resp.videoId.take(8)})")
             } catch (e: Exception) {
                 addLog("[${now()}] 영상 업로드 실패: ${e.message}")

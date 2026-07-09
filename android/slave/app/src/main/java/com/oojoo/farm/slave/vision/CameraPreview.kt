@@ -76,6 +76,10 @@ fun CameraPreview(
             val videoCapture = VideoCapture.withOutput(recorder)
 
             imageCapture = capture
+            // use case 바인딩 우선순위:
+            // 1) Preview + ImageCapture + ImageAnalysis + VideoCapture (전부)
+            // 2) Preview + ImageCapture + VideoCapture (ImageAnalysis 제외 — 영상 캡처 우선)
+            // 3) Preview + ImageCapture + ImageAnalysis (VideoCapture 미지원 기기)
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
@@ -85,17 +89,25 @@ fun CameraPreview(
                 )
                 CameraHolder.setCapture(videoCapture)
             } catch (e: Exception) {
-                // VideoCapture 미지원 기기: Preview + ImageCapture + ImageAnalysis 만 바인딩
                 try {
                     cameraProvider.bindToLifecycle(
                         context as androidx.lifecycle.LifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview, capture, analysis
+                        preview, capture, videoCapture
                     )
+                    CameraHolder.setCapture(videoCapture)
                 } catch (e2: Exception) {
-                    onAnalysisResult(AnalysisResult(0.0, 0.0, "카메라 바인딩 실패: ${e2.message}", false, 0.0))
+                    try {
+                        cameraProvider.bindToLifecycle(
+                            context as androidx.lifecycle.LifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview, capture, analysis
+                        )
+                    } catch (e3: Exception) {
+                        onAnalysisResult(AnalysisResult(0.0, 0.0, "카메라 바인딩 실패: ${e3.message}", false, 0.0))
+                    }
+                    CameraHolder.setCapture(null)
                 }
-                CameraHolder.setCapture(null)
             }
         }, ContextCompat.getMainExecutor(context))
     }

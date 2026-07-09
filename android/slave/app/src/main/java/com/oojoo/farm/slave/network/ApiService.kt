@@ -34,10 +34,10 @@ interface ApiService {
     suspend fun weather(@Path("region") region: String): WeatherResponse
 
     @Multipart
-    @POST("api/videos/upload")
+    @POST("api/videos/upload/{slaveId}")
     suspend fun uploadVideo(
+        @Path("slaveId") slaveId: String,
         @Part video: MultipartBody.Part,
-        @Part("slaveId") slaveId: RequestBody,
         @Part("commandId") commandId: RequestBody?
     ): VideoUploadResponse
 }

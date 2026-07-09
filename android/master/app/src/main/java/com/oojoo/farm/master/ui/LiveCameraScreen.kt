@@ -3,20 +3,17 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
-import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.VideoInfoResponse
 import com.oojoo.farm.master.network.ApiClient
@@ -36,19 +33,23 @@ class LiveCameraViewModel : ViewModel() {
         loading = true
         error = null
         status = "캡처 요청 전송 중…"
+        videoInfo = null
         viewModelScope.launch {
             try {
-                api.sendCommand(CommandRequest(slaveId, null, "capture_video"))
-                status = "캡처 요청 전송됨 — Slave 응답 대기 (최대 30초)"
-                // Slave가 3초 캡처 후 업로드할 때까지 폴링 (최대 30초)
+                // 1) capture_video 명령 전송 → commandId 수신
+                val cmdResp = api.sendCommand(CommandRequest(slaveId, null, "capture_video"))
+                val commandId = cmdResp.commandId
+                status = "캡처 요청 전송됨 (명령 $commandId) — Slave 응답 대기 (최대 40초)"
+                // 2) Slave가 캡처+업로드할 때까지 commandId 로 폴링 (최대 40초)
+                //    Slave 폴링 주기 10초 + 3초 캡처 + 업로드 시간 고려
                 var waited = 0
-                while (waited < 30) {
+                while (waited < 40) {
                     delay(2000)
                     waited += 2
                     try {
-                        val v = api.latestVideo(slaveId)
+                        val v = api.videoByCommand(commandId)
                         videoInfo = v
-                        status = "영상 수신 완료"
+                        status = "영상 수신 완료 (${waited}초)"
                         loading = false
                         return@launch
                     } catch (_: Exception) { /* 아직 업로드 안 됨 */ }
@@ -68,7 +69,6 @@ class LiveCameraViewModel : ViewModel() {
 @Composable
 fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm: LiveCameraViewModel = viewModel()) {
     LaunchedEffect(slaveId) { vm.requestAndPoll(slaveId) }
-    val ctx = LocalContext.current
     val baseUrl = ApiClient.baseUrl.trimEnd('/')
 
     Scaffold(
