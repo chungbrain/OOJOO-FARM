@@ -8,14 +8,20 @@ object Prefs {
     private const val K_NICK = "nickname"
     private const val K_REGION = "region"
     private const val K_SERVER = "serverUrl"
+    private const val K_GALLERY = "galleryItems"
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     fun userId(ctx: Context): String? = sp(ctx).getString(K_USER, null)
     fun nickname(ctx: Context): String? = sp(ctx).getString(K_NICK, null)
     fun region(ctx: Context): String = sp(ctx).getString(K_REGION, "Seoul") ?: "Seoul"
+
+    // YAML에서 기본 주소 읽기 → 없으면 에뮬레이터 기본값
+    fun defaultServerUrl(ctx: Context): String =
+        ServerConfig.serverUrl(ctx) ?: "http://10.0.2.2:4000/"
+
     fun serverUrl(ctx: Context): String =
-        sp(ctx).getString(K_SERVER, "http://10.0.2.2:4000/") ?: "http://10.0.2.2:4000/"
+        sp(ctx).getString(K_SERVER, null) ?: defaultServerUrl(ctx)
 
     fun isOnboarded(ctx: Context) = !userId(ctx).isNullOrBlank()
 
@@ -29,5 +35,24 @@ object Prefs {
 
     fun setServerUrl(ctx: Context, url: String) {
         sp(ctx).edit().putString(K_SERVER, url).apply()
+    }
+
+    // ---------- 사진첩 (갤러리) ----------
+    // JSON 배열 문자열로 저장: [{"path":"...","slaveName":"...","createdAt":"..."}, ...]
+    fun galleryItems(ctx: Context): String =
+        sp(ctx).getString(K_GALLERY, "[]") ?: "[]"
+
+    fun setGalleryItems(ctx: Context, json: String) {
+        sp(ctx).edit().putString(K_GALLERY, json).apply()
+    }
+
+    fun addGalleryItem(ctx: Context, path: String, slaveName: String, createdAt: String) {
+        val arr = org.json.JSONArray(galleryItems(ctx))
+        arr.put(org.json.JSONObject().apply {
+            put("path", path)
+            put("slaveName", slaveName)
+            put("createdAt", createdAt)
+        })
+        setGalleryItems(ctx, arr.toString())
     }
 }

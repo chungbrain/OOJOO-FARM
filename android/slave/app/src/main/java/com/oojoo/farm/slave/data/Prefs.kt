@@ -46,7 +46,7 @@ object Prefs {
     }
 
     fun serverUrl(ctx: Context): String =
-        sp(ctx).getString(K_SERVER, "http://10.0.2.2:4000/") ?: "http://10.0.2.2:4000/"
+        sp(ctx).getString(K_SERVER, null) ?: (ServerConfig.serverUrl(ctx) ?: "http://10.0.2.2:4000/")
 
     fun setServerUrl(ctx: Context, url: String) {
         sp(ctx).edit().putString(K_SERVER, url).apply()

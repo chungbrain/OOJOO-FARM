@@ -31,6 +31,10 @@ class PairingViewModel : ViewModel() {
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
 
+    fun initUrl(ctx: Context) {
+        serverUrl = com.oojoo.farm.slave.data.Prefs.serverUrl(ctx)
+    }
+
     fun applyServer(ctx: Context) { Prefs.setServerUrl(ctx, serverUrl); ApiClient.setBaseUrl(serverUrl) }
     fun verify(ctx: Context, onDone: () -> Unit) {
         if (code.trim().length < 6) { error = "6자리 코드를 입력하세요"; return }
@@ -51,6 +55,7 @@ class PairingViewModel : ViewModel() {
 @Composable
 fun PairingScreen(nav: NavController, vm: PairingViewModel = viewModel()) {
     val ctx = LocalContext.current
+    LaunchedEffect(Unit) { vm.initUrl(ctx) }
     Column(Modifier.fillMaxSize().background(OojooTheme.Bg)) {
         TopAppBar(title = { Text("마스터 연결", color = Color.White, fontWeight = FontWeight.Bold) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal))
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

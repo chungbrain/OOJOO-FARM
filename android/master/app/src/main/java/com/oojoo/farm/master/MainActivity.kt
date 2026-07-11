@@ -49,6 +49,7 @@ import com.oojoo.farm.master.ui.PlantDetailScreen
 import com.oojoo.farm.master.ui.PlantListScreen
 import com.oojoo.farm.master.ui.PlantRegistrationScreen
 import com.oojoo.farm.master.ui.LiveCameraScreen
+import com.oojoo.farm.master.ui.GalleryScreen
 import com.oojoo.farm.master.ui.ReportScreen
 import com.oojoo.farm.master.ui.SubscriptionScreen
 
@@ -142,6 +143,7 @@ fun MainApp() {
             composable("live_camera/{slaveId}/{slaveName}") { b ->
                 LiveCameraScreen(nav, b.arguments?.getString("slaveId") ?: "", b.arguments?.getString("slaveName") ?: "Farmer")
             }
+            composable("gallery") { GalleryScreen(nav) }
             composable("subscription") { SubscriptionScreen(nav) }
         }
     }

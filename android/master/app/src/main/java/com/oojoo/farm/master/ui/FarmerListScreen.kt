@@ -47,7 +47,7 @@ class FarmerListViewModel : ViewModel() {
 @Composable
 fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("🤖 Farmer 관리", color = Color.White, fontWeight = FontWeight.Black) }, actions = { TextButton(onClick = { nav.navigate("subscription") }) { Text("⭐ 구독", color = Color.White, fontWeight = FontWeight.Bold) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("🤖 Farmer 관리", color = Color.White, fontWeight = FontWeight.Black) }, actions = { Row { TextButton(onClick = { nav.navigate("gallery") }) { Text("📷 사진첩", color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("subscription") }) { Text("⭐ 구독", color = Color.White, fontWeight = FontWeight.Bold) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("pairing") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "Farmer 연결") } },
         containerColor = OojooTheme.Bg
     ) { p ->
