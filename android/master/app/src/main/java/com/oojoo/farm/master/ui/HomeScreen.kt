@@ -71,20 +71,19 @@ class HomeViewModel : ViewModel() {
 fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("🏡 OOJOO FARM", color = Color.White, fontWeight = FontWeight.Black) },
+            CartoonAppBar(
+                title = "🏡 OOJOO FARM",
                 actions = {
                     IconButton(onClick = { nav.navigate("notifications") }) {
                         Icon(Icons.Default.Notifications, contentDescription = "알림", tint = Color.White)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)
+                }
             )
         },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(p).padding(20.dp),
+            Modifier.fillMaxSize().padding(p).padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item { WeatherCard(weather = vm.weather, region = Session.region) }
@@ -128,32 +127,43 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
 @Composable
 private fun WeatherCard(weather: WeatherResponse?, region: String) {
     val w = weather
-    Column(
+    Row(
         Modifier.fillMaxWidth()
-            .shadow(OojooTheme.ShadowOffset, RoundedCornerShape(24.dp))
-            .clip(RoundedCornerShape(24.dp))
-            .border(2.dp, OojooTheme.Ink, RoundedCornerShape(24.dp))
+            .shadow(OojooTheme.ShadowOffset, RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .border(2.dp, OojooTheme.Ink, RoundedCornerShape(18.dp))
             .background(Brush.horizontalGradient(OojooTheme.WeatherGradient))
-            .padding(20.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column {
-                Text(w?.region ?: region, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("${w?.temp?.toInt() ?: "?"}°", color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Black)
+        Column {
+            Text(w?.region ?: region, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("${w?.temp?.toInt() ?: "?"}°", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.width(8.dp))
+                Text("💧 ${w?.humidity?.toInt() ?: "?"}%  🌧️ ${w?.precipitation ?: 0}mm", color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            Text("☀️", fontSize = 44.sp)
         }
-        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("💧 ${w?.humidity?.toInt() ?: "?"}%", color = Color.White.copy(alpha = 0.95f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text("🌧️ ${w?.precipitation ?: 0}mm", color = Color.White.copy(alpha = 0.95f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(12.dp))
-        Box(
-            Modifier.clip(RoundedCornerShape(14.dp)).border(2.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.25f)).padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            Text("⚡ 관수 가중치 ×${"%.2f".format(w?.weatherFactor ?: 1.0)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(weatherEmoji(w?.weatherCode), fontSize = 28.sp)
+            Surface(shape = OojooTheme.PillShape, color = Color.White.copy(alpha = 0.25f)) {
+                Text("⚡ ×${"%.2f".format(w?.weatherFactor ?: 1.0)}", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+            }
         }
     }
+}
+
+private fun weatherEmoji(code: Int?): String = when {
+    code == null -> "🌡️"
+    code == 0 -> "☀️"
+    code in 1..3 -> "⛅"
+    code in 45..48 -> "🌫️"
+    code in 51..67 -> "🌧️"
+    code in 71..77 -> "🌨️"
+    code in 80..82 -> "🌧️"
+    code in 95..99 -> "⛈️"
+    else -> "🌤️"
 }
 
 @Composable

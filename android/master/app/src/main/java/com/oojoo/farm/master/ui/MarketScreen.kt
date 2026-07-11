@@ -70,7 +70,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
         topBar = { TopAppBar(title = { Text("마켓", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { BadgedBox(badge = { if (cartCount > 0) Badge { Text("$cartCount") } }) { TextButton(onClick = { nav.navigate("market_cart") }) { Text("🛒", color = Color.White, fontSize = 18.sp) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
-        LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { OojooField(vm.query, { vm.query = it }, "상품 검색 (비료, 토마토, ESP32…)") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

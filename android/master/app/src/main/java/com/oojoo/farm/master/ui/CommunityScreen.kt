@@ -58,7 +58,7 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "글쓰기") } },
         containerColor = OojooTheme.Bg
     ) { p ->
-        LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { OojooField(vm.query, { vm.query = it }, "작물/제목 검색") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

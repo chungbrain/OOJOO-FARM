@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -217,4 +218,37 @@ fun OojooChip(
 
 fun Modifier.oojooShadow(): Modifier = this
     .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
-    .border(OojooTheme.BorderThin, OojooTheme.CardShape)
+
+// 컴팩트 카툰 앱바 — 기본 TopAppBar 높이의 절반 (패딩 축소)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CartoonAppBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Surface(
+        color = OojooTheme.Green,
+        shadowElevation = 0.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) {
+                    TextButton(
+                        onClick = onBack,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    ) { Text("‹", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black) }
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, content = actions)
+        }
+    }
+}
