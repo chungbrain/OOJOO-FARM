@@ -55,4 +55,18 @@ object Prefs {
         })
         setGalleryItems(ctx, arr.toString())
     }
+
+    // ---------- UI 커스터마이징 ----------
+    private const val K_CORNER_RADIUS = "cornerRadius"
+    private const val K_SHADOW_OFFSET = "shadowOffset"
+    private const val K_BORDER_WIDTH = "borderWidth"
+
+    fun cornerRadius(ctx: Context): Int = sp(ctx).getInt(K_CORNER_RADIUS, 24)
+    fun setCornerRadius(ctx: Context, value: Int) = sp(ctx).edit().putInt(K_CORNER_RADIUS, value).apply()
+
+    fun shadowOffset(ctx: Context): Int = sp(ctx).getInt(K_SHADOW_OFFSET, 4)
+    fun setShadowOffset(ctx: Context, value: Int) = sp(ctx).edit().putInt(K_SHADOW_OFFSET, value).apply()
+
+    fun borderWidth(ctx: Context): Int = sp(ctx).getInt(K_BORDER_WIDTH, 2)
+    fun setBorderWidth(ctx: Context, value: Int) = sp(ctx).edit().putInt(K_BORDER_WIDTH, value).apply()
 }

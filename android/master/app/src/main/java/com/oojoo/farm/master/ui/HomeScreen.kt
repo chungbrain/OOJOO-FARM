@@ -25,6 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
@@ -74,6 +77,9 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
             CartoonAppBar(
                 title = "🏡 OOJOO FARM",
                 actions = {
+                    IconButton(onClick = { nav.navigate("theme_editor") }) {
+                        Icon(Icons.Default.Settings, contentDescription = "UI 커스터마이징", tint = Color.White)
+                    }
                     IconButton(onClick = { nav.navigate("notifications") }) {
                         Icon(Icons.Default.Notifications, contentDescription = "알림", tint = Color.White)
                     }

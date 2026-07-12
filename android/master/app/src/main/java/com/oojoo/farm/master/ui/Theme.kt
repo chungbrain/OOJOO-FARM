@@ -13,9 +13,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.composed
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.Outline
+
+data class OojooUiState(
+    val cornerRadius: Int = 24,
+    val shadowOffset: Int = 4,
+    val borderWidth: Int = 2
+)
+
+val LocalOojooUi = compositionLocalOf { OojooUiState() }
 
 // 카툰 만화 디자인 토큰 — app-emulator_v2.html Cartoon Edition
 object OojooTheme {
@@ -52,20 +65,20 @@ object OojooTheme {
     val SunGradient = listOf(Color(0xFFFFD54F), Color(0xFFFF9800))
 
     // 라운드 — Extra round for cartoon
-    val CardShape = RoundedCornerShape(24.dp)
+    val CardShape: RoundedCornerShape @Composable get() = RoundedCornerShape(LocalOojooUi.current.cornerRadius.dp)
     val PillShape = RoundedCornerShape(50)
-    val BtnShape = RoundedCornerShape(18.dp)
-    val FieldShape = RoundedCornerShape(18.dp)
+    val BtnShape: RoundedCornerShape @Composable get() = RoundedCornerShape((LocalOojooUi.current.cornerRadius * 0.8).toInt().dp)
+    val FieldShape: RoundedCornerShape @Composable get() = RoundedCornerShape((LocalOojooUi.current.cornerRadius * 0.8).toInt().dp)
     val SmallShape = RoundedCornerShape(12.dp)
 
     // 카툰 보더 — Thick black outlines
-    val Border = BorderStroke(2.dp, Ink)
-    val BorderThin = BorderStroke(2.dp, Ink)
+    val Border: BorderStroke @Composable get() = BorderStroke(LocalOojooUi.current.borderWidth.dp, Ink)
+    val BorderThin: BorderStroke @Composable get() = BorderStroke(LocalOojooUi.current.borderWidth.dp, Ink)
 
     // 카툰 그림자 — Hard offset (no blur)
-    val ShadowOffset = 4.dp
-    val ShadowOffsetSm = 2.dp
-    val ShadowOffsetLg = 6.dp
+    val ShadowOffset: androidx.compose.ui.unit.Dp @Composable get() = LocalOojooUi.current.shadowOffset.dp
+    val ShadowOffsetSm: androidx.compose.ui.unit.Dp @Composable get() = (LocalOojooUi.current.shadowOffset / 2).dp
+    val ShadowOffsetLg: androidx.compose.ui.unit.Dp @Composable get() = (LocalOojooUi.current.shadowOffset * 1.5).dp
 }
 
 private val MasterColorScheme = lightColorScheme(
@@ -96,6 +109,28 @@ fun OojooMasterTheme(content: @Composable () -> Unit) {
         ),
         content = content
     )
+}
+
+// 카툰 그림자 모디파이어 — Hard offset without blur
+fun Modifier.cartoonShadow(
+    color: Color = Color(0x1A000000), // 0.1 alpha black
+    offsetX: androidx.compose.ui.unit.Dp? = null,
+    offsetY: androidx.compose.ui.unit.Dp? = null,
+    shape: androidx.compose.ui.graphics.Shape? = null
+) = composed {
+    val actualOffsetX = offsetX ?: OojooTheme.ShadowOffset
+    val actualOffsetY = offsetY ?: OojooTheme.ShadowOffset
+    val currentRadius = LocalOojooUi.current.cornerRadius.dp
+    
+    this.drawBehind {
+        translate(left = actualOffsetX.toPx(), top = actualOffsetY.toPx()) {
+            drawRoundRect(
+                color = color,
+                size = size,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(currentRadius.toPx(), currentRadius.toPx())
+            )
+        }
+    }
 }
 
 // 카툰 카드 — thick black border + hard offset shadow
@@ -216,8 +251,9 @@ fun OojooChip(
     }
 }
 
-fun Modifier.oojooShadow(): Modifier = this
-    .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
+fun Modifier.oojooShadow(): Modifier = composed {
+    this.cartoonShadow(offsetX = OojooTheme.ShadowOffset, offsetY = OojooTheme.ShadowOffset, shape = OojooTheme.CardShape)
+}
 
 // 컴팩트 카툰 앱바 — 기본 TopAppBar 높이의 절반 (패딩 축소)
 @OptIn(ExperimentalMaterial3Api::class)
