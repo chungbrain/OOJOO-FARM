@@ -524,6 +524,37 @@ async function mOnboardSubmit(){
 
 // ---- HOME ----
 function mHome() {
+  const healths = [
+    { class: 'st-100', text: '100% 건강' },
+    { class: 'st-70', text: '70% 아픔' },
+    { class: 'st-25', text: '25% 죽기직전' },
+    { class: 'st-50', text: '50% 위험' },
+    { class: 'st-0', text: '0% 사망' }
+  ];
+  const positions = [
+    'left: 10%; top: 15%; z-index: 10;',
+    'left: 45%; top: 45%; z-index: 20;',
+    'left: 75%; top: 10%; z-index: 5;',
+    'left: 20%; top: 80%; z-index: 25;',
+    'left: 80%; top: 60%; z-index: 22;'
+  ];
+
+  const farm3DPlants = S.m.plants.map((p, i) => {
+    const h = healths[i % healths.length];
+    const pos = positions[i % positions.length];
+    const emj = stageEmoji[p.stage] || '🌱';
+    return `<div class="item-3d plant" onclick="mOpenPlant('${p.id}')" style="cursor: pointer; ${pos}" title="${esc(p.name)} 상세 보기">
+      <div class="plant-emoji">${emj}</div>
+      <div class="plant-status ${h.class}">${h.text}</div>
+    </div>`;
+  }).join('');
+
+  const statusList = S.m.plants.map((p, i) => {
+    const h = healths[i % healths.length];
+    const emj = stageEmoji[p.stage] || '🌱';
+    return `<div><span style="display:inline-block;width:28px;font-size:18px">${emj}</span> ${esc(p.name)}: <span class="${h.class}">${h.text}</span></div>`;
+  }).join('') || '<div class="sub">등록된 식물이 없습니다.</div>';
+
   return `<div class="appbar" onclick="toggleAdminMode()" style="cursor: pointer;" title="클릭하여 관리자 모드 전환">
     🏡 OOJOO FARM 
     <span class="act" onclick="event.stopPropagation(); mGo('notifications')" style="position:relative">
@@ -563,18 +594,7 @@ function mHome() {
       
       <div class="farm-3d-wrapper">
         <div class="farm-3d">
-          <div class="item-3d plant tomato" onclick="mOpenPlant('plt_001')" style="cursor: pointer;" title="토마토 상세 보기">
-            <div class="plant-emoji">🍅</div>
-            <div class="plant-status st-100">100% 건강</div>
-          </div>
-          <div class="item-3d plant strawberry" onclick="mOpenPlant('plt_003')" style="cursor: pointer;" title="딸기 상세 보기">
-            <div class="plant-emoji">🍓</div>
-            <div class="plant-status st-70">70% 아픔</div>
-          </div>
-          <div class="item-3d plant basil" onclick="mOpenPlant('plt_002')" style="cursor: pointer;" title="바질 상세 보기">
-            <div class="plant-emoji">🌿</div>
-            <div class="plant-status st-25">25% 죽기직전</div>
-          </div>
+          ${farm3DPlants}
           <div class="item-3d robot-3d">
             <div class="robot-laser"></div>
             <div class="robot-emoji">🤖</div>
@@ -588,9 +608,7 @@ function mHome() {
     <div class="card" style="margin-top:-20px;">
       <div class="card-title" style="font-size: 18px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">📋 식물 건강 상태</div>
       <div style="font-size:14px; font-weight:800; line-height:2;">
-        <div><span style="display:inline-block;width:28px;font-size:18px">🍅</span> 토마토: <span class="st-100">100% 건강</span></div>
-        <div><span style="display:inline-block;width:28px;font-size:18px">🍓</span> 딸기: <span class="st-70">70% 아픔</span></div>
-        <div><span style="display:inline-block;width:28px;font-size:18px">🌿</span> 바질: <span class="st-25">25% 죽기직전</span></div>
+        ${statusList}
         <div style="margin-top:12px; border-top:2px dashed var(--ink); padding-top:12px; font-size:12px; color:var(--muted); line-height:1.4;">
           <strong>※ 상태 범례</strong><br>
           <span class="st-100">100% 건강</span> | <span class="st-70">70% 아픔</span> | <span class="st-50">50% 위험</span><br>
