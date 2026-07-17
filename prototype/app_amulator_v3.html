@@ -283,7 +283,9 @@ input.f:focus{outline:none;border-color:var(--g);box-shadow:0 3px 0 var(--gl)}
 .farm-3d::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(0,0,0,0.15) 2px, transparent 2px), linear-gradient(90deg, rgba(0,0,0,0.15) 2px, transparent 2px); background-size: 40px 40px; border-radius: 8px; }
 .item-3d { position: absolute; transform: rotateX(-40deg); transform-origin: bottom center; display: flex; flex-direction: column; align-items: center; transition: all 0.3s; }
 .plant-emoji { font-size: 42px; filter: drop-shadow(0 5px 0 rgba(0,0,0,0.3)); animation: bob 3s infinite ease-in-out; }
-.plant-status { background: var(--card); border: var(--border-thin); border-radius: var(--radius-pill); padding: 4px 8px; font-size: 11px; font-weight: 900; margin-top: -5px; white-space: nowrap; box-shadow: var(--shadow-sm); color: var(--ink); z-index: 10; }
+.plant-status { position: relative; background: var(--card); border: var(--border-thin); border-radius: 12px; padding: 6px 10px; font-size: 11px; font-weight: 900; margin-top: -8px; white-space: nowrap; box-shadow: var(--shadow-sm); color: var(--ink); z-index: 10; }
+.plant-status::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: var(--ink) transparent transparent transparent; }
+.plant-status::before { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -4px; border-width: 4px; border-style: solid; border-color: var(--card) transparent transparent transparent; z-index: 1; }
 .plant.tomato { left: 10%; top: 15%; z-index: 10; }
 .plant.strawberry { left: 45%; top: 45%; z-index: 20; }
 .plant.basil { left: 75%; top: 10%; z-index: 5; }
@@ -525,11 +527,11 @@ async function mOnboardSubmit(){
 // ---- HOME ----
 function mHome() {
   const healths = [
-    { class: 'st-100', text: '100% 건강' },
-    { class: 'st-70', text: '70% 아픔' },
-    { class: 'st-25', text: '25% 죽기직전' },
-    { class: 'st-50', text: '50% 위험' },
-    { class: 'st-0', text: '0% 사망' }
+    { class: 'st-100', text: '아주 건강해요! 😊', legend: '100% 건강' },
+    { class: 'st-70', text: '조금 아파요 😢', legend: '70% 아픔' },
+    { class: 'st-25', text: '살려주세요... 😱', legend: '25% 죽기직전' },
+    { class: 'st-50', text: '위험해요 🚨', legend: '50% 위험' },
+    { class: 'st-0', text: '...', legend: '0% 사망' }
   ];
   const positions = [
     'left: 10%; top: 15%; z-index: 10;',
@@ -552,7 +554,7 @@ function mHome() {
   const statusList = S.m.plants.map((p, i) => {
     const h = healths[i % healths.length];
     const emj = stageEmoji[p.stage] || '🌱';
-    return `<div><span style="display:inline-block;width:28px;font-size:18px">${emj}</span> ${esc(p.name)}: <span class="${h.class}">${h.text}</span></div>`;
+    return `<div><span style="display:inline-block;width:28px;font-size:18px">${emj}</span> ${esc(p.name)}: <span class="${h.class}">"${h.text}" (${h.legend})</span></div>`;
   }).join('') || '<div class="sub">등록된 식물이 없습니다.</div>';
 
   return `<div class="appbar" onclick="toggleAdminMode()" style="cursor: pointer;" title="클릭하여 관리자 모드 전환">
