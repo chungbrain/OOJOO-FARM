@@ -236,29 +236,41 @@ private fun Farm3DCard(plants: List<Plant>, onClickPlant: (Plant) -> Unit) {
                     }
                 }
                 
+                // Bobbing Animation
+                val infiniteTransition = rememberInfiniteTransition(label="bobbing")
+                val bobOffset by infiniteTransition.animateFloat(initialValue = 0f, targetValue = -8f, animationSpec = infiniteRepeatable(animation = tween(1500, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label="bob")
+                
                 // Plants
                 val positions = listOf(Pair(0.1f, 0.15f), Pair(0.45f, 0.45f), Pair(0.75f, 0.10f), Pair(0.2f, 0.8f), Pair(0.8f, 0.6f))
                 plants.forEachIndexed { i, p ->
                     val hIdx = i % healths.size
                     val pos = positions[i % positions.size]
                     Box(
-                        Modifier.fillMaxSize().padding(start = (pos.first * 300).dp, top = (pos.second * 150).dp).graphicsLayer { rotationX = -40f }.clickable { onClickPlant(p) },
+                        Modifier.fillMaxSize().padding(start = (pos.first * 300).dp, top = (pos.second * 150).dp).clickable { onClickPlant(p) },
                         contentAlignment = Alignment.TopStart
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-50).dp)) {
-                            Text(stageEmoji(p.stage), fontSize = 42.sp)
-                            SpeechBubble(healths[hIdx].second, healthColors[hIdx])
+                        // Flat ground shadow
+                        Box(Modifier.offset(x = 10.dp, y = 5.dp).size(26.dp, 8.dp).background(Color.Black.copy(alpha=0.3f), RoundedCornerShape(50)))
+                        
+                        // Standing item
+                        Box(Modifier.graphicsLayer { rotationX = -40f; translationY = bobOffset + (i % 3) * 2f }) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-50).dp)) {
+                                Text(stageEmoji(p.stage), fontSize = 42.sp, modifier = Modifier.shadow(3.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black).background(Color.Transparent))
+                                SpeechBubble(healths[hIdx].second, healthColors[hIdx])
+                            }
                         }
                     }
                 }
 
                 // Robot
-                val infiniteTransition = rememberInfiniteTransition(label="robot")
                 val rx by infiniteTransition.animateFloat(initialValue = 0f, targetValue = 250f, animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Reverse), label="rx")
-                Box(Modifier.fillMaxSize().padding(start = rx.dp, top = 100.dp).graphicsLayer { rotationX = -40f }, contentAlignment = Alignment.TopStart) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-50).dp)) {
-                        Text("🤖", fontSize = 45.sp)
-                        SpeechBubble("열일중 💦", Color(0xFFF57C00), bg = Color(0xFFFFD54F))
+                Box(Modifier.fillMaxSize().padding(start = rx.dp, top = 100.dp), contentAlignment = Alignment.TopStart) {
+                    Box(Modifier.offset(x = 12.dp, y = 5.dp).size(30.dp, 10.dp).background(Color.Black.copy(alpha=0.4f), RoundedCornerShape(50)))
+                    Box(Modifier.graphicsLayer { rotationX = -40f; translationY = bobOffset }) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-50).dp)) {
+                            Text("🤖", fontSize = 45.sp, modifier = Modifier.shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black).background(Color.Transparent))
+                            SpeechBubble("열일중 💦", Color(0xFFF57C00), bg = Color(0xFFFFD54F))
+                        }
                     }
                 }
             }
