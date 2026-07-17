@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OOJOO FARM — App Emulator v2 Cartoon</title>
+<style>
+/* ============ CARTOON DESIGN TOKENS ============ */
+:root{
+  /* Master — Bright Cartoon Green */
+  --g:#4CAF50; --gd:#2E7D32; --gl:#A5D6A7; --gx:#E8F5E9; --gbg:#F1F8E9;
+  --lime:#C6FF00;
+  /* Slave — Fun Teal */
+  --t:#26A69A; --td:#00695C; --tl:#80CBC4; --tx:#E0F2F1; --tbg:#E0F2F1;
+  /* Accent — Vibrant Cartoon Tones */
+  --amber:#FFC107; --orange:#FF6F00; --red:#FF5252; --blue:#42A5F5; --sky:#4FC3F7; --purple:#AB47BC; --pink:#FF80AB;
+  /* Neutral — Warm Cartoon Ink */
+  --ink:#2D3436; --ink2:#4A4A4A; --muted:#7C7C7C; --muted2:#A0A0A0; --line:#E0E0E0; --line2:#F0F0F0;
+  --bg:#FFF8E1; --card:#FFFFFF; --glass:rgba(255,255,255,.92);
+  /* Cartoon Shadows — hard offset, no blur */
+  --shadow-sm:2px 2px 0 rgba(0,0,0,.08);
+  --shadow:4px 4px 0 rgba(0,0,0,.1);
+  --shadow-lg:6px 6px 0 rgba(0,0,0,.12);
+  --shadow-pop:0 8px 0 rgba(0,0,0,.15);
+  /* Cartoon Radii — extra round */
+  --radius:24px; --radius-sm:18px; --radius-xs:12px; --radius-pill:999px;
+  /* Cartoon Borders — thick outlines */
+  --border:3px solid var(--ink);
+  --border-thin:2px solid var(--ink);
+  /* Gradients — bright, playful */
+  --grad-g:linear-gradient(135deg,#66BB6A,#2E7D32);
+  --grad-t:linear-gradient(135deg,#26A69A,#004D40);
+  --grad-weather:linear-gradient(135deg,#4FC3F7,#1976D2);
+  --grad-cam:linear-gradient(160deg,#81C784,#2E7D32);
+  --grad-lime:linear-gradient(135deg,#C6FF00,#2E7D32);
+  --grad-sun:linear-gradient(135deg,#FFD54F,#FF9800);
+  --grad-candy:linear-gradient(135deg,#FF80AB,#AB47BC);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Comic Sans MS','Segoe UI',system-ui,'Malgun Gothic',cursive,sans-serif;background:linear-gradient(180deg,#1a1a2e,#16213e);color:var(--ink);display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:14px}
+
+/* ============ TOP BAR ============ */
+.top{position:sticky;top:0;z-index:80;display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px}
+.title{color:#FFD54F;font-size:16px;font-weight:700;letter-spacing:.5px;text-shadow:2px 2px 0 rgba(0,0,0,.3)}
+.title small{color:#94A3B8;font-weight:400;font-size:12px}
+.switch{display:flex;gap:4px;background:rgba(255,255,255,.1);padding:6px;border-radius:var(--radius-pill);border:2px solid rgba(255,255,255,.15)}
+.switch button{border:none;background:transparent;color:#94A3B8;font-size:14px;font-weight:700;padding:10px 24px;border-radius:var(--radius-pill);cursor:pointer;transition:all .2s}
+.switch button.on.m{background:var(--grad-g);color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.switch button.on.s{background:var(--grad-t);color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.conn{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.08);padding:8px 14px;border-radius:16px;border:2px solid rgba(255,255,255,.12);color:#cbd5e1;font-size:12px}
+.conn input{background:#0f172a;border:2px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px;font-size:12px;width:200px;outline:none}
+.conn input:focus{border-color:var(--gl)}
+.conn .dot{width:10px;height:10px;border-radius:50%;background:#64748b;transition:.2s}
+.conn.live .dot{background:#22c55e;box-shadow:0 0 10px #22c55e}
+.conn button{border:none;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;background:#475569;color:#e2e8f0;transition:.15s}
+.conn button:hover{background:#64748b}
+
+/* ============ PHONE FRAME — Cartoon Style ============ */
+.phone{position:relative;width:390px;height:820px;background:var(--bg);border-radius:52px;overflow:hidden;
+  box-shadow:0 0 0 5px var(--ink),0 0 0 8px #fff,0 20px 60px rgba(0,0,0,.5);display:none;border:4px solid var(--ink)}
+.phone.show{display:block}
+.phone.slave{background:var(--tbg)}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:30px;background:var(--ink);border-radius:0 0 24px 24px;z-index:60}
+.screen{position:absolute;inset:0;overflow-y:auto;padding-bottom:88px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+
+/* ============ PAGES — Bounce Animation ============ */
+.page{display:none;min-height:100%;animation:cartoonIn .35s cubic-bezier(.34,1.56,.64,1)}
+.page.active{display:block}
+@keyframes cartoonIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ============ APPBAR — Cartoon Banner ============ */
+.appbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:20px 22px 18px;font-size:20px;font-weight:800;color:#fff;
+  background:var(--grad-g);box-shadow:0 4px 0 rgba(0,0,0,.15);border-bottom:3px solid rgba(0,0,0,.1)}
+.phone.slave .appbar{background:var(--grad-t)}
+.appbar .act{font-size:16px;font-weight:700;cursor:pointer;opacity:.95;display:flex;align-items:center;gap:4px;text-shadow:1px 1px 0 rgba(0,0,0,.2)}
+.appbar .back{font-size:24px;cursor:pointer;font-weight:900;line-height:1;padding:4px 10px;border-radius:12px;transition:.15s;text-shadow:1px 1px 0 rgba(0,0,0,.2)}
+.appbar .back:hover{background:rgba(255,255,255,.2)}
+
+/* ============ TAB BAR — Cartoon Floating ============ */
+.tabs{position:absolute;bottom:18px;left:18px;right:18px;height:68px;background:var(--card);border:var(--border);
+  border-radius:28px;box-shadow:var(--shadow-lg);
+  display:flex;align-items:center;justify-content:space-around;z-index:40}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;flex:1;transition:color .15s;position:relative}
+.tab .ic{font-size:22px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.tab.on{color:var(--gd)}
+.tab.on .ic{transform:scale(1.3) translateY(-3px)}
+.tab.on::after{content:'';position:absolute;bottom:-4px;width:6px;height:6px;border-radius:50%;background:var(--gd)}
+.phone.slave .tab.on{color:var(--td)}
+.phone.slave .tab.on::after{background:var(--td)}
+
+/* ============ LAYOUT ============ */
+.pad{padding:20px;display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between}
+.col{display:flex;flex-direction:column}
+
+/* ============ TYPOGRAPHY — Cartoon Bold ============ */
+.h0{font-size:28px;font-weight:900;letter-spacing:-.5px;text-shadow:1px 1px 0 rgba(0,0,0,.06)}
+.h1{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.h2{font-size:17px;font-weight:700}
+.h3{font-size:15px;font-weight:700}
+.sub{color:var(--muted);font-size:13px;line-height:1.5}
+.sub2{color:var(--muted2);font-size:12px;line-height:1.4}
+.hint{font-size:11px;color:var(--muted2);text-align:center;margin-top:8px}
+
+/* ============ CARD — Cartoon Card (thick border + hard shadow) ============ */
+.card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);border:var(--border-thin);transition:transform .12s,box-shadow .12s}
+.card.click{cursor:pointer}
+.card.click:active{transform:scale(.96) translateY(2px);box-shadow:var(--shadow-sm)}
+.card.flat{box-shadow:none;border:2px solid var(--line)}
+.card.glow{box-shadow:var(--shadow),0 0 0 3px var(--gl)}
+.card.pop{box-shadow:var(--shadow-lg)}
+
+/* ============ CHIPS — Cartoon Bubbles ============ */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:var(--radius-pill);font-size:11px;font-weight:800;border:2px solid var(--ink)}
+.chip.ok{background:#C8E6C9;color:var(--gd)}
+.chip.warn{background:#FFE0B2;color:var(--orange)}
+.chip.off{background:#ECEFF1;color:#607D8B}
+.chip.info{background:#BBDEFB;color:#1565C0}
+.chip.purple{background:#E1BEE7;color:var(--purple)}
+.cat{display:inline-flex;align-items:center;padding:8px 16px;border-radius:var(--radius-pill);font-size:12px;font-weight:800;background:#fff;color:var(--muted);border:2px solid var(--line);white-space:nowrap;cursor:pointer;transition:all .15s}
+.cat.on{background:var(--g);color:#fff;border-color:var(--ink);box-shadow:var(--shadow-sm)}
+.cat:active{transform:scale(.93)}
+.phone.slave .cat.on{background:var(--t);border-color:var(--ink)}
+
+/* ============ BUTTONS — Cartoon Buttons (bold, 3D press) ============ */
+.btn{border:var(--border-thin);border-radius:var(--radius-sm);padding:15px 18px;font-size:15px;font-weight:800;cursor:pointer;width:100%;transition:transform .08s,box-shadow .08s;letter-spacing:-.2px}
+.btn:active{transform:translateY(3px);box-shadow:var(--shadow-sm)}
+.btn-pri{background:var(--grad-g);color:#fff;box-shadow:0 5px 0 var(--gd)}
+.btn-pri:active{box-shadow:0 2px 0 var(--gd)}
+.btn-teal{background:var(--grad-t);color:#fff;box-shadow:0 5px 0 var(--td)}
+.btn-teal:active{box-shadow:0 2px 0 var(--td)}
+.btn-gh{background:#fff;color:var(--gd);border:var(--border-thin);box-shadow:0 4px 0 var(--line)}
+.btn-gh:active{box-shadow:0 1px 0 var(--line)}
+.btn-ght{background:#fff;color:var(--td);border:var(--border-thin);box-shadow:0 4px 0 var(--line)}
+.btn-ght:active{box-shadow:0 1px 0 var(--line)}
+.btn-red{background:#fff;color:var(--red);border:var(--border-thin);box-shadow:0 4px 0 var(--line)}
+.btn-red:active{box-shadow:0 1px 0 var(--line)}
+.btn-lime{background:var(--grad-lime);color:var(--gd);box-shadow:0 5px 0 var(--gd)}
+.btn-lime:active{box-shadow:0 2px 0 var(--gd)}
+.btn:disabled{opacity:.5;box-shadow:none}
+.btn.sm{width:auto;padding:10px 16px;font-size:13px;border-radius:var(--radius-xs);box-shadow:0 3px 0 var(--line)}
+.btn.sm:active{box-shadow:0 1px 0 var(--line)}
+.btn-pri.sm{box-shadow:0 3px 0 var(--gd)}
+.btn-teal.sm{box-shadow:0 3px 0 var(--td)}
+
+/* ============ INPUTS — Cartoon Fields ============ */
+input.f,select.f,textarea.f{width:100%;border:var(--border-thin);border-radius:var(--radius-sm);padding:14px 16px;font-size:15px;font-family:inherit;background:#fff;transition:border-color .15s,box-shadow .15s;box-shadow:0 3px 0 var(--line2)}
+input.f:focus{outline:none;border-color:var(--g);box-shadow:0 3px 0 var(--gl)}
+.phone.slave input.f:focus{border-color:var(--t);box-shadow:0 3px 0 var(--tl)}
+.lbl{font-size:13px;font-weight:800;color:var(--muted);margin-bottom:-4px}
+
+/* ============ WEATHER CARD — Cartoon Sky ============ */
+.weather{background:var(--grad-weather);color:#fff;border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;box-shadow:var(--shadow);border:var(--border-thin)}
+.weather::after{content:'';position:absolute;top:-15px;right:-15px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.15)}
+.weather::before{content:'☁️';position:absolute;bottom:10px;right:20px;font-size:24px;opacity:.4}
+.weather .temp{font-size:38px;font-weight:900;line-height:1;text-shadow:2px 2px 0 rgba(0,0,0,.15)}
+.weather .meta{display:flex;gap:16px;margin-top:10px;font-size:13px;opacity:.95;font-weight:700}
+.weather .factor{margin-top:12px;font-size:12px;background:rgba(255,255,255,.25);padding:10px 14px;border-radius:14px;display:inline-flex;align-items:center;gap:6px;font-weight:800;border:2px solid rgba(255,255,255,.2)}
+
+/* ============ TOGGLE — Cartoon Switch ============ */
+.toggle{width:52px;height:30px;border-radius:var(--radius-pill);background:#E0E0E0;position:relative;cursor:pointer;transition:.2s;flex:0 0 auto;border:var(--border-thin)}
+.toggle.on{background:var(--g)}
+.phone.slave .toggle.on{background:var(--t)}
+.toggle i{position:absolute;top:1px;left:1px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 4px rgba(0,0,0,.2);border:2px solid var(--ink)}
+.toggle.on i{left:25px}
+
+/* ============ CAMERA — Cartoon Frame ============ */
+.cam{height:200px;border-radius:var(--radius);background:var(--grad-cam);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:var(--shadow-lg);border:var(--border)}
+.cam .rec{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.5);padding:6px 12px;border-radius:12px;font-size:11px;font-weight:800;border:2px solid rgba(255,255,255,.3)}
+.cam .rec i{width:8px;height:8px;border-radius:50%;background:#FF5252;animation:blink 1.2s infinite;border:1px solid #fff}
+.cam .cross{position:absolute;width:65%;height:65%;border:3px dashed rgba(255,255,255,.5);border-radius:14px}
+.cam .emoji{font-size:56px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3));animation:bob 2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.scanline{position:absolute;left:10%;right:10%;height:4px;background:linear-gradient(90deg,transparent,#C6FF00,transparent);box-shadow:0 0 16px #C6FF00;animation:scan 2s linear infinite;border-radius:2px}
+@keyframes scan{0%{top:10%}100%{top:90%}}
+@keyframes blink{50%{opacity:.15}}
+
+/* ============ AI GAUGE — Cartoon Bar ============ */
+.gauge{display:flex;align-items:center;gap:10px}
+.gauge .bar{flex:1;height:12px;background:var(--line2);border-radius:6px;overflow:hidden;border:2px solid var(--ink)}
+.gauge .fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.gauge .val{font-size:13px;font-weight:900;min-width:40px;text-align:right}
+
+/* ============ LOG ============ */
+.log{font-family:'Courier New',monospace;font-size:11px;color:var(--ink2);line-height:1.8;max-height:160px;overflow:auto}
+.log br+br{display:none}
+
+/* ============ PULSE — Cartoon Bounce ============ */
+.pulse{width:12px;height:12px;border-radius:50%;background:var(--g);display:inline-block;animation:cartoonPulse 1.5s infinite;border:2px solid var(--ink)}
+.phone.slave .pulse{background:var(--t)}
+@keyframes cartoonPulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.5);transform:scale(1)}50%{transform:scale(1.2)}70%{box-shadow:0 0 0 10px rgba(76,175,80,0)}100%{box-shadow:0 0 0 0 rgba(76,175,80,0);transform:scale(1)}}
+
+/* ============ CODE BOX — Comic Panel ============ */
+.codebox{background:linear-gradient(135deg,#2D3436,#4A4A4A);color:#C6FF00;border-radius:var(--radius);padding:30px;text-align:center;letter-spacing:12px;font-size:40px;font-weight:900;font-family:'Courier New',monospace;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;border:var(--border)}
+.codebox::after{content:'';position:absolute;bottom:0;left:0;right:0;height:5px;background:var(--grad-lime)}
+
+/* ============ NOTIFICATION — Comic Sticky Note ============ */
+.noti{border-left:5px solid var(--line);padding:16px 18px;border-radius:var(--radius-sm);background:#FFFDE7;box-shadow:var(--shadow-sm);transition:transform .1s;border:var(--border-thin);border-left-width:6px}
+.noti:active{transform:scale(.98)}
+
+/* ============ TOAST — Cartoon Speech Bubble ============ */
+.toast{position:absolute;bottom:100px;left:20px;right:20px;background:var(--card);color:var(--ink);padding:16px 20px;border-radius:18px;font-size:14px;font-weight:700;z-index:70;opacity:0;transform:translateY(10px) scale(.9);transition:.3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;box-shadow:var(--shadow-lg);border:var(--border)}
+.toast::before{content:'';position:absolute;bottom:-8px;left:30px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:12px solid var(--ink)}
+.toast::after{content:'';position:absolute;bottom:-5px;left:32px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid var(--card)}
+.toast.show{opacity:1;transform:none}
+
+/* ============ STAT ============ */
+.stat{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:2px dashed var(--line2);font-size:14px}
+.stat:last-child{border:none}
+.stat .v{font-weight:900}
+
+/* ============ AVATAR — Cartoon Face ============ */
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;border:var(--border-thin)}
+.avatar.g{background:#C8E6C9}
+.avatar.t{background:#B2DFDB}
+.avatar.a{background:#FFE0B2}
+.avatar.b{background:#BBDEFB}
+
+/* ============ BADGE — Cartoon Star ============ */
+.badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid var(--ink);box-shadow:0 2px 4px rgba(0,0,0,.2)}
+
+/* ============ FAB — Cartoon Action Button ============ */
+.fab{position:absolute;bottom:98px;right:20px;width:60px;height:60px;border-radius:50%;background:var(--grad-g);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 0 var(--gd);z-index:45;transition:transform .1s;border:var(--border)}
+.fab:active{transform:translateY(4px);box-shadow:0 2px 0 var(--gd)}
+.phone.slave .fab{background:var(--grad-t);box-shadow:0 6px 0 var(--td);border-color:var(--ink)}
+.phone.slave .fab:active{box-shadow:0 2px 0 var(--td)}
+
+/* ============ DIVIDER — Dashed Cartoon Line ============ */
+.div{height:0;border:none;border-top:2px dashed var(--line);margin:6px 0}
+
+/* ============ EMPTY — Cartoon Illustration ============ */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty .emoji{font-size:56px;margin-bottom:14px;animation:bob 2.5s ease-in-out infinite}
+
+/* ============ PLANT CARD — Cartoon Pot ============ */
+.plant-card{position:relative;overflow:hidden}
+.plant-card .stripe{position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:0 4px 4px 0}
+.plant-card .stripe.seedling{background:#A5D6A7}
+.plant-card .stripe.vegetative{background:#66BB6A}
+.plant-card .stripe.flowering{background:#FFA000}
+.plant-card .stripe.fruiting{background:#E53935}
+
+/* ============ PRODUCT GRID — Cartoon Shop ============ */
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.prod{background:#fff;border-radius:var(--radius-sm);padding:16px;box-shadow:var(--shadow-sm);cursor:pointer;transition:transform .12s;position:relative;border:var(--border-thin)}
+.prod:active{transform:scale(.94) translateY(2px)}
+.prod .emoji{font-size:40px;margin-bottom:6px}
+.prod .name{font-size:13px;font-weight:800;line-height:1.3;max-height:36px;overflow:hidden}
+.prod .price{font-size:17px;font-weight:900;color:var(--gd);margin-top:4px}
+.prod .rating{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ============ SCROLL H ============ */
+.scroll-h{display:flex;gap:10px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.scroll-h::-webkit-scrollbar{display:none}
+.scroll-h .item{min-width:150px;flex:0 0 auto}
+
+/* ============ SPINNER — Cartoon Bounce ============ */
+.spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;margin:20px auto;border-right-color:var(--gl)}
+.phone.slave .spin{border-top-color:var(--t);border-right-color:var(--tl)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============ COMIC BURST ============ */
+.burst{display:inline-block;background:var(--grad-sun);color:var(--ink);padding:4px 12px;border-radius:var(--radius-pill);font-weight:900;font-size:12px;border:var(--border-thin);box-shadow:var(--shadow-sm)}
+
+/* ============ V3 SPECIFIC CSS ============ */
+.weather-card { border-radius: var(--radius); padding: 20px; border: var(--border); box-shadow: var(--shadow-lg); color: #fff; position: relative; overflow: hidden; transition: background 0.5s; }
+.weather-card.day { background: var(--day-bg, linear-gradient(135deg, #4FC3F7, #42A5F5)); }
+.weather-card.night { background: var(--night-bg, linear-gradient(135deg, #3949AB, #1A237E)); }
+.weather-card.rain { background: var(--rain-bg, linear-gradient(135deg, #78909C, #37474F)); }
+.weather-info { position: relative; z-index: 2; }
+.weather-card .temp { font-size: 46px; font-weight: 900; text-shadow: 2px 2px 0 rgba(0,0,0,.2); }
+.weather-status { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+.metrics-row { display: flex; gap: 10px; margin-top: 15px; }
+.metric-chip { background: rgba(255,255,255,.2); border: 2px solid rgba(255,255,255,.4); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px; font-weight: 800; flex: 1; text-align: center; }
+.rain-container { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.drop { position: absolute; width: 3px; height: 18px; background: rgba(255, 255, 255, 0.7); border-radius: 3px; animation: fall linear infinite; }
+@keyframes fall { 0% { transform: translateY(-20px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(200px); opacity: 0; } }
+
+.farm-3d-wrapper { perspective: 800px; margin-top: 20px; margin-bottom: 45px; }
+.farm-3d { width: 100%; height: 220px; background: #8D6E63; border: var(--border); border-radius: 12px; transform: rotateX(40deg); transform-style: preserve-3d; box-shadow: 0 15px 0 #5D4037, 0 18px 0 var(--ink), 0 30px 20px rgba(0,0,0,.4); position: relative; }
+.farm-3d::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(0,0,0,0.15) 2px, transparent 2px), linear-gradient(90deg, rgba(0,0,0,0.15) 2px, transparent 2px); background-size: 40px 40px; border-radius: 8px; }
+.item-3d { position: absolute; transform: rotateX(-40deg); transform-origin: bottom center; display: flex; flex-direction: column; align-items: center; transition: all 0.3s; }
+.plant-emoji { font-size: 42px; filter: drop-shadow(0 5px 0 rgba(0,0,0,0.3)); animation: bob 3s infinite ease-in-out; }
+.plant-status { background: var(--card); border: var(--border-thin); border-radius: var(--radius-pill); padding: 4px 8px; font-size: 11px; font-weight: 900; margin-top: -5px; white-space: nowrap; box-shadow: var(--shadow-sm); color: var(--ink); z-index: 10; }
+.plant.tomato { left: 10%; top: 15%; z-index: 10; }
+.plant.strawberry { left: 45%; top: 45%; z-index: 20; }
+.plant.basil { left: 75%; top: 10%; z-index: 5; }
+.st-100 { color: #2E7D32; } .st-70 { color: #F57C00; } .st-50 { color: #D32F2F; } .st-25 { color: #C2185B; animation: blink 1s infinite; } .st-0 { color: #616161; }
+@keyframes blink { 50% { opacity: 0.5; color: red; } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.robot-3d { left: 20%; top: 60%; z-index: 30; animation: robotPatrol 15s infinite ease-in-out; }
+.robot-emoji { font-size: 45px; filter: drop-shadow(0 8px 0 rgba(0,0,0,0.4)); }
+.robot-laser { position: absolute; width: 4px; height: 60px; background: rgba(0, 255, 255, 0.8); bottom: 25px; left: 50%; transform-origin: bottom center; opacity: 0; border-radius: 2px; box-shadow: 0 0 10px cyan; animation: laserScan 15s infinite linear; }
+@keyframes robotPatrol { 0% { transform: rotateX(-40deg) translate(0, 0); } 15% { transform: rotateX(-40deg) translate(-10px, -65px); } 25% { transform: rotateX(-40deg) translate(-10px, -65px); } 40% { transform: rotateX(-40deg) translate(90px, -15px); } 50% { transform: rotateX(-40deg) translate(90px, -15px); } 65% { transform: rotateX(-40deg) translate(170px, -85px); } 75% { transform: rotateX(-40deg) translate(170px, -85px); } 90% { transform: rotateX(-40deg) translate(20px, 15px); } 100% { transform: rotateX(-40deg) translate(0, 0); } }
+@keyframes laserScan { 0%, 14%, 26%, 39%, 51%, 64%, 76%, 100% { opacity: 0; } 18%, 43%, 68% { opacity: 1; transform: rotate(15deg); } 22%, 47%, 72% { opacity: 1; transform: rotate(-15deg); } }
+.debug { background: var(--card); border: var(--border-thin); border-radius: var(--radius-sm); padding: 12px; font-size: 12px; box-shadow: var(--shadow); }
+.debug button { background: var(--bg); border: 2px solid var(--ink); border-radius: 8px; padding: 6px 10px; font-weight: 800; cursor: pointer; margin: 3px 3px 0 0; font-family: inherit; }
+.debug button:active { transform: translateY(2px); }
+
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title">🎨 OOJOO FARM <small>· Cartoon Edition · 390×820</small></div>
+  <div class="switch">
+    <button id="swM" class="on m" onclick="setApp('master')">Master</button>
+    <button id="swS" class="s" onclick="setApp('slave')">Farmer</button>
+  </div>
+  <div class="conn" id="conn">
+    <span class="dot"></span>
+    <span id="connLabel">Mock</span>
+    <input id="baseUrl" value="http://localhost:4000" placeholder="Backend URL">
+    <button onclick="toggleLive()">Live</button>
+  </div>
+</div>
+
+<!-- ===================== MASTER ===================== -->
+<div class="phone master show" id="phoneM">
+  <div class="notch"></div>
+  <div class="screen" id="mScreen"></div>
+  <div class="tabs" id="mTabs" style="display:none">
+    <div class="tab" data-t="home" onclick="mGo('home')"><span class="ic">🏡</span>홈</div>
+    <div class="tab" data-t="plants" onclick="mGo('plants')"><span class="ic">🌱</span>식물</div>
+    <div class="tab" data-t="farmers" onclick="mGo('farmers')"><span class="ic">🤖</span>Farmer</div>
+    <div class="tab" data-t="market" onclick="mGo('market')"><span class="ic">🛒</span>마켓</div>
+    <div class="tab" data-t="community" onclick="mGo('community')"><span class="ic">🏘️</span>이웃</div>
+  </div>
+  <div class="toast" id="mToast"></div>
+</div>
+
+<!-- ===================== SLAVE ===================== -->
+<div class="phone slave" id="phoneS">
+  <div class="notch"></div>
+  <div class="screen" id="sScreen"></div>
+  <div class="toast" id="sToast"></div>
+</div>
+
+<script>
+// ============ STATE ============
+const S = {
+  app:'master', live:false, base:'http://localhost:4000',
+  m:{ userId:null, nickname:'', region:'Seoul', page:'onboarding',
+      slaves:[], plants:[], notifications:[], weather:null, curPlant:null, pairCode:null,
+      mkCat:'all', mkQuery:'', products:[], categories:[], bundles:[], recos:[], curProduct:null,
+      cart:[], orders:[],
+      cType:null, cQuery:'', cposts:[], curPost:null, plan:'free', curSlave:null },
+  s:{ slaveId:null, sessionKey:null, region:'Seoul', autoOn:true, headless:false, hw:false,
+      page:'pairing', logs:[], analysis:null, lastWater:null, status:'자율 관리 대기 중', pendingLaser:false }
+};
+
+// ============ MOCK DATA ============
+const MOCK = {
+  weather:{ region:'Seoul', temp:29, humidity:45, precipitation:0, weatherFactor:1.25 },
+  slaves:[ {id:'slv_ab12cd34', name:'베란다 토마토 Farmer', online:1, last_seen:'방금', battery:82} ],
+  plants:[
+    {id:'plt_001', name:'방울토마토', species:'토마토', planted_at:'2026-05-01', stage:'fruiting', slave_id:'slv_ab12cd34'},
+    {id:'plt_002', name:'바질', species:'허브', planted_at:'2026-06-10', stage:'vegetative', slave_id:null}
+  ],
+  waterings:[
+    {amount_ml:360,source:'auto',weather_factor:1.25,created_at:'2026-07-09 08:12'},
+    {amount_ml:300,source:'manual',weather_factor:1.0,created_at:'2026-07-08 19:40'},
+    {amount_ml:420,source:'auto',weather_factor:1.3,created_at:'2026-07-08 08:10'}
+  ],
+  events:[
+    {type:'harvest_ready',payload:'{"count":3}',created_at:'2026-07-09 07:50',slave_name:'베란다 토마토 Farmer',plant_name:'방울토마토'},
+    {type:'pest_detected',payload:'{}',created_at:'2026-07-09 06:20',slave_name:'베란다 토마토 Farmer',plant_name:'방울토마토'},
+    {type:'auto_water',payload:'{"amount":360}',created_at:'2026-07-09 08:12',slave_name:'베란다 토마토 Farmer',plant_name:'방울토마토'}
+  ],
+  categories:[
+    {key:'fertilizer',label:'비료·배양토',count:3},{key:'seed',label:'씨앗·모종',count:3},
+    {key:'watering',label:'급수·밸브',count:3},{key:'pest',label:'해충 퇴치',count:2},
+    {key:'controller',label:'ESP32',count:2},{key:'lighting',label:'조명',count:1},
+    {key:'pot',label:'화분·틀',count:1},{key:'meter',label:'계측기',count:1},{key:'phone',label:'Farmer용 폰',count:1}
+  ],
+  products:[
+    {id:'prd_fert_01',category:'fertilizer',name:'유기농 채소 비료 2kg',description:'채소·과채용 완효성 유기질 비료. 흙을 살리는 천연 원료.',price:12900,vendor:'self',image:'🌿',affiliate_url:null,stock:120,rating:4.7},
+    {id:'prd_seed_01',category:'seed',name:'방울토마토 씨앗 30립',description:'베란다 재배용 왜성 품종. 초보자도 쉽게.',price:3900,vendor:'self',image:'🍅',affiliate_url:null,stock:300,rating:4.8},
+    {id:'prd_seed_02',category:'seed',name:'바질 모종 3포트',description:'허브 초보용 모종. 향긋한 바질을 집에서.',price:6900,vendor:'self',image:'🌱',affiliate_url:null,stock:150,rating:4.5},
+    {id:'prd_water_01',category:'watering',name:'12V 솔레노이드 밸브',description:'자동 관수 전자 밸브. 내구성 우수.',price:8900,vendor:'self',image:'🚰',affiliate_url:null,stock:90,rating:4.5},
+    {id:'prd_water_02',category:'watering',name:'소형 워터펌프 세트',description:'탱크→화분 급수 펌프+호스 세트.',price:13900,vendor:'self',image:'💧',affiliate_url:null,stock:70,rating:4.4},
+    {id:'prd_pest_01',category:'pest',name:'퇴치용 DC 팬 모듈',description:'곤충 접근 시 자동 가동.',price:7900,vendor:'self',image:'🌀',affiliate_url:null,stock:60,rating:4.2},
+    {id:'prd_pest_02',category:'pest',name:'저출력 레이저 모듈',description:'안전 규격 퇴치용 레이저.',price:24900,vendor:'self',image:'🔦',affiliate_url:null,stock:25,rating:4.1},
+    {id:'prd_ctrl_01',category:'controller',name:'ESP32 컨트롤러 보드',description:'BLE+WiFi 제어 허브. OOJOO FARM 핵심 부품.',price:9900,vendor:'self',image:'🔌',affiliate_url:null,stock:200,rating:4.8},
+    {id:'prd_light_01',category:'lighting',name:'LED 식물 성장등 20W',description:'풀스펙트럼 식물용 조명.',price:18900,vendor:'BrightGrow',image:'💡',affiliate_url:'https://example.com/aff/led',stock:999,rating:4.5},
+    {id:'prd_meter_01',category:'meter',name:'토양 수분·온도 센서',description:'토양 수분+온도 동시 측정.',price:4900,vendor:'self',image:'📟',affiliate_url:null,stock:140,rating:4.3},
+    {id:'prd_phone_01',category:'phone',name:'중고 갤럭시 (Farmer용)',description:'정비 완료 중고폰. Farmer 기기로 최적.',price:59000,vendor:'ReusePhone',image:'📱',affiliate_url:'https://example.com/aff/phone',stock:999,rating:4.2}
+  ],
+  bundles:[
+    {id:'bdl_starter',name:'초보 자동재배 스타터 키트',description:'ESP32+밸브+펌프+배양토+씨앗',price:39900,image:'📦',items:[{id:'prd_ctrl_01',name:'ESP32 컨트롤러',price:9900},{id:'prd_water_01',name:'밸브',price:8900},{id:'prd_seed_01',name:'토마토 씨앗',price:3900}]},
+    {id:'bdl_farmer',name:'Farmer 기기 번들',description:'중고폰+ESP32+토양센서',price:69900,image:'🤖',items:[{id:'prd_phone_01',name:'중고 갤럭시',price:59000},{id:'prd_ctrl_01',name:'ESP32',price:9900},{id:'prd_meter_01',name:'토양센서',price:4900}]}
+  ],
+  cposts:[
+    {id:'cp1',user_id:'u_a',type:'share',title:'상추 너무 많이 자랐어요 나눔해요',crop:'상추',quantity:'한 봉지',price:null,region:'Seoul',description:'베란다 상추가 폭발했어요. 필요하신 이웃 댓글 주세요!',image:'🥬',status:'open',created_at:'2026-07-09 09:10',author_name:'초록엄지',author_score:12,author_deals:8,
+      comments:[{author_name:'토마토킹',body:'저 받고 싶어요! 오늘 저녁 가능할까요?',created_at:'09:20'}]},
+    {id:'cp2',user_id:'u_b',type:'sell',title:'유기농 방울토마토 팝니다',crop:'방울토마토',quantity:'500g',price:5000,region:'Seoul',description:'무농약으로 키웠습니다. 새콤달콤!',image:'🍅',status:'reserved',created_at:'2026-07-09 08:00',author_name:'베란다농부',author_score:23,author_deals:15,comments:[]},
+    {id:'cp3',user_id:'u_c',type:'buy',title:'바질 모종 구합니다',crop:'바질',quantity:'2~3포트',price:null,region:'Seoul',description:'나눔/판매 모두 환영이에요.',image:'🌿',status:'open',created_at:'2026-07-08 20:30',author_name:'허브러버',author_score:5,author_deals:3,comments:[]}
+  ]
+};
+
+// ============ API ============
+async function api(path, opts){
+  if(!S.live) throw new Error('mock');
+  const r = await fetch(S.base.replace(/\/$/,'') + path, { headers:{'Content-Type':'application/json', ...(opts&&opts.headers)}, ...opts });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+const jpost=(p,b,h)=>api(p,{method:'POST',body:JSON.stringify(b),headers:h});
+const jget=(p,h)=>api(p,{headers:h});
+
+function toggleLive(){
+  S.base = document.getElementById('baseUrl').value.trim();
+  S.live = !S.live;
+  document.getElementById('conn').classList.toggle('live',S.live);
+  document.getElementById('connLabel').textContent = S.live?'Live':'Mock';
+  toast(S.app, S.live? '백엔드 연결됨!':'Mock 모드');
+}
+
+// ============ COMMON ============
+function setApp(a){
+  S.app=a;
+  document.getElementById('phoneM').classList.toggle('show',a==='master');
+  document.getElementById('phoneS').classList.toggle('show',a==='slave');
+  document.getElementById('swM').className='m'+(a==='master'?' on':'');
+  document.getElementById('swS').className='s'+(a==='slave'?' on':'');
+}
+function toast(app,msg){
+  const t=document.getElementById(app==='master'?'mToast':'sToast');
+  t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400);
+}
+const esc=s=>(s==null?'':(''+s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])));
+const won=v=>'₩'+(v||0).toLocaleString('ko-KR');
+const stageK={seedling:'묘목',vegetative:'영양생장',flowering:'개화',fruiting:'결실'};
+const stageColor={seedling:'#A5D6A7',vegetative:'#66BB6A',flowering:'#FFA000',fruiting:'#E53935'};
+const stageEmoji={seedling:'🌱',vegetative:'🌿',flowering:'🌸',fruiting:'🍅'};
+const notiL={harvest_ready:'🍅 수확 적기!',pest_detected:'🐛 해충 발견!',auto_water:'💧 자율 관수 완료!',manual_water:'💧 수동 관수!',anomaly:'⚠️ 이상 징후!',capture:'📷 캡처 완료'};
+const notiC={harvest_ready:'#FFA000',pest_detected:'#FF5252',auto_water:'#42A5F5',manual_water:'#42A5F5',anomaly:'#FF5252'};
+const cTypeL=t=>({share:'나눔',sell:'판매',buy:'구입'}[t]||t);
+const cStatusL=s=>({reserved:'예약중',done:'거래완료'}[s]||'');
+
+// ==================== MASTER ====================
+function mTabs(show,cur){
+  const t=document.getElementById('mTabs');t.style.display=show?'flex':'none';
+  t.querySelectorAll('.tab').forEach(el=>el.classList.toggle('on',el.dataset.t===cur));
+}
+async function mGo(page){
+  S.m.page=page;
+  const withTab=['home','plants','farmers','market','community'].includes(page);
+  mTabs(withTab,page);
+  const sc=document.getElementById('mScreen');
+  const loaders={home:mLoadHome,plants:mLoadPlants,notifications:mLoadNoti,market:mLoadMarket,community:mLoadCommunity,orders:mLoadOrders};
+  if(loaders[page]) await loaders[page]();
+  const renderers={onboarding:mOnboarding,home:mHome,plants:mPlants,plantDetail:mPlantDetail,register:mRegister,farmers:mFarmers,pairing:mPairing,notifications:mNoti,market:mMarket,product:mProduct,cart:mCart,orders:mOrders,community:mCommunity,post:mPost,cwrite:mCwrite,report:mReport,sub:mSub,liveCamera:mLiveCamera};
+  sc.innerHTML = renderers[page] ? renderers[page]() : '<div class="empty"><div class="emoji">🚧</div>준비 중...</div>';
+  if(page==='home') setTimeout(initWeatherAndTime, 50);
+}
+
+async function mLoadHome(){
+  try{
+    if(S.live){
+      S.m.slaves=(await jget('/api/pairing/'+S.m.userId)).slaves;
+      S.m.plants=(await jget('/api/plants/'+S.m.userId)).plants;
+      S.m.weather=await jget('/api/weather/'+encodeURIComponent(S.m.region));
+    } else { S.m.slaves=MOCK.slaves; S.m.plants=MOCK.plants; S.m.weather=MOCK.weather; }
+  }catch(e){ S.m.slaves=MOCK.slaves; S.m.plants=MOCK.plants; S.m.weather=MOCK.weather; toast('master','조회 실패 — Mock 표시'); }
+}
+async function mLoadPlants(){ try{ S.m.plants = S.live?(await jget('/api/plants/'+S.m.userId)).plants:MOCK.plants; }catch(e){ S.m.plants=MOCK.plants; } }
+async function mLoadNoti(){ try{ S.m.notifications = S.live?(await jget('/api/notifications/'+S.m.userId)).notifications:MOCK.events; }catch(e){ S.m.notifications=MOCK.events; } }
+async function mLoadMarket(){
+  try{
+    if(S.live){
+      S.m.categories=(await jget('/api/market/categories')).categories;
+      S.m.products=(await jget('/api/market/products'+mkQuery())).products;
+      S.m.bundles=(await jget('/api/market/bundles')).bundles;
+      S.m.recos=(await jget('/api/market/recommendations/'+S.m.userId)).recommendations;
+    } else {
+      S.m.categories=MOCK.categories;
+      S.m.products=MOCK.products.filter(p=>(S.m.mkCat==='all'||p.category===S.m.mkCat) && (!S.m.mkQuery||(p.name+p.description).toLowerCase().includes(S.m.mkQuery.toLowerCase())));
+      S.m.bundles=MOCK.bundles;
+      S.m.recos=MOCK.products.filter(p=>['prd_ctrl_01','prd_fert_01','prd_seed_01'].includes(p.id));
+    }
+  }catch(e){ S.m.categories=MOCK.categories; S.m.products=MOCK.products; S.m.bundles=MOCK.bundles; S.m.recos=[]; toast('master','마켓 조회 실패'); }
+}
+function mkQuery(){ const q=[]; if(S.m.mkCat!=='all')q.push('category='+S.m.mkCat); if(S.m.mkQuery)q.push('q='+encodeURIComponent(S.m.mkQuery)); return q.length?'?'+q.join('&'):''; }
+async function mLoadOrders(){ try{ S.m.orders = S.live?(await jget('/api/market/orders/'+S.m.userId)).orders:S.m.orders; }catch(e){} }
+async function mLoadCommunity(){
+  try{
+    if(S.live){
+      const q=['region='+encodeURIComponent(S.m.region),'viewerId='+S.m.userId];
+      if(S.m.cType)q.push('type='+S.m.cType); if(S.m.cQuery)q.push('q='+encodeURIComponent(S.m.cQuery));
+      S.m.cposts=(await jget('/api/community/posts?'+q.join('&'))).posts;
+    } else {
+      S.m.cposts=MOCK.cposts.filter(p=>(!S.m.cType||p.type===S.m.cType) && (!S.m.cQuery||(p.title+(p.crop||'')).toLowerCase().includes(S.m.cQuery.toLowerCase())));
+    }
+  }catch(e){ S.m.cposts=MOCK.cposts; toast('master','커뮤니티 조회 실패'); }
+}
+
+// ---- ONBOARDING ----
+function mOnboarding(){
+  return `<div class="appbar">🎨 OOJOO FARM</div><div class="pad" style="padding-top:30px">
+    <div style="text-align:center;margin-bottom:10px"><div style="font-size:72px;margin-bottom:14px;animation:bob 2s infinite">🌻</div>
+    <div class="h0">안녕하세요!</div>
+    <div class="sub" style="margin-top:8px">누구나 집에서 키우는<br>재미있는 스마트 농장 🌱</div></div>
+    <div class="lbl">닉네임</div><input class="f" id="obNick" placeholder="예: 농부민준">
+    <div class="lbl">재배 지역</div><input class="f" id="obRegion" value="Seoul" placeholder="Seoul, Busan, 수원">
+    <div class="lbl">서버 주소</div><input class="f" id="obServer" value="${esc(S.base)}">
+    <button class="btn btn-pri" onclick="mOnboardSubmit()">🚀 시작하기!</button>
+    <div class="hint">Live 모드면 실제 백엔드에 계정이 생성됩니다</div>
+  </div>`;
+}
+async function mOnboardSubmit(){
+  const nick=document.getElementById('obNick').value.trim();
+  const region=document.getElementById('obRegion').value.trim()||'Seoul';
+  S.base=document.getElementById('obServer').value.trim();
+  S.m.region=region; S.m.nickname=nick;
+  try{
+    if(S.live){ const u=await jpost('/api/users',{nickname:nick||null,region}); S.m.userId=u.id; }
+    else { S.m.userId='usr_mock01'; }
+    toast('master','환영해요, '+(nick||'농부')+'님! 🎉');
+    mGo('home');
+  }catch(e){ toast('master','계정 생성 실패: '+e.message); }
+}
+
+// ---- HOME ----
+function mHome() {
+  return `<div class="appbar" onclick="toggleAdminMode()" style="cursor: pointer;" title="클릭하여 관리자 모드 전환">
+    🏡 OOJOO FARM 
+    <span class="act" onclick="event.stopPropagation(); mGo('notifications')" style="position:relative">
+      🔔${S.m.notifications.length?' <span class="badge" style="top:-8px;right:-10px">'+S.m.notifications.length+'</span>':''}
+    </span>
+  </div>
+  <div class="pad">
+    <!-- Debug Panel -->
+    <div class="debug" id="debugPanel" style="display: none;">
+      <div style="font-weight: 800; margin-bottom: 5px;">⚙️ 관리자용 테스트 패널</div>
+      <button onclick="applyWeather(false, false, 25)">낮/맑음</button>
+      <button onclick="applyWeather(true, false, 18)">밤/맑음</button>
+      <button onclick="applyWeather(false, true, 22)">낮/비</button>
+      <button onclick="applyWeather(true, true, 16)">밤/비</button>
+      <button onclick="initWeatherAndTime()">🔄 자동 모드 복귀</button>
+    </div>
+
+    <!-- WEATHER CARD -->
+    <div class="weather-card day" id="weatherCard">
+      <div class="rain-container" id="rainContainer"></div>
+      <div class="weather-info">
+        <div class="weather-status" id="weatherStatus">날씨 로딩중...</div>
+        <div class="temp" id="temperature">--°C</div>
+        <div class="metrics-row">
+          <div class="metric-chip">💧 <span id="humidity">--%</span></div>
+          <div class="metric-chip">☀️ <span id="sunlight">-- lx</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D FARM CARD -->
+    <div class="card">
+      <div class="card-title" style="font-size: 18px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <span>🚜 나의 3D 농장</span>
+        <span style="font-size:12px; color:var(--muted)">실시간 자동 관리</span>
+      </div>
+      
+      <div class="farm-3d-wrapper">
+        <div class="farm-3d">
+          <div class="item-3d plant tomato">
+            <div class="plant-emoji">🍅</div>
+            <div class="plant-status st-100">100% 건강</div>
+          </div>
+          <div class="item-3d plant strawberry">
+            <div class="plant-emoji">🍓</div>
+            <div class="plant-status st-70">70% 아픔</div>
+          </div>
+          <div class="item-3d plant basil">
+            <div class="plant-emoji">🌿</div>
+            <div class="plant-status st-25">25% 죽기직전</div>
+          </div>
+          <div class="item-3d robot-3d">
+            <div class="robot-laser"></div>
+            <div class="robot-emoji">🤖</div>
+            <div class="plant-status" style="margin-top:2px; background:#FFD54F">열일중 💦</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS LIST -->
+    <div class="card" style="margin-top:-20px;">
+      <div class="card-title" style="font-size: 18px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">📋 식물 건강 상태</div>
+      <div style="font-size:14px; font-weight:800; line-height:2;">
+        <div><span style="display:inline-block;width:28px;font-size:18px">🍅</span> 토마토: <span class="st-100">100% 건강</span></div>
+        <div><span style="display:inline-block;width:28px;font-size:18px">🍓</span> 딸기: <span class="st-70">70% 아픔</span></div>
+        <div><span style="display:inline-block;width:28px;font-size:18px">🌿</span> 바질: <span class="st-25">25% 죽기직전</span></div>
+        <div style="margin-top:12px; border-top:2px dashed var(--ink); padding-top:12px; font-size:12px; color:var(--muted); line-height:1.4;">
+          <strong>※ 상태 범례</strong><br>
+          <span class="st-100">100% 건강</span> | <span class="st-70">70% 아픔</span> | <span class="st-50">50% 위험</span><br>
+          <span class="st-25">25% 죽기직전</span> | <span class="st-0">0% 사망</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+async function mQuickWater(id,name){
+  const s = id? {id,name} : (S.m.slaves.find(x=>x.online)||S.m.slaves[0]);
+  if(!s){ toast('master','연결된 Farmer 없음!'); return; }
+  try{
+    const wf=(S.m.weather&&S.m.weather.weatherFactor)||1;
+    if(S.live) await jpost('/api/commands',{slaveId:s.id,action:'water',amountMl:Math.round(300*wf),weatherFactor:wf});
+    toast('master','💧 관수 지시 전송! → '+(s.name||s.id));
+  }catch(e){ toast('master','전송 실패: '+e.message); }
+}
+function mOpenPlant(id){ S.m.curPlant=(S.m.plants.find(p=>p.id===id))||MOCK.plants[0]; mGo('plantDetail'); }
+
+// ---- PLANTS ----
+function mPlants(){
+  const list=S.m.plants.map(p=>`
+    <div class="card click plant-card" onclick="mOpenPlant('${p.id}')">
+      <div class="stripe" style="background:${stageColor[p.stage]||'#A5D6A7'}"></div>
+      <div class="row" style="padding-left:8px">
+        <div style="font-size:32px">${stageEmoji[p.stage]||'🌱'}</div>
+        <div style="flex:1"><div class="h3">${esc(p.name)}</div>
+        <div class="sub">${esc(p.species||'?')} / 식재 ${esc(p.planted_at||'?')}</div>
+        <div class="sub">Farmer: ${p.slave_id?esc(p.slave_id.slice(0,8)):'미연결'}</div></div>
+        <span class="chip ok">${stageK[p.stage]||p.stage||'?'}</span>
+      </div>
+    </div>`).join('') || `<div class="card"><div class="empty"><div class="emoji">🌱</div>등록된 식물이 없어요!<br><span class="sub">＋ 버튼으로 등록해요</span></div></div>`;
+  return `<div class="appbar">🌱 내 식물 <span class="act" onclick="mGo('register')">＋ 등록</span></div><div class="pad">${list}</div>
+  <div class="fab" onclick="mGo('register')">＋</div>`;
+}
+function mPlantDetail(){
+  const p=S.m.curPlant||MOCK.plants[0];
+  const w=S.m.weather||MOCK.weather;
+  const waters=MOCK.waterings.map(x=>`<div class="stat"><span><b>${x.amount_ml}ml</b> · ${x.source==='auto'?'🤖 자율':'✋ 수동'}</span><span class="sub">${x.created_at} ×${x.weather_factor}</span></div>`).join('');
+  const evs=MOCK.events.map(e=>`<div class="stat"><span>${notiL[e.type]||e.type}</span><span class="sub">${e.created_at}</span></div>`).join('');
+  return `<div class="appbar"><span class="back" onclick="mGo('plants')">‹</span> 🌱 식물 상세 <span></span></div><div class="pad">
+    <div class="card pop" style="border-left:6px solid ${stageColor[p.stage]||'#A5D6A7'}">
+      <div style="font-size:48px;margin-bottom:6px;animation:bob 2s infinite">${stageEmoji[p.stage]||'🌱'}</div>
+      <div class="h0" style="margin-bottom:8px">${esc(p.name)}</div>
+      <div class="sub">종류: ${esc(p.species||'미상')}</div>
+      <div class="sub">식재일: ${esc(p.planted_at||'미상')}</div>
+      <div class="sub">단계: ${stageK[p.stage]||p.stage||'미상'}</div>
+      <div class="sub">Farmer: ${p.slave_id?esc(p.slave_id.slice(0,8)):'미연결'}</div>
+    </div>
+    <button class="btn btn-pri" onclick="mQuickWater('${p.slave_id||''}')" ${p.slave_id?'':'disabled'}>💧 빠른 관수!</button>
+    <div class="weather"><div class="between"><div><div style="opacity:.9;font-size:13px">${esc(w.region)}</div><div class="temp" style="font-size:30px">${Math.round(w.temp)}°</div></div><div style="font-size:36px;animation:bob 3s infinite">☀️</div></div>
+      <div class="meta"><span>습도 ${Math.round(w.humidity)}%</span><span>가중치 ×${w.weatherFactor}</span></div></div>
+    <div class="h2">📊 관수 이력</div><div class="card">${waters}</div>
+    <div class="h2">📌 최근 이벤트</div><div class="card">${evs||'<div class="sub">이벤트 없음</div>'}</div>
+  </div>`;
+}
+function mRegister(){
+  const opts=S.m.slaves.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  return `<div class="appbar"><span class="back" onclick="mGo('plants')">‹</span> 🌱 식물 등록 <span></span></div><div class="pad">
+    <div class="lbl">식물 이름 *</div><input class="f" id="rgName" placeholder="방울토마토">
+    <div class="lbl">작물 종류</div><input class="f" id="rgSpecies" placeholder="토마토, 바질">
+    <div class="lbl">식재일</div><input class="f" id="rgDate" placeholder="YYYY-MM-DD">
+    <div class="lbl">담당 Farmer</div><select class="f" id="rgSlave"><option value="">선택 안함</option>${opts}</select>
+    <div class="lbl">생장 단계</div><select class="f" id="rgStage"><option value="seedling">🌱 묘목</option><option value="vegetative">🌿 영양생장</option><option value="flowering">🌸 개화</option><option value="fruiting">🍅 결실</option></select>
+    <button class="btn btn-pri" onclick="mRegisterSubmit()">🌱 식물 등록!</button>
+  </div>`;
+}
+async function mRegisterSubmit(){
+  const name=document.getElementById('rgName').value.trim();
+  if(!name){ toast('master','식물 이름을 입력하세요!'); return; }
+  const body={userId:S.m.userId,name,species:document.getElementById('rgSpecies').value.trim()||null,plantedAt:document.getElementById('rgDate').value.trim()||null,slaveId:document.getElementById('rgSlave').value||null,stage:document.getElementById('rgStage').value};
+  try{ if(S.live) await jpost('/api/plants',body); else MOCK.plants.push({id:'plt_'+Date.now(),...body,slave_id:body.slaveId});
+    toast('master','🌱 식물이 등록되었어요!'); mGo('plants');
+  }catch(e){ toast('master','등록 실패: '+e.message); }
+}
+
+// ---- FARMERS ----
+function mFarmers(){
+  const list=S.m.slaves.map(s=>`
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <div class="avatar g" style="width:52px;height:52px;font-size:26px">🤖</div>
+        <div style="flex:1"><div class="h3">${esc(s.name)}</div>
+        <div class="sub">${s.online?'🟢 온라인':'⚪ 오프라인'}${s.battery!=null?' · 🔋'+s.battery+'%':''}</div>
+        <div class="sub">마지막 통신: ${esc(s.last_seen||'-')}</div></div>
+        <span class="pulse"></span>
+      </div>
+      <div class="row" style="gap:8px"><button class="btn btn-gh sm" style="flex:1" onclick="mCmd('${s.id}','pause')">⏸ 정지</button><button class="btn btn-gh sm" style="flex:1" onclick="mCmd('${s.id}','resume')">▶ 재개</button></div>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn btn-gh sm" style="flex:1" onclick="mPest('${s.id}','fan')">🌀 Fan</button><button class="btn btn-gh sm" style="flex:1" onclick="mPest('${s.id}','laser')">🔦 Laser</button></div>
+      <button class="btn btn-pri" style="margin-top:8px" onclick="mLiveCamera('${s.id}','${esc(s.name)}')">📹 카메라 보기 (3초)</button>
+      <div class="between" style="margin-top:12px">
+        <span style="color:var(--gd);font-size:13px;font-weight:800;cursor:pointer" onclick="S.m.curSlave='${s.id}';mGo('report')">📊 리포트</span>
+        <span style="color:var(--red);font-size:13px;font-weight:800;cursor:pointer" onclick="mUnpair('${s.id}')">연결 해제</span>
+      </div>
+    </div>`).join('') || `<div class="card"><div class="empty"><div class="emoji">🤖</div>연결된 Farmer가 없어요!<br><span class="sub">＋ 버튼으로 페어링해요</span></div></div>`;
+  return `<div class="appbar">🤖 Farmer 관리 <span class="act" onclick="mGo('sub')">⭐ 구독</span></div><div class="pad">${list}</div>
+  <div class="fab" onclick="mGo('pairing')">＋</div>`;
+}
+function mLiveCamera(id,name){ S.m.curSlave=id; mGo('liveCamera'); }
+function mLiveCamera(){
+  return `<div class="appbar"><span class="back" onclick="mGo('farmers')">‹</span> 📹 카메라 <span></span></div><div class="pad" style="text-align:center">
+    <div class="card" style="background:linear-gradient(135deg,#2D3436,#4A4A4A);color:#C6FF00;border:var(--border)">
+      <div style="font-size:56px;margin:20px 0;animation:bob 2s infinite">📹</div>
+      <div class="h3" style="color:#C6FF00">3초 영상 캡처!</div>
+      <div class="sub2" style="color:#94A3B8;margin-top:8px">Farmer의 카메라로 3초 영상을 찍어요<br>요청 → 캡처 → 업로드 → 재생 🎬</div>
+    </div>
+    <div class="spin"></div>
+    <div class="sub">Farmer 응답 대기 중... (최대 40초)</div>
+    <button class="btn btn-pri" onclick="toast('master','📹 캡처 요청 전송!')">📹 캡처 요청!</button>
+    <button class="btn btn-gh" onclick="mGo('farmers')">뒤로</button>
+  </div>`;
+}
+async function mPest(id,kind){ try{ if(S.live) await jpost('/api/commands',{slaveId:id,action:kind}); }catch(e){} toast('master',kind==='fan'?'🌀 Fan 퇴치 지시!':'🔦 Laser 퇴치 승인!'); }
+async function mCmd(id,action){ try{ if(S.live) await jpost('/api/commands',{slaveId:id,action}); toast('master',(action==='pause'?'⏸ 일시정지':'▶ 재개')+' 지시!'); }catch(e){ toast('master','실패: '+e.message);} }
+async function mUnpair(id){ try{ if(S.live) await api('/api/pairing/'+id,{method:'DELETE'}); S.m.slaves=S.m.slaves.filter(s=>s.id!==id); mGo('farmers'); toast('master','연결 해제됨'); }catch(e){ toast('master','실패: '+e.message);} }
+
+// ---- PAIRING ----
+function mPairing(){
+  return `<div class="appbar"><span class="back" onclick="mGo('farmers')">‹</span> 🤝 Farmer 연결 <span></span></div><div class="pad">
+    <div class="card" style="text-align:center"><div style="font-size:48px;margin-bottom:10px;animation:bob 2s infinite">🤝</div>
+    <div class="h2">Farmer 페어링</div>
+    <div class="sub" style="margin-top:6px">마스터에서 만든 코드를<br>Farmer 앱에 입력하세요!</div></div>
+    <div class="sub">계정: ${esc(S.m.nickname||S.m.userId||'-')}</div>
+    <button class="btn btn-pri" onclick="mGenCode()">🔑 페어링 코드 생성</button>
+    <div id="mCodeBox"></div>
+  </div>`;
+}
+async function mGenCode(){
+  try{
+    let code,exp;
+    if(S.live){ const r=await jpost('/api/pairing/code',{userId:S.m.userId}); code=r.code; exp=r.expiresAt; }
+    else { code=Math.random().toString(36).slice(2,8).toUpperCase(); exp='10분 후'; }
+    S.m.pairCode=code;
+    document.getElementById('mCodeBox').innerHTML=`<div class="codebox">${code}</div><div class="hint">유효: ${esc(exp)} — 이 코드를 Farmer 앱에 입력!</div>`;
+    toast('master','🔑 페어링 코드: '+code);
+  }catch(e){ toast('master','생성 실패: '+e.message); }
+}
+
+// ---- NOTIFICATIONS ----
+function mNoti(){
+  const items=(S.m.notifications||[]).map(n=>`
+    <div class="noti" style="border-left-color:${notiC[n.type]||'#9CA3AF'}">
+      <div class="h3">${notiL[n.type]||n.type}</div>
+      <div class="sub">${esc([n.plant_name,n.slave_name].filter(Boolean).join(' · '))}</div>
+      <div class="sub2">${esc(n.created_at||'')}</div>
+    </div>`).join('') || `<div class="card"><div class="empty"><div class="emoji">📭</div>알림이 없어요!</div></div>`;
+  return `<div class="appbar"><span class="back" onclick="mGo('home')">‹</span> 🔔 알림 센터 <span></span></div><div class="pad" style="gap:10px">${items}</div>`;
+}
+
+// ---- REPORT ----
+function mReport(){
+  return `<div class="appbar"><span class="back" onclick="mGo('farmers')">‹</span> 📊 리포트 (7일) <span></span></div><div class="pad">
+    <div class="card"><div class="h2" style="margin-bottom:10px">💧 관수 요약</div>
+      <div class="stat"><span>총 관수 횟수</span><span class="v">12회</span></div>
+      <div class="stat"><span>총 급수량</span><span class="v">4,320 ml</span></div>
+      <div class="stat"><span>자율 / 수동</span><span class="v">9 / 3</span></div>
+      <div class="stat"><span>마지막 관수</span><span class="v">오늘 08:12</span></div>
+    </div>
+    <div class="card"><div class="h2" style="margin-bottom:10px">📌 이벤트 요약</div>
+      <div class="stat"><span>🍅 수확 적기</span><span class="v">2회</span></div>
+      <div class="stat"><span>🐛 해충 감지</span><span class="v">3회</span></div>
+      <div class="stat"><span>⚠️ 이상 징후</span><span class="v">0회</span></div>
+    </div>
+    <div class="hint">최근 7일 기준 집계</div>
+  </div>`;
+}
+
+// ---- SUBSCRIPTION ----
+function mSub(){
+  const plans=[{plan:'free',name:'무료',price:0,f:'2대',r:'—',cs:'—'},{plan:'premium',name:'프리미엄',price:4900,f:'무제한',r:'✓',cs:'✓'}];
+  const cur=S.m.plan||'free';
+  const cards=plans.map(p=>`<div class="card ${cur===p.plan?'glow':''}">
+    <div class="between"><div class="h1">${p.name}</div><div class="h2" style="color:var(--gd)">${p.price?'₩'+p.price.toLocaleString()+'/월':'무료!'}</div></div>
+    <div class="div"></div>
+    <div class="stat"><span>🤖 Farmer 등록</span><span class="v">${p.f}</span></div>
+    <div class="stat"><span>📊 상세 리포트</span><span class="v">${p.r}</span></div>
+    <div class="stat"><span>⚡ 우선 CS</span><span class="v">${p.cs}</span></div>
+    <button class="btn ${cur===p.plan?'btn-gh':'btn-pri'}" style="margin-top:10px" ${cur===p.plan?'disabled':''} onclick="mSubscribe('${p.plan}')">${cur===p.plan?'이용 중':(p.price?'⭐ 구독하기':'무료 전환')}</button>
+  </div>`).join('');
+  return `<div class="appbar"><span class="back" onclick="mGo('farmers')">‹</span> ⭐ 구독 <span></span></div><div class="pad">
+    <div class="h2">현재: ${cur==='premium'?'프리미엄':'무료'}</div>${cards}
+    <div class="hint">결제는 데모(시뮬레이션)입니다</div>
+  </div>`;
+}
+async function mSubscribe(plan){ try{ if(S.live) await jpost('/api/subscription',{userId:S.m.userId,plan}); }catch(e){} S.m.plan=plan; toast('master',(plan==='premium'?'⭐ 프리미엄':'무료')+' 전환!'); mGo('sub'); }
+
+// ---- MARKET ----
+function cartCount(){ return S.m.cart.reduce((a,c)=>a+c.qty,0); }
+function cartTotal(){ return S.m.cart.reduce((a,c)=>a+c.price*c.qty,0); }
+function cartAdd(id){ const p=(S.m.products.concat(MOCK.products)).find(x=>x.id===id); if(!p)return; const e=S.m.cart.find(c=>c.id===id); if(e)e.qty++; else S.m.cart.push({id:p.id,name:p.name,price:p.price,image:p.image,qty:1}); toast('master','🛒 장바구니에 담았어요!'); }
+function cartAddRaw(o){ const e=S.m.cart.find(c=>c.id===o.id); if(e)e.qty++; else S.m.cart.push({id:o.id,name:o.name,price:o.price,image:o.image||'📦',qty:1}); }
+function cartInc(id){ const e=S.m.cart.find(c=>c.id===id); if(e)e.qty++; mGo('cart'); }
+function cartDec(id){ const i=S.m.cart.findIndex(c=>c.id===id); if(i<0)return; if(S.m.cart[i].qty>1)S.m.cart[i].qty--; else S.m.cart.splice(i,1); mGo('cart'); }
+
+function mMarket(){
+  const chips=`<span class="cat ${S.m.mkCat==='all'?'on':''}" onclick="mkCat('all')">전체</span>`+
+    S.m.categories.map(c=>`<span class="cat ${S.m.mkCat===c.key?'on':''}" onclick="mkCat('${c.key}')">${esc(c.label)} ${c.count}</span>`).join('');
+  const grid=S.m.products.map(p=>`
+    <div class="prod" onclick="mOpenProduct('${p.id}')">
+      <div class="emoji">${p.image||'🛒'}</div>
+      <div class="name">${esc(p.name)}</div>
+      <div class="rating">⭐ ${p.rating} · ${p.affiliate_url?'제휴':'자체'}</div>
+      <div class="price">${won(p.price)}</div>
+    </div>`).join('') || '<div class="sub">상품이 없어요</div>';
+  let reco='';
+  if(S.m.mkCat==='all' && !S.m.mkQuery && S.m.recos.length){
+    reco=`<div class="h2">🎯 내 식물 맞춤 추천!</div><div class="scroll-h">`+
+      S.m.recos.map(p=>`<div class="item card click" style="padding:14px" onclick="mOpenProduct('${p.id}')"><div style="font-size:32px">${p.image}</div><div class="h3" style="font-size:13px;margin-top:4px">${esc(p.name)}</div><div style="color:var(--gd);font-weight:900;font-size:15px">${won(p.price)}</div></div>`).join('')+`</div>`;
+  }
+  let bundles='';
+  if(S.m.mkCat==='all' && !S.m.mkQuery && S.m.bundles.length){
+    bundles=`<div class="h2">📦 추천 번들 키트!</div>`+S.m.bundles.map(b=>`
+      <div class="card"><div class="row"><div style="font-size:32px">${b.image}</div>
+      <div style="flex:1"><div class="h3">${esc(b.name)}</div><div class="sub">${esc(b.description)}</div></div>
+      <div style="color:var(--gd);font-weight:900;font-size:18px">${won(b.price)}</div></div>
+      <div class="sub" style="margin-top:6px">구성: ${b.items.map(i=>i.name).join(', ')}</div>
+      <button class="btn btn-gh sm" style="width:100%;margin-top:8px" onclick='mBundleAdd(${JSON.stringify(b.items)})'>번들 담기!</button></div>`).join('');
+  }
+  return `<div class="appbar">🛒 마켓 <span class="act" onclick="mGo('cart')" style="position:relative">🛒${cartCount()?'<span class="badge">'+cartCount()+'</span>':''}</span></div><div class="pad">
+    <input class="f" placeholder="상품 검색 (비료, 토마토, ESP32…)" value="${esc(S.m.mkQuery)}" oninput="S.m.mkQuery=this.value" onkeydown="if(event.key==='Enter')mGo('market')">
+    <div class="scroll-h">${chips}</div>
+    ${reco}${bundles}
+    <div class="h2">🛍️ 상품</div>
+    <div class="prod-grid">${grid}</div>
+    <button class="btn btn-gh" onclick="mGo('orders')">주문 내역</button>
+  </div>`;
+}
+function mkCat(c){ S.m.mkCat=c; mGo('market'); }
+function mOpenProduct(id){ S.m.curProduct=(S.m.products.concat(MOCK.products)).find(p=>p.id===id); mGo('product'); }
+function mBundleAdd(items){ items.forEach(cartAddRaw); toast('master','📦 번들 담았어요!'); mGo('market'); }
+
+function mProduct(){
+  const p=S.m.curProduct; if(!p) return '<div class="pad">상품 없음</div>';
+  const buy = p.affiliate_url
+    ? `<button class="btn btn-pri" onclick="mAffiliate('${p.id}')">제휴몰에서 구매 ↗</button><div class="hint">외부 제휴 상품 (CPS/CPA)</div>`
+    : `<button class="btn btn-pri" onclick="cartAdd('${p.id}')">🛒 장바구니 담기</button><button class="btn btn-gh" onclick="cartAdd('${p.id}');mGo('cart')">바로 구매!</button>`;
+  return `<div class="appbar"><span class="back" onclick="mGo('market')">‹</span> 상품 <span></span></div><div class="pad" style="text-align:center">
+    <div style="font-size:80px;margin:10px 0;animation:bob 2s infinite">${p.image||'🛒'}</div>
+    <div class="h0" style="text-align:left">${esc(p.name)}</div>
+    <div class="sub" style="text-align:left;margin-top:6px">⭐ ${p.rating} · ${esc(p.vendor||'')} · 재고 ${p.stock}</div>
+    <div class="h0" style="color:var(--gd);text-align:left;margin-top:8px">${won(p.price)}</div>
+    <p class="sub" style="text-align:left;margin-top:10px">${esc(p.description||'')}</p>
+    ${buy}
+  </div>`;
+}
+async function mAffiliate(id){ try{ let url='https://example.com'; if(S.live) url=(await jpost('/api/market/affiliate/'+id,{userId:S.m.userId})).url; else { const p=MOCK.products.find(x=>x.id===id); url=p.affiliate_url; } toast('master','제휴몰로 이동!'); window.open(url,'_blank'); }catch(e){ toast('master','실패: '+e.message); } }
+
+function mCart(){
+  const lines=S.m.cart.map(c=>`<div class="card"><div class="row">
+    <div style="font-size:32px">${c.image||'🛒'}</div>
+    <div style="flex:1"><div class="h3">${esc(c.name)}</div><div class="sub">${won(c.price)}</div></div>
+    <button class="btn btn-gh sm" onclick="cartDec('${c.id}')">−</button>
+    <span style="min-width:26px;text-align:center;font-weight:900">${c.qty}</span>
+    <button class="btn btn-gh sm" onclick="cartInc('${c.id}')">+</button>
+  </div></div>`).join('') || '<div class="card"><div class="empty"><div class="emoji">🛒</div>장바구니가 비어 있어요!</div></div>';
+  const foot=S.m.cart.length?`<div class="between" style="padding:4px 2px"><div class="h2">합계</div><div class="h2" style="color:var(--gd)">${won(cartTotal())}</div></div>
+    <button class="btn btn-pri" onclick="mCheckout()">💳 결제하기 (${won(cartTotal())})</button>`:'';
+  return `<div class="appbar"><span class="back" onclick="mGo('market')">‹</span> 🛒 장바구니 <span></span></div><div class="pad">${lines}${foot}
+    <button class="btn btn-gh" onclick="mGo('orders')">주문 내역</button></div>`;
+}
+async function mCheckout(){ if(!S.m.cart.length) return; try{ let total=cartTotal(), id='ord_'+Date.now().toString(36); if(S.live){ const r=await jpost('/api/market/orders',{userId:S.m.userId,items:S.m.cart.map(c=>({productId:c.id,qty:c.qty}))}); total=r.total; id=r.orderId; } else { S.m.orders.unshift({id,total,status:'paid',created_at:new Date().toISOString().slice(0,16).replace('T',' '),items:S.m.cart.map(c=>({name:c.name,qty:c.qty,price:c.price}))}); } S.m.cart=[]; toast('master','✅ 결제 완료! '+id.slice(0,8)); mGo('orders'); }catch(e){ toast('master','결제 실패: '+e.message); } }
+function mOrders(){
+  const list=(S.m.orders||[]).map(o=>`<div class="card"><div class="between"><div class="h3">주문 ${esc(o.id.slice(0,8))}</div><div class="h3" style="color:var(--gd)">${won(o.total)}</div></div>
+    <div class="sub2">${esc(o.status||'')} · ${esc(o.created_at||'')}</div>
+    ${(o.items||[]).map(i=>`<div class="sub">· ${esc(i.name)} ×${i.qty}</div>`).join('')}</div>`).join('') || '<div class="card"><div class="empty"><div class="emoji">📦</div>주문 내역이 없어요!</div></div>';
+  return `<div class="appbar"><span class="back" onclick="mGo('market')">‹</span> 📦 주문 내역 <span></span></div><div class="pad">${list}</div>`;
+}
+
+// ---- COMMUNITY ----
+function mCommunity(){
+  const chip=(t,l)=>`<span class="cat ${S.m.cType===t?'on':''}" onclick="cType(${t===null?'null':`'${t}'`})">${l}</span>`;
+  const feed=S.m.cposts.map(p=>`
+    <div class="card click" onclick="mOpenPost('${p.id}')">
+      <div class="row" style="gap:8px;margin-bottom:6px">
+        <span class="chip ${p.type==='sell'?'warn':'ok'}">${cTypeL(p.type)}</span>
+        <div class="h3" style="flex:1">${esc(p.title)}</div>
+        ${p.type==='sell'&&p.price?`<div style="color:var(--gd);font-weight:900">${won(p.price)}</div>`:''}
+      </div>
+      <div class="sub">${esc([p.crop,p.quantity].filter(Boolean).join(' · ')||p.description||'')}</div>
+      <div class="between" style="margin-top:8px">
+        <div class="row" style="gap:6px"><div class="avatar a" style="width:26px;height:26px;font-size:14px">${p.image||'🙂'}</div><span class="sub2">${esc(p.author_name||'이웃')} · ⭐${p.author_score} (${p.author_deals}거래)</span></div>
+        ${cStatusL(p.status)?`<span class="chip off">${cStatusL(p.status)}</span>`:''}
+      </div>
+    </div>`).join('') || `<div class="card"><div class="empty"><div class="emoji">🏘️</div>${esc(S.m.region)} 지역에 글이 없어요!<br>첫 글을 올려보세요!</div></div>`;
+  return `<div class="appbar">🏘️ 이웃 · ${esc(S.m.region)} <span class="act" onclick="mGo('cwrite')">＋ 글쓰기</span></div><div class="pad">
+    <input class="f" placeholder="작물/제목 검색" value="${esc(S.m.cQuery)}" oninput="S.m.cQuery=this.value" onkeydown="if(event.key==='Enter')mGo('community')">
+    <div class="scroll-h">${chip(null,'전체')}${chip('share','나눔')}${chip('sell','판매')}${chip('buy','구입')}</div>
+    ${feed}
+  </div><div class="fab" onclick="mGo('cwrite')">✏️</div>`;
+}
+function cType(t){ S.m.cType=t; mGo('community'); }
+function mOpenPost(id){ S.m.curPost=S.m.cposts.find(p=>p.id===id)||MOCK.cposts.find(p=>p.id===id); mGo('post'); }
+function mPost(){
+  const p=S.m.curPost; if(!p) return '<div class="pad">게시물 없음</div>';
+  const isAuthor=S.live?(p.user_id===S.m.userId):false;
+  const comments=(p.comments||[]).map(c=>`<div class="card flat" style="padding:14px"><div class="row" style="gap:6px;margin-bottom:4px"><div class="avatar b" style="width:26px;height:26px;font-size:14px">🙂</div><b style="font-size:12px">${esc(c.author_name||'이웃')}</b></div><div>${esc(c.body)}</div><div class="sub2">${esc(c.created_at||'')}</div></div>`).join('')||'<div class="sub">첫 댓글을 남겨보세요!</div>';
+  const authorActions=isAuthor?`<div class="row"><button class="btn btn-gh sm" style="flex:1" onclick="cSetStatus('reserved')">예약중</button><button class="btn btn-pri sm" style="flex:1" onclick="cSetStatus('done')">거래완료!</button></div>`:`<div class="row"><button class="btn btn-red sm" style="flex:1" onclick="cReport()">신고</button><button class="btn btn-gh sm" style="flex:1" onclick="cBlock()">차단</button></div>`;
+  return `<div class="appbar"><span class="back" onclick="mGo('community')">‹</span> 게시물 <span></span></div><div class="pad">
+    <div class="card">
+      <div class="row" style="gap:8px;margin-bottom:8px"><span class="chip ${p.type==='sell'?'warn':'ok'}">${cTypeL(p.type)}</span><div class="h1" style="flex:1">${esc(p.title)}</div></div>
+      ${p.type==='sell'&&p.price?`<div style="color:var(--gd);font-weight:900;font-size:20px;margin-bottom:6px">${won(p.price)}</div>`:''}
+      <div class="sub">작물: ${esc(p.crop||'-')} · 수량: ${esc(p.quantity||'-')}</div>
+      <div class="sub">지역: ${esc(p.region||'-')}</div>
+      ${p.description?`<div style="margin-top:8px;line-height:1.5">${esc(p.description)}</div>`:''}
+      <div class="div"></div>
+      <div class="row" style="gap:6px"><div class="avatar a" style="width:30px;height:30px;font-size:16px">${p.image||'🙂'}</div><span class="sub2">${esc(p.author_name||'이웃')} · ⭐${p.author_score} (${p.author_deals}거래) · ${cStatusL(p.status)||'거래 가능'}</span></div>
+    </div>
+    ${authorActions}
+    <div class="h2">💬 댓글 (${(p.comments||[]).length})</div>
+    ${comments}
+    <div class="row"><input class="f" id="cCmt" placeholder="댓글 달기" style="flex:1"><button class="btn btn-pri sm" onclick="cAddComment()">등록</button></div>
+  </div>`;
+}
+async function cAddComment(){ const el=document.getElementById('cCmt'); const b=el.value.trim(); if(!b)return; const p=S.m.curPost; try{ if(S.live) await jpost('/api/community/posts/'+p.id+'/comments',{userId:S.m.userId,body:b}); }catch(e){} p.comments=(p.comments||[]); p.comments.push({author_name:S.m.nickname||'나',body:b,created_at:'방금'}); mGo('post'); toast('master','💬 댓글 등록!'); }
+async function cSetStatus(s){ const p=S.m.curPost; try{ if(S.live) await fetch(S.base.replace(/\/$/,'')+'/api/community/posts/'+p.id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s})}); }catch(e){} p.status=s; mGo('post'); toast('master',cStatusL(s)||'판매중'); }
+async function cReport(){ const p=S.m.curPost; try{ if(S.live) await jpost('/api/community/report',{reporterId:S.m.userId,postId:p.id,reason:'부적절'}); }catch(e){} toast('master','신고 접수됨'); }
+async function cBlock(){ const p=S.m.curPost; try{ if(S.live) await jpost('/api/community/block',{blockerId:S.m.userId,blockedId:p.user_id}); }catch(e){} S.m.cposts=S.m.cposts.filter(x=>x.id!==p.id); mGo('community'); toast('master','차단됨'); }
+
+let _cwType='share', _cwEmoji='🥬';
+function mCwrite(){
+  const chip=(t,l)=>`<span class="cat ${_cwType===t?'on':''}" onclick="_cwType='${t}';mGo('cwrite')">${l}</span>`;
+  const emo=['🥬','🍅','🌿','🌱','🥕','🌶️','🍓','🙂'].map(e=>`<span class="cat ${_cwEmoji===e?'on':''}" onclick="_cwEmoji='${e}';mGo('cwrite')">${e}</span>`).join('');
+  return `<div class="appbar"><span class="back" onclick="mGo('community')">‹</span> ✏️ 글쓰기 · ${esc(S.m.region)} <span></span></div><div class="pad">
+    <div class="lbl">유형</div><div class="scroll-h">${chip('share','🎁 나눔')}${chip('sell','💰 판매')}${chip('buy','🔍 구입')}</div>
+    <div class="lbl">제목 *</div><input class="f" id="cwTitle" placeholder="상추 나눔해요!">
+    <div class="lbl">작물</div><input class="f" id="cwCrop" placeholder="상추, 토마토">
+    <div class="lbl">수량</div><input class="f" id="cwQty" placeholder="한 봉지, 1kg">
+    ${_cwType==='sell'?'<div class="lbl">가격(원)</div><input class="f" id="cwPrice" inputmode="numeric" placeholder="5000">':''}
+    <div class="lbl">설명</div><textarea class="f" id="cwDesc" rows="3" placeholder="자세한 내용"></textarea>
+    <div class="lbl">대표 이모지</div><div class="scroll-h">${emo}</div>
+    <button class="btn btn-pri" onclick="cSubmit()">게시하기!</button>
+  </div>`;
+}
+async function cSubmit(){
+  const title=document.getElementById('cwTitle').value.trim();
+  if(!title){ toast('master','제목을 입력하세요!'); return; }
+  const body={userId:S.m.userId,type:_cwType,title,crop:document.getElementById('cwCrop').value.trim()||null,quantity:document.getElementById('cwQty').value.trim()||null,price:_cwType==='sell'?(parseInt(document.getElementById('cwPrice')?.value)||0):null,region:S.m.region,description:document.getElementById('cwDesc').value.trim()||null,image:_cwEmoji};
+  try{ if(S.live) await jpost('/api/community/posts',body); else MOCK.cposts.unshift({id:'cp'+Date.now(),user_id:S.m.userId,...body,status:'open',created_at:'방금',author_name:S.m.nickname||'나',author_score:0,author_deals:0,comments:[]}); toast('master','게시되었어요!'); mGo('community'); }catch(e){ toast('master','등록 실패: '+e.message); }
+}
+
+// ==================== SLAVE ====================
+function sGo(page){ S.s.page=page; const sc=document.getElementById('sScreen');
+  const renderers={pairing:sPairing,dashboard:sDashboard,settings:sSettings};
+  sc.innerHTML = renderers[page] ? renderers[page]() : '<div class="empty">준비 중...</div>';
+}
+function sPairing(){
+  return `<div class="appbar">🤝 마스터 연결</div><div class="pad" style="padding-top:30px">
+    <div style="text-align:center;margin-bottom:16px"><div style="font-size:64px;margin-bottom:14px;animation:bob 2s infinite">🤖</div>
+    <div class="h1">Farmer 페어링</div>
+    <div class="sub" style="margin-top:8px">마스터 앱에서 받은 코드를 입력하세요!</div></div>
+    <div class="lbl">페어링 코드 (6자리)</div><input class="f" id="spCode" maxlength="6" placeholder="ABC123" style="letter-spacing:6px;text-transform:uppercase;font-weight:800;font-size:22px;text-align:center">
+    <div class="lbl">서버 주소</div><input class="f" id="spServer" value="${esc(S.base)}">
+    <button class="btn btn-teal" onclick="sVerify()">🔗 연결!</button>
+    <div class="hint">Master 앱의 "페어링 코드 생성"에서 만든 코드${S.m.pairCode?' (예: '+S.m.pairCode+')':''}</div>
+  </div>`;
+}
+async function sVerify(){
+  const code=document.getElementById('spCode').value.trim().toUpperCase();
+  S.base=document.getElementById('spServer').value.trim();
+  if(code.length<6){ toast('slave','6자리 코드를 입력하세요!'); return; }
+  try{ if(S.live){ const r=await jpost('/api/pairing/verify',{code}); S.s.slaveId=r.slaveId; S.s.sessionKey=r.sessionKey; } else { S.s.slaveId='slv_'+Date.now().toString(36); S.s.sessionKey='mock-session'; } sBoot(); toast('slave','✅ 페어링 완료! 자율 관리 시작!'); sGo('dashboard'); }catch(e){ toast('slave','연결 실패: '+e.message); }
+}
+function sBoot(){ S.s.logs=['['+t()+'] 엔진 시작!','['+t()+'] 헤드리스 서비스 기동!']; S.s.status='자율 관리 동작 중!'; clearInterval(S.s._loop); S.s._loop=setInterval(()=>{ if(S.s.page!=='dashboard') return; sTick(); },4000); }
+function t(){const d=new Date();return d.toTimeString().slice(0,8);}
+function sTick(){
+  const green=Math.round(20+Math.random()*40), bright=Math.round(30+Math.random()*40);
+  const need=green<28&&bright>15, ripeness=Math.round(Math.random()*100), pest=Math.random()<0.25;
+  S.s.analysis={green,bright,need,ripeness,pest,status:green>45?'건강! (녹색 충분)':green>25?'보통':'주의! (황변 의심)'};
+  sLog('분석: '+S.s.analysis.status+' (녹색:'+green+'%, 익음도:'+ripeness+'%)');
+  if(S.s.autoOn&&need){ sLog('AI 판정: 수분 부족 → 자동 관수!'); sWater('auto'); }
+  else S.s.status=S.s.autoOn?'관찰 완료: '+S.s.analysis.status:'자율 관리 일시정지';
+  if(ripeness>=70) sLog('🍅 수확 적기 감지! → 마스터 알림');
+  if(pest){ sLog('🐛 해충 감지! → Fan 자동 퇴치(10초)'); S.s.pendingLaser=true; sLog('🐛 Laser 퇴치 마스터 승인 요청!'); }
+  if(S.s.page==='dashboard') document.getElementById('sScreen').innerHTML=sDashboard();
+}
+function sLog(m){ S.s.logs=['['+t()+'] '+m,...S.s.logs].slice(0,20); }
+async function sWater(source){
+  const amt=source==='auto'?Math.round(300*1.25):300, ms=Math.min(60000,Math.max(500,amt*20));
+  sLog('급수 밸브 개방 '+ms+'ms (하드웨어:'+(S.s.hw?'연결':'시뮬')+')');
+  sLog((source==='auto'?'🤖 자율':'✋ 수동')+' 관수 '+amt+'ml');
+  S.s.lastWater=t(); S.s.status=(source==='auto'?'🤖 자율':'✋ 수동')+' 관수 실행! ('+amt+'ml)';
+  try{ if(S.live&&S.s.slaveId) await jpost('/api/watering/log',{slaveId:S.s.slaveId,amountMl:amt,source,weatherFactor:1.25},{'x-session-key':S.s.sessionKey}); }catch(e){}
+  if(S.s.page==='dashboard') document.getElementById('sScreen').innerHTML=sDashboard();
+}
+function sDashboard(){
+  const a=S.s.analysis;
+  const logs=S.s.logs.map(l=>esc(l)).join('<br>')||'로그 없음';
+  const gauge=(label,val,color)=>`<div class="gauge"><span class="sub" style="min-width:60px;font-weight:700">${label}</span><div class="bar"><div class="fill" style="width:${val}%;background:${color}"></div></div><span class="val">${val}%</span></div>`;
+  return `<div class="appbar">🤖 Farmer 대시보드 <span class="act" onclick="sGo('settings')">⚙️ 설정</span></div><div class="pad">
+    <div class="card">
+      <div class="h2" style="margin-bottom:8px">🧠 온디바이스 AI 자율 관리</div>
+      <div class="sub">Slave: ${esc((S.s.slaveId||'').slice(0,8))}… ${S.s.autoOn?'· 🟢 온라인':''}</div>
+      <div class="sub">식물: 🍅 방울토마토 (토마토)</div>
+      <div class="sub" style="font-weight:800;color:var(--ink)">상태: ${esc(S.s.status)}</div>
+      <div class="between" style="margin-top:12px"><span class="sub" style="font-weight:700">자율 관리</span><div class="toggle ${S.s.autoOn?'on':''}" onclick="sToggle('autoOn')"><i></i></div></div>
+      <div class="between" style="margin-top:8px"><span class="sub" style="font-weight:700">헤드리스 모드</span><div class="toggle ${S.s.headless?'on':''}" onclick="sToggle('headless')"><i></i></div></div>
+      <div class="sub" style="margin-top:8px;font-weight:700">날씨 가중치: ×1.25</div>
+    </div>
+    <div class="cam"><div class="rec"><i></i>LIVE</div><div class="cross"></div><div class="scanline"></div><div class="emoji">🍅</div></div>
+    ${S.s.pendingLaser?`<div class="card" style="background:#FFEBEE;border:3px solid #FFCDD2"><div class="row" style="gap:8px"><span style="font-size:28px">🐛</span><div><div class="h3" style="color:var(--red)">해충 감지!</div><div class="sub">Laser 퇴치 마스터 승인 대기 중</div></div></div></div>`:''}
+    ${a?`<div class="card"><div class="h2" style="margin-bottom:10px">🔍 최근 분석</div>
+      <div class="sub" style="margin-bottom:8px;font-weight:700">상태: <b>${esc(a.status)}</b></div>
+      ${gauge('녹색도',a.green,'#66BB6A')}
+      ${gauge('밝기',a.bright,'#FFA000')}
+      <div class="sub" style="margin-top:8px;font-weight:700">수분 필요: ${a.need?'<b style="color:var(--red)">예! 💧</b>':'아니오'} · 신뢰도 ${60+Math.round(Math.random()*30)}%</div>
+      <div class="sub" style="font-weight:700">열매 익음도: ${a.ripeness||0}% · 해충 의심: ${a.pest?'<b style="color:var(--red)">예! 🐛</b>':'아니오'}</div>
+    </div>`:''}
+    <div class="row" style="gap:8px"><button class="btn btn-teal" style="flex:1" onclick="sTick()">📸 즉시 캡처!</button><button class="btn btn-ght" style="flex:1" onclick="sWater('manual')">💧 수동 관수</button></div>
+    <div class="h2">📋 이벤트 로그</div><div class="card"><div class="log">${logs}</div></div>
+  </div>`;
+}
+function sToggle(k){ S.s[k]=!S.s[k]; if(k==='autoOn') S.s.status=S.s.autoOn?'자율 관리 동작 중!':'자율 관리 일시정지'; if(k==='headless') toast('slave',S.s.headless?'헤드리스 ON!':'헤드리스 OFF'); document.getElementById('sScreen').innerHTML=sDashboard(); }
+function sSettings(){
+  return `<div class="appbar"><span class="back" onclick="sGo('dashboard')">‹</span> ⚙️ Farmer 설정 <span></span></div><div class="pad">
+    <div class="lbl">재배 지역 (날씨 조회용)</div><input class="f" id="stRegion" value="${esc(S.s.region)}">
+    <div class="lbl">캡처 주기 (분)</div><input class="f" id="stInterval" value="60">
+    <div class="between"><span style="font-weight:700">자율 관수</span><div class="toggle ${S.s.autoOn?'on':''}" onclick="sToggle('autoOn')"><i></i></div></div>
+    <div class="div"></div>
+    <div class="h2">🔌 하드웨어 (ESP32)</div>
+    <button class="btn ${S.s.hw?'btn-teal':'btn-ght'}" onclick="sConnectHw()">${S.s.hw?'✓ BLE 하드웨어 연결됨!':'급수/Fan/Laser BLE 연결'}</button>
+    <div class="hint">Nordic UART Service · Fail-safe 자동 정지</div>
+    <button class="btn btn-teal" onclick="sSaveSettings()">💾 저장</button>
+  </div>`;
+}
+function sConnectHw(){ S.s.hw=true; sLog('ESP32 BLE 연결됨! (Nordic UART)'); toast('slave','하드웨어 연결됨! 🔌'); sGo('settings'); }
+function sSaveSettings(){ S.s.region=document.getElementById('stRegion').value.trim()||'Seoul'; toast('slave','💾 저장됨!'); sGo('dashboard'); }
+
+// ============ INIT ============
+mGo('onboarding');
+sGo('pairing');
+
+// ============ V3 WEATHER & ADMIN LOGIC ============
+let isAdminMode = false;
+function toggleAdminMode() {
+  isAdminMode = !isAdminMode;
+  const dbg = document.getElementById('debugPanel');
+  if(dbg) dbg.style.display = isAdminMode ? 'block' : 'none';
+}
+async function initWeatherAndTime() {
+  const hour = new Date().getHours();
+  const isNight = hour >= 18 || hour < 6;
+  try {
+    const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current_weather=true');
+    const data = await res.json();
+    const w = data.current_weather;
+    const isRain = [51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82].includes(w.weathercode);
+    applyWeather(isNight, isRain, Math.round(w.temperature));
+  } catch(e) {
+    applyWeather(isNight, false, 24);
+  }
+}
+function applyWeather(isNight, isRain, temp) {
+  const card = document.getElementById('weatherCard');
+  const statusEl = document.getElementById('weatherStatus');
+  if(!card) return;
+  card.className = 'weather-card';
+  if (isNight) {
+    card.classList.add('night');
+    statusEl.innerHTML = isRain ? '밤 🌙 🌧️ 비 옴' : '밤 🌙 맑음';
+  } else {
+    card.classList.add('day');
+    statusEl.innerHTML = isRain ? '낮 ☀️ 🌧️ 비 옴' : '낮 ☀️ 맑음';
+  }
+  const rc = document.getElementById('rainContainer');
+  rc.innerHTML = '';
+  if (isRain) {
+    card.classList.add('rain');
+    for(let i=0; i<45; i++) {
+      let d = document.createElement('div');
+      d.className = 'drop';
+      d.style.left = Math.random() * 100 + '%';
+      d.style.animationDuration = (0.4 + Math.random() * 0.4) + 's';
+      d.style.animationDelay = (Math.random() * 2) + 's';
+      rc.appendChild(d);
+    }
+  }
+  document.getElementById('temperature').innerText = temp + '°C';
+  document.getElementById('humidity').innerText = isRain ? '85%' : (isNight ? '60%' : '45%');
+  document.getElementById('sunlight').innerText = isNight ? '0 lx' : (isRain ? '150 lx' : '850 lx');
+}
+
+</script>
+</body>
+</html>
