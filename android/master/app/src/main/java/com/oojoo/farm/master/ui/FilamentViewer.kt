@@ -14,6 +14,7 @@ import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.ResourceLoader
 import com.google.android.filament.gltfio.UbershaderProvider
 import com.google.android.filament.gltfio.FilamentAsset
+import com.google.android.filament.Skybox
 import java.nio.ByteBuffer
 
 @Composable
@@ -44,9 +45,23 @@ fun FilamentFarmView(modifier: Modifier = Modifier) {
                 .castShadows(true)
                 .build(viewer.engine, sun)
             viewer.scene.addEntity(sun)
+
+            // Create Fill light (ambient simulation)
+            val fill = EntityManager.get().create()
+            LightManager.Builder(LightManager.Type.DIRECTIONAL)
+                .color(0.8f, 0.8f, 1.0f)
+                .intensity(30_000.0f)
+                .direction(1.0f, 1.0f, 1.0f)
+                .castShadows(false)
+                .build(viewer.engine, fill)
+            viewer.scene.addEntity(fill)
+
+            // Set Skybox (light blue background)
+            val skybox = Skybox.Builder().color(0.85f, 0.93f, 1.0f, 1.0f).build(viewer.engine)
+            viewer.scene.skybox = skybox
             
             // Adjust Camera
-            viewer.camera.lookAt(0.0, 5.0, 8.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+            viewer.camera.lookAt(0.0, 3.0, 8.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
 
             val assetLoader = AssetLoader(viewer.engine, UbershaderProvider(viewer.engine), EntityManager.get())
             val resourceLoader = ResourceLoader(viewer.engine)
@@ -80,23 +95,23 @@ fun FilamentFarmView(modifier: Modifier = Modifier) {
                 }
             }
 
-            // Ground (Box scaled wide and flat)
-            loadAsset("models/robot.glb", 10f, 0.1f, 10f, 0f, -0.1f, 0f)
-
-            // Robot (Box)
-            loadAsset("models/robot.glb", 0.5f, 0.5f, 0.5f, 0f, 0.5f, 0f)
+            // Robot (Farmer)
+            loadAsset("models/robot.glb", 0.5f, 0.5f, 0.5f, 0f, 0f, 0f)
 
             // Plants (Avocado)
-            loadAsset("models/plant.glb", 15f, 15f, 15f, -2f, 0.2f, -2f)
-            loadAsset("models/plant.glb", 15f, 15f, 15f, 2f, 0.2f, 1f)
-            loadAsset("models/plant.glb", 15f, 15f, 15f, -1f, 0.2f, 2f)
+            loadAsset("models/plant.glb", 15f, 15f, 15f, -2f, 0f, -2f)
+            loadAsset("models/plant.glb", 15f, 15f, 15f, 2f, 0f, 1f)
+            loadAsset("models/plant.glb", 15f, 15f, 15f, -1f, 0f, 2f)
 
             choreographer = Choreographer.getInstance()
             frameCallback = object : Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
                     choreographer?.postFrameCallback(this)
-                    viewer.animator?.applyAnimation(0, (frameTimeNanos / 1_000_000_000.0).toFloat())
-                    viewer.animator?.updateBoneMatrices()
+                    val animator = viewer.animator
+                    if (animator != null && animator.animationCount > 0) {
+                        animator.applyAnimation(0, (frameTimeNanos / 1_000_000_000.0).toFloat())
+                        animator.updateBoneMatrices()
+                    }
                     viewer.render(frameTimeNanos)
                 }
             }
