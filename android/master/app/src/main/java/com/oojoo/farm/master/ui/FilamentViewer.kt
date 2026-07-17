@@ -18,15 +18,6 @@ import java.nio.ByteBuffer
 
 @Composable
 fun FilamentFarmView(modifier: Modifier = Modifier) {
-    // Initialize Filament library
-    LaunchedEffect(Unit) {
-        try {
-            Utils.init()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     var modelViewer by remember { mutableStateOf<ModelViewer?>(null) }
     var choreographer: Choreographer? by remember { mutableStateOf(null) }
     var frameCallback: Choreographer.FrameCallback? by remember { mutableStateOf(null) }
