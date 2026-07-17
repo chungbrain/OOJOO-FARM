@@ -290,9 +290,9 @@ input.f:focus{outline:none;border-color:var(--g);box-shadow:0 3px 0 var(--gl)}
 .st-100 { color: #2E7D32; } .st-70 { color: #F57C00; } .st-50 { color: #D32F2F; } .st-25 { color: #C2185B; animation: blink 1s infinite; } .st-0 { color: #616161; }
 @keyframes blink { 50% { opacity: 0.5; color: red; } }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-.robot-3d { left: 20%; top: 60%; z-index: 30; animation: robotPatrol 15s infinite ease-in-out; }
+.robot-3d { left: 20%; top: 60%; z-index: 30; animation: robotPatrol 30s infinite ease-in-out; }
 .robot-emoji { font-size: 45px; filter: drop-shadow(0 8px 0 rgba(0,0,0,0.4)); }
-.robot-laser { position: absolute; width: 4px; height: 60px; background: rgba(0, 255, 255, 0.8); bottom: 25px; left: 50%; transform-origin: bottom center; opacity: 0; border-radius: 2px; box-shadow: 0 0 10px cyan; animation: laserScan 15s infinite linear; }
+.robot-laser { position: absolute; width: 4px; height: 60px; background: rgba(0, 255, 255, 0.8); bottom: 25px; left: 50%; transform-origin: bottom center; opacity: 0; border-radius: 2px; box-shadow: 0 0 10px cyan; animation: laserScan 30s infinite linear; }
 @keyframes robotPatrol { 0% { transform: rotateX(-40deg) translate(0, 0); } 15% { transform: rotateX(-40deg) translate(-10px, -65px); } 25% { transform: rotateX(-40deg) translate(-10px, -65px); } 40% { transform: rotateX(-40deg) translate(90px, -15px); } 50% { transform: rotateX(-40deg) translate(90px, -15px); } 65% { transform: rotateX(-40deg) translate(170px, -85px); } 75% { transform: rotateX(-40deg) translate(170px, -85px); } 90% { transform: rotateX(-40deg) translate(20px, 15px); } 100% { transform: rotateX(-40deg) translate(0, 0); } }
 @keyframes laserScan { 0%, 14%, 26%, 39%, 51%, 64%, 76%, 100% { opacity: 0; } 18%, 43%, 68% { opacity: 1; transform: rotate(15deg); } 22%, 47%, 72% { opacity: 1; transform: rotate(-15deg); } }
 .debug { background: var(--card); border: var(--border-thin); border-radius: var(--radius-sm); padding: 12px; font-size: 12px; box-shadow: var(--shadow); }
@@ -563,15 +563,15 @@ function mHome() {
       
       <div class="farm-3d-wrapper">
         <div class="farm-3d">
-          <div class="item-3d plant tomato">
+          <div class="item-3d plant tomato" onclick="mOpenPlant('plt_001')" style="cursor: pointer;" title="토마토 상세 보기">
             <div class="plant-emoji">🍅</div>
             <div class="plant-status st-100">100% 건강</div>
           </div>
-          <div class="item-3d plant strawberry">
+          <div class="item-3d plant strawberry" onclick="mOpenPlant('plt_003')" style="cursor: pointer;" title="딸기 상세 보기">
             <div class="plant-emoji">🍓</div>
             <div class="plant-status st-70">70% 아픔</div>
           </div>
-          <div class="item-3d plant basil">
+          <div class="item-3d plant basil" onclick="mOpenPlant('plt_002')" style="cursor: pointer;" title="바질 상세 보기">
             <div class="plant-emoji">🌿</div>
             <div class="plant-status st-25">25% 죽기직전</div>
           </div>
