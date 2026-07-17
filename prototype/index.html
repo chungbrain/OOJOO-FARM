@@ -1,875 +1,487 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FARM — Master / Slave UX/UI</title>
-<style>
-:root{
-  --green:#2E7D32;--green-d:#1B5E20;--green-l:#A5D6A7;--green-bg:#F1F8E9;
-  --amber:#FFA000;--red:#E53935;--blue:#1E88E5;
-  --ink:#1F2937;--muted:#6B7280;--line:#E5E7EB;--bg:#F3F4F6;--card:#fff;
-  --shadow:0 6px 20px rgba(0,0,0,.08);
-  --slave:#00695C;--slave-d:#004D40;--slave-l:#80CBC4;--slave-bg:#E0F2F1;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;background:#0f172a;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:16px}
-.desk{position:fixed;top:10px;left:50%;transform:translateX(-50%);color:#94a3b8;font-size:12px;font-family:monospace;z-index:50}
-.switch{display:flex;gap:6px;background:#1e293b;padding:6px;border-radius:999px;margin-bottom:16px}
-.switch button{border:none;background:transparent;color:#94a3b8;font-size:13px;font-weight:700;padding:9px 20px;border-radius:999px;cursor:pointer}
-.switch button.on.m{background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff}
-.switch button.on.s{background:linear-gradient(135deg,var(--slave),var(--slave-d));color:#fff}
-.phone{position:relative;width:390px;height:820px;background:var(--bg);border-radius:44px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 12px #111827,0 0 0 13px #1f2937;display:none}
-.phone.show{display:block}
-.phone.slave{background:var(--slave-bg)}
-.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;background:#111827;border-radius:0 0 18px 18px;z-index:60}
-.screen{position:absolute;inset:0;overflow-y:auto;padding-bottom:84px;scrollbar-width:none}
-.screen::-webkit-scrollbar{display:none}
-.page{display:none;min-height:100%;animation:fade .25s ease}
-.page.active{display:block}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.tabs{position:absolute;bottom:0;left:0;right:0;height:78px;background:rgba(255,255,255,.96);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;padding-bottom:6px;z-index:40}
-.tab{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11px;cursor:pointer;flex:1}
-.tab .ic{font-size:22px}
-.tab.on{color:var(--green)}
-.phone.slave .tab.on{color:var(--slave)}
-.fab{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;box-shadow:0 6px 16px rgba(0,0,0,.3);margin-top:-22px;cursor:pointer;border:3px solid #fff}
-.fab.m{background:linear-gradient(135deg,var(--green),var(--green-d))}
-.fab.s{background:linear-gradient(135deg,var(--slave),var(--slave-d))}
-.pad{padding:16px}
-.h1{font-size:22px;font-weight:800}
-.h2{font-size:17px;font-weight:700}
-.sub{color:var(--muted);font-size:13px}
-.card{background:var(--card);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
-.row{display:flex;align-items:center;gap:12px}
-.between{display:flex;align-items:center;justify-content:space-between}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700}
-.cat{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;background:#fff;color:var(--muted);border:1px solid var(--line);white-space:nowrap;cursor:pointer}
-.cat.on{background:var(--green);color:#fff;border-color:var(--green)}
-.btn{border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;width:100%;transition:transform .1s}
-.btn:active{transform:scale(.97)}
-.btn-pri{background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff}
-.btn-sl{background:linear-gradient(135deg,var(--slave),var(--slave-d));color:#fff}
-.btn-amber{background:linear-gradient(135deg,#FFB300,#FF8F00);color:#fff}
-.btn-red{background:linear-gradient(135deg,#EF5350,#C62828);color:#fff}
-.btn-gh{background:#fff;color:var(--green);border:1.5px solid var(--green)}
-.btn-ghs{background:#fff;color:var(--slave);border:1.5px solid var(--slave)}
-.btn-sm{padding:9px 14px;width:auto;font-size:13px}
-.splash{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#fff;padding-bottom:84px;text-align:center}
-.splash.m{background:linear-gradient(160deg,var(--green-d),var(--green))}
-.splash.s{background:linear-gradient(160deg,var(--slave-d),var(--slave))}
-.splash .logo{font-size:64px;animation:bob 2.5s ease-in-out infinite}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-.onb{display:flex;flex-direction:column;height:100%;align-items:center;text-align:center;padding:40px 28px}
-.onb .art{font-size:110px;margin-top:30px;margin-bottom:20px}
-.dots{display:flex;gap:8px;margin:24px 0}
-.dots span{width:8px;height:8px;border-radius:50%;background:#cbd5e1}
-.dots span.on{width:24px;border-radius:5px;background:var(--green)}
-.weather{background:linear-gradient(135deg,#4FC3F7,#1E88E5);color:#fff;border-radius:20px;padding:18px}
-.pmini{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}
-.pmini::-webkit-scrollbar{display:none}
-.pmini .item{min-width:150px}
-.alert{border-left:4px solid;padding:14px;border-radius:12px;display:flex;gap:12px;align-items:center}
-.alert.harvest{border-color:var(--amber);background:#FFF8E1}
-.alert.pest{border-color:var(--red);background:#FFEBEE}
-.hero{height:200px;border-radius:20px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;position:relative}
-.scanline{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#00E676,transparent);box-shadow:0 0 12px #00E676;animation:scan 1.6s linear infinite}
-@keyframes scan{0%{top:10%}100%{top:90%}}
-.stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
-.stat:last-child{border:none}
-.nitem{display:flex;gap:12px;align-items:center;padding:14px;border-radius:14px;background:#fff;margin-bottom:10px;cursor:pointer}
-.nitem .em{font-size:28px}
-.ring{width:90px;height:90px;border-radius:50%;border:5px solid var(--slave-l);border-top-color:var(--slave);animation:spin 1s linear infinite;margin:20px auto}
-@keyframes spin{to{transform:rotate(360deg)}}
-.toast{position:absolute;bottom:96px;left:16px;right:16px;background:#111827;color:#fff;padding:14px;border-radius:12px;font-size:13px;z-index:70;display:none;box-shadow:0 8px 24px rgba(0,0,0,.3)}
-.toast.show{display:block;animation:fade .2s}
-.back{display:flex;align-items:center;gap:4px;color:var(--green);font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px}
-.phone.slave .back{color:var(--slave)}
-.bar{height:8px;background:#E5E7EB;border-radius:5px;overflow:hidden}
-.bar>i{display:block;height:100%;border-radius:5px}
-.bar.m>i{background:linear-gradient(90deg,var(--green-l),var(--green))}
-.bar.s>i{background:linear-gradient(90deg,var(--slave-l),var(--slave))}
-.tag{font-size:10px;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
-.codebox{background:#111827;color:#fff;border-radius:16px;padding:24px;text-align:center;letter-spacing:8px;font-size:32px;font-weight:800;font-family:monospace}
-.qr{width:160px;height:160px;background:repeating-conic-gradient(#111827 0% 25%,#fff 0% 50%) 50%/26px 26px;border-radius:12px;margin:14px auto;border:8px solid #fff;box-shadow:var(--shadow);cursor:pointer}
-.live{height:200px;border-radius:18px;background:linear-gradient(160deg,#81C784,#388E3C);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.live .rec{position:absolute;top:10px;left:10px;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.4);color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700}
-.live .rec i{width:8px;height:8px;border-radius:50%;background:#ff5252;animation:blink 1s infinite}
-@keyframes blink{50%{opacity:.3}}
-.live .cross{position:absolute;width:60%;height:60%;border:2px dashed rgba(255,255,255,.5);border-radius:10px}
-.pulse{width:12px;height:12px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.6s infinite}
-.pulse.s{background:var(--slave)}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,125,50,.5)}70%{box-shadow:0 0 0 12px rgba(46,125,50,0)}100%{box-shadow:0 0 0 0 rgba(46,125,50,0)}}
-.ev{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
-.ev:last-child{border:none}
-.ev .em{font-size:20px;flex:0}
-.toggle{width:42px;height:24px;border-radius:999px;background:#cbd5e1;position:relative;cursor:pointer;transition:.2s}
-.toggle.on{background:var(--slave)}
-.toggle i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
-.toggle.on i{left:20px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우주 팜 (OOJOO FARM) Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #F8F9FA;
+            --primary-green: #2ECC71;
+            --primary-dark: #27AE60;
+            --text-dark: #2C3E50;
+            --text-muted: #95A5A6;
+            --card-bg: #FFFFFF;
+            --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 10px 20px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #E2E8F0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Mobile Frame */
+        .device {
+            width: 390px;
+            height: 844px;
+            background-color: var(--bg-color);
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: var(--shadow-lg);
+            border: 8px solid #FFFFFF;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            padding: 40px 24px 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .greeting h1 {
+            font-size: 24px;
+            color: var(--text-dark);
+            font-weight: 800;
+        }
+
+        .greeting p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .profile-pic {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-green), #1ABC9C);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Main Content */
+        .content {
+            padding: 0 24px;
+            height: calc(100% - 180px);
+            overflow-y: auto;
+            padding-bottom: 100px; /* Space for bottom nav */
+        }
+
+        .content::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* 3D Viewer Placeholder */
+        .farm-view {
+            width: 100%;
+            height: 240px;
+            background: linear-gradient(145deg, #E0F2FE, #BAE6FD);
+            border-radius: 28px;
+            margin-bottom: 24px;
+            position: relative;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .farm-view::before {
+            content: "🌱";
+            font-size: 80px;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.1));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary-dark);
+        }
+
+        /* Environment Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            padding: 16px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-dark);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 16px;
+        }
+
+        /* Action Card */
+        .action-card {
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-dark));
+            padding: 24px;
+            border-radius: 24px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 20px rgba(46, 204, 113, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .action-card:active {
+            transform: scale(0.98);
+        }
+
+        .action-text h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+        
+        .action-text p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .action-icon {
+            background: rgba(255, 255, 255, 0.2);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        /* Floating Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            right: 24px;
+            height: 72px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 36px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: var(--text-muted);
+        }
+
+        .nav-item.active {
+            color: var(--primary-dark);
+            transform: translateY(-8px);
+        }
+
+        .nav-item i {
+            font-size: 24px;
+            font-style: normal;
+            margin-bottom: 4px;
+            transition: transform 0.2s;
+        }
+
+        .nav-item.active i {
+            transform: scale(1.2);
+        }
+
+        .nav-item span {
+            font-size: 10px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .nav-item.active span {
+            opacity: 1;
+        }
+
+        /* Plant Registration Modal (Overlay) */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            border-radius: 40px;
+            display: flex;
+            align-items: flex-end;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .bottom-sheet {
+            background: white;
+            width: 100%;
+            height: 80%;
+            border-radius: 32px 32px 40px 40px;
+            padding: 32px 24px;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .bottom-sheet {
+            transform: translateY(0);
+        }
+
+        .sheet-handle {
+            width: 40px;
+            height: 4px;
+            background: #E2E8F0;
+            border-radius: 2px;
+            margin: 0 auto 24px auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #E2E8F0;
+            border-radius: 16px;
+            font-size: 16px;
+            color: var(--text-dark);
+            outline: none;
+            transition: border-color 0.2s;
+            background: #F8F9FA;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-green);
+            background: white;
+        }
+
+        .btn-submit {
+            margin-top: auto;
+            width: 100%;
+            padding: 18px;
+            border-radius: 20px;
+            border: none;
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-dark));
+            color: white;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(46, 204, 113, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+        
+    </style>
 </head>
 <body>
-<div class="desk">FARM · Master + Slave(Farmer) · 390×820</div>
-<div class="switch">
-  <button id="swM" class="on m" onclick="showApp('master')">Master 앱</button>
-  <button id="swS" class="s" onclick="showApp('slave')">Slave (Farmer) 앱</button>
-</div>
-<!-- ============================ MASTER PHONE ============================ -->
-<div class="phone master show" id="phoneM">
-  <div class="notch"></div>
 
-  <!-- M: SPLASH -->
-  <div class="page active" id="mSplash"><div class="splash m">
-    <div class="logo"><img src="../assets/icon.svg" width="104" height="104" style="animation:bob 2.5s ease-in-out infinite"></div>
-    <h1 style="font-size:34px;margin-top:16px;letter-spacing:4px;font-weight:900">FARM</h1>
-    <p style="opacity:.85;margin-top:6px">마스터 앱 · 원격으로 키운다</p>
-    <p style="margin-top:40px;opacity:.6;font-size:12px">WOOJU INDUSTRY</p>
-  </div></div>
-
-  <!-- M: ONBOARDING -->
-  <div class="page" id="mOnb"><div class="screen"><div class="onb">
-    <div class="art" id="mOnbArt">📱</div>
-    <h1 class="h1" id="mOnbTitle">마스터로 지시하세요</h1>
-    <p class="sub" id="mOnbDesc" style="margin-top:10px;max-width:280px">휴대폰에서 식물을 모니터링하고, 현장의 Farmer 기기에 원격으로 관수·퇴치를 지시합니다.</p>
-    <div class="dots"><span class="on"></span><span></span><span></span></div>
-    <button class="btn btn-pri" onclick="mOnbNext()">다음</button>
-    <button class="btn btn-gh" style="margin-top:10px" onclick="mGo('mHome');mShowTabs(true)">건너뛰기</button>
-  </div></div></div>
-
-  <!-- M: HOME -->
-  <div class="page" id="mHome"><div class="screen"><div class="pad">
-    <div class="between" style="margin-bottom:14px">
-      <div><div class="tag">오늘의 정원</div><div class="h1">FARM</div></div>
-      <div style="width:44px;height:44px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer" onclick="mGo('mSetting')">⚙️</div>
-    </div>
-    <div class="weather">
-      <div class="between"><div><div style="font-size:13px;opacity:.9">서울 송파구 · 맑음</div><div style="font-size:30px;font-weight:800">24°</div></div><div style="font-size:40px">☀️</div></div>
-      <div class="row" style="margin-top:10px;font-size:12px;opacity:.95"><span>💧 45%</span><span>·</span><span>🌡️ 24℃</span><span>·</span><span>🌧️ 비 없음</span></div>
-      <div style="margin-top:10px;font-size:11px;background:rgba(255,255,255,.18);padding:8px 10px;border-radius:10px">⚡ 건조한 날 — 권장 관수량 <b>+20%</b></div>
-    </div>
-    <div class="between" style="margin:18px 2px 10px"><div class="h2">Farmer 기기</div><span class="sub" style="cursor:pointer" onclick="mGo('mPair')">+ 추가</span></div>
-    <div class="card" style="cursor:pointer;margin-bottom:14px" onclick="mGo('mPlantDetail')">
-      <div class="between">
-        <div class="row"><div style="font-size:30px">🤖</div><div><div style="font-weight:700">베란대 토마토 Farmer</div><div class="sub" style="font-size:12px">온라인 · 자율 관리 중</div></div></div>
-        <span class="chip" style="background:#E8F5E9;color:var(--green-d)"><span class="pulse"></span> LIVE</span>
-      </div>
-    </div>
-    <div class="between" style="margin:6px 2px 10px"><div class="h2">내 식물</div><span class="sub" style="cursor:pointer" onclick="mGo('mPlantDetail')">전체 ›</span></div>
-    <div class="pmini">
-      <div class="item card" style="cursor:pointer" onclick="mGo('mPlantDetail')"><div style="font-size:42px;text-align:center">🍅</div><div style="font-weight:700">방울토마토</div><div class="sub" style="font-size:11px">결실기 · D-32</div><div class="bar m" style="margin-top:8px"><i style="width:72%"></i></div></div>
-      <div class="item card" style="cursor:pointer" onclick="mGo('mPlantDetail')"><div style="font-size:42px;text-align:center">🥬</div><div style="font-weight:700">청상추</div><div class="sub" style="font-size:11px">영양생장</div><div class="bar m" style="margin-top:8px"><i style="width:40%"></i></div></div>
-      <div class="item card" style="cursor:pointer" onclick="mGo('mPlantDetail')"><div style="font-size:42px;text-align:center">🌿</div><div style="font-weight:700">바질</div><div class="sub" style="font-size:11px">수확가능</div><div class="bar m" style="margin-top:8px"><i style="width:95%"></i></div></div>
-    </div>
-    <div class="card" style="margin-top:6px">
-      <div class="between"><div><div class="h2">빠른 관수 (원격 지시)</div><div class="sub">Farmer로 전송 · 추천 320ml</div></div><span style="font-size:34px">🚿</span></div>
-      <button class="btn btn-pri" style="margin-top:12px" onclick="mGo('mWatering')">지금 물 주기</button>
-    </div>
-    <div class="h2" style="margin:18px 2px 10px">최근 알림</div>
-    <div class="alert harvest" style="margin-bottom:10px;cursor:pointer" onclick="mGo('mHarvest')"><div style="font-size:26px">🍅</div><div style="flex:1"><div style="font-weight:700">수확 적기 도달</div><div class="sub" style="font-size:12px">Farmer 보고 · 착색 85%</div></div><span style="color:var(--amber);font-weight:800">›</span></div>
-    <div class="alert pest" style="cursor:pointer" onclick="mGo('mPest')"><div style="font-size:26px">🐛</div><div style="flex:1"><div style="font-weight:700">해충 탐지 → Fan 자동 퇴치</div><div class="sub" style="font-size:12px">Farmer 자율 실행 · 5분 전</div></div><span style="color:var(--red);font-weight:800">›</span></div>
-  </div></div></div>
-
-  <!-- M: PLANT DETAIL -->
-  <div class="page" id="mPlantDetail"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mHome')">‹ 뒤로</div>
-    <div class="hero" style="background:linear-gradient(160deg,#66BB6A,#2E7D32)"><div style="font-size:90px">🍅</div></div>
-    <div class="between" style="margin-top:14px"><div><div class="h1">방울토마토</div><div class="sub">Farmer: 베란대 토마토 Farmer</div></div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">결실기</span></div>
-    <div class="card" style="margin-top:14px;cursor:pointer" onclick="mGo('mScan')">
-      <div class="between"><div><div class="h2">최신 분석 영상</div><div class="sub">Farmer가 1분 전 캡처</div></div><div style="font-size:30px">📸</div></div>
-      <button class="btn btn-amber" style="margin-top:12px">분석 결과 보기</button>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:6px">식물 상태 (Farmer 보고)</div>
-      <div class="stat"><span class="sub">수분 스트레스</span><span style="color:var(--amber);font-weight:700">약간 부족</span></div>
-      <div class="stat"><span class="sub">잎 색상</span><span style="color:var(--green);font-weight:700">정상</span></div>
-      <div class="stat"><span class="sub">열매 개수</span><span style="font-weight:700">12개</span></div>
-      <div class="stat"><span class="sub">착색률</span><span style="color:var(--amber);font-weight:700">85% (수확임박)</span></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="between"><div class="h2">원격 제어</div><span class="chip" style="background:#E3F2FD;color:var(--blue)">Farmer 연결됨</span></div>
-      <div class="sub" style="margin-top:4px">추천 320ml (날씨 +20%)</div>
-      <div class="row" style="margin-top:12px;gap:10px">
-        <button class="btn btn-pri btn-sm" style="flex:1" onclick="mGo('mWatering')">원격 관수</button>
-        <button class="btn btn-gh btn-sm" style="flex:1" onclick="toastM('Fan 가동 지시 전송')">Fan 지시</button>
-      </div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:10px">Farmer 이벤트 로그</div>
-      <div class="sub" style="line-height:1.9">• 방금 — 수확 적기 알림<br>• 5분전 — 해충 탐지→Fan 자동 퇴치<br>• 09:00 — 자율 관수 300ml<br>• 08:00 — 정기 캡처·분석</div>
-    </div>
-  </div></div></div>
-
-  <!-- M: SCAN -->
-  <div class="page" id="mScan"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mPlantDetail')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px"><div class="tag">Farmer 분석 결과</div><div class="h1" style="margin-top:4px">최신 캡처</div><div class="sub">방울토마토 · 1분 전</div></div>
-    <div class="hero" style="height:240px;background:linear-gradient(160deg,#81C784,#388E3C);margin-top:16px"><div style="font-size:110px">🍅</div><div class="scanline"></div></div>
-    <div class="card" style="margin-top:16px">
-      <div class="h2">온디바이스 AI 결과</div>
-      <div class="stat"><span class="sub">수분 판정</span><span style="color:var(--amber);font-weight:700">약간 부족</span></div>
-      <div class="stat"><span class="sub">열매 탐지</span><span style="font-weight:700">12개 · 착색 85%</span></div>
-      <div class="stat"><span class="sub">곤충 탐지</span><span style="color:var(--green);font-weight:700">없음</span></div>
-      <div class="stat"><span class="sub">AI 제안</span><span style="color:var(--blue);font-weight:700">관수 320ml 권장</span></div>
-    </div>
-  </div></div></div>
-
-  <!-- M: WATERING -->
-  <div class="page" id="mWatering"><div class="screen"><div class="pad" style="text-align:center">
-    <div class="back" style="justify-content:flex-start" onclick="mGo('mHome')">‹ 뒤로</div>
-    <div style="margin-top:24px"><div id="mwIcon" style="font-size:80px">🚿</div><div class="h1" id="mwTitle" style="margin-top:10px">원격 관수 지시</div><div class="sub" id="mwDesc">Farmer로 명령을 전송합니다</div></div>
-    <div class="card" style="margin-top:22px;text-align:left">
-      <div class="stat"><span class="sub">대상 Farmer</span><span style="font-weight:700">베란대 토마토 Farmer</span></div>
-      <div class="stat"><span class="sub">공급량</span><span style="font-weight:700">320 ml</span></div>
-      <div class="stat"><span class="sub">날씨 보정</span><span style="color:var(--blue);font-weight:700">건조 +20%</span></div>
-      <div class="stat"><span class="sub">실행 주체</span><span style="color:var(--green);font-weight:700">Farmer (온디바이스)</span></div>
-    </div>
-    <div class="bar m" style="margin-top:18px"><i id="mwBar" style="width:0%"></i></div>
-    <div class="sub" id="mwPct" style="margin-top:6px">0%</div>
-    <button class="btn btn-pri" id="mwBtn" style="margin-top:18px" onclick="mStartWater()">지시 전송</button>
-  </div></div></div>
-
-  <!-- M: NOTIF -->
-  <div class="page" id="mNotif"><div class="screen"><div class="pad">
-    <div class="h1" style="margin-bottom:14px">알림</div>
-    <div class="nitem" onclick="mGo('mHarvest')"><div class="em">🍅</div><div style="flex:1"><div style="font-weight:700">수확 적기 도달</div><div class="sub" style="font-size:12px">Farmer 보고 · 1분 전</div></div><span class="chip" style="background:#FFF3E0;color:var(--amber)">수확</span></div>
-    <div class="nitem" onclick="mGo('mPest')"><div class="em">🐛</div><div style="flex:1"><div style="font-weight:700">해충 탐지 → 자동 퇴치</div><div class="sub" style="font-size:12px">Farmer 자율 · 5분 전</div></div><span class="chip" style="background:#FFEBEE;color:var(--red)">긴급</span></div>
-    <div class="nitem" onclick="toastM('자율 관수 완료')"><div class="em">💧</div><div style="flex:1"><div style="font-weight:700">자율 관수 완료</div><div class="sub" style="font-size:12px">Farmer 자율 300ml · 09:00</div></div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">정보</span></div>
-    <div class="nitem" onclick="toastM('Farmer 재연결 동기화 완료')"><div class="em">🔌</div><div style="flex:1"><div style="font-weight:700">Farmer 재연결</div><div class="sub" style="font-size:12px">오프라인 12분 후 복귀 · 동기화</div></div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">정보</span></div>
-  </div></div></div>
-
-  <!-- M: HARVEST -->
-  <div class="page" id="mHarvest"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mNotif')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px"><div style="font-size:80px">🍅</div><span class="chip" style="background:#FFF3E0;color:var(--amber);margin-top:6px">Farmer 보고</span><div class="h1" style="margin-top:10px">수확할 때가 됐어요!</div><div class="sub" style="margin-top:6px">방울토마토가 충분히 익었습니다</div></div>
-    <div class="card" style="margin-top:18px">
-      <div class="h2" style="margin-bottom:8px">수확 지표</div>
-      <div class="stat"><span class="sub">착색률</span><span style="color:var(--amber);font-weight:700">85%</span></div>
-      <div class="stat"><span class="sub">평균 크기</span><span style="font-weight:700">22mm</span></div>
-      <div class="stat"><span class="sub">수확 가능</span><span style="font-weight:700">8개 / 12개</span></div>
-      <div class="stat"><span class="sub">권장 시기</span><span style="color:var(--red);font-weight:700">오늘~내일</span></div>
-    </div>
-    <button class="btn btn-pri" style="margin-top:14px" onclick="mGo('mHome');toastM('수확 8개 기록 🎉')">수확 완료 처리</button>
-  </div></div></div>
-
-  <!-- M: PEST -->
-  <div class="page" id="mPest"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mNotif')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px"><div style="font-size:80px">🐛</div><span class="chip" style="background:#FFEBEE;color:var(--red);margin-top:6px">Farmer 자율 퇴치</span><div class="h1" style="margin-top:10px">해충 탐지 & 퇴치</div><div class="sub" style="margin-top:6px">청상추 · 진딧물 3개체</div></div>
-    <div class="card" style="margin-top:18px">
-      <div class="h2" style="margin-bottom:6px">자율 대응 결과</div>
-      <div class="stat"><span class="sub">탐지 시각</span><span style="font-weight:700">5분 전</span></div>
-      <div class="stat"><span class="sub">대응 방식</span><span style="color:var(--amber);font-weight:700">Fan 자동 (10초)</span></div>
-      <div class="stat"><span class="sub">실행 주체</span><span style="color:var(--green);font-weight:700">Farmer 온디바이스 AI</span></div>
-      <div class="stat"><span class="sub">결과</span><span style="color:var(--green);font-weight:700">퇴치 완료</span></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2">원격 추가 제어</div>
-      <div class="sub" style="margin-top:4px">필요 시 Farmer에 직접 지시</div>
-      <div class="row" style="margin-top:12px;gap:10px">
-        <button class="btn btn-amber btn-sm" style="flex:1" onclick="toastM('Fan 가동 지시 전송')">Fan 재가동</button>
-        <button class="btn btn-red btn-sm" style="flex:1" onclick="toastM('Laser 타겟팅 승인')">Laser 승인</button>
-      </div>
-    </div>
-  </div></div></div>
-
-  <!-- M: PAIRING -->
-  <div class="page" id="mPair"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mSetting')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px"><div style="font-size:60px">🤝</div><div class="h1" style="margin-top:6px">Farmer 연결</div><div class="sub">무작위 페어링 코드를 Farmer에 입력하세요</div></div>
-    <div class="card" style="margin-top:18px">
-      <div class="tag" style="text-align:center">페어링 코드 · 유효 10:00</div>
-      <div class="codebox" style="margin-top:10px">7K9Q2F</div>
-      <div class="sub" style="text-align:center;margin-top:8px">1회용 · 마스터에서 생성</div>
-    </div>
-    <div class="card" style="margin-top:14px;text-align:center">
-      <div class="tag">또는 QR 스캔</div>
-      <div class="qr"></div>
-      <div class="sub">Farmer 앱에서 카메라로 스캔</div>
-    </div>
-    <button class="btn btn-gh" style="margin-top:14px" onclick="toastM('코드 재생성')">코드 재생성</button>
-    <button class="btn btn-pri" style="margin-top:10px" onclick="toastM('Farmer 연결 대기 중…');setTimeout(function(){toastM('✅ 베란대 토마토 Farmer 연결됨!')},1800)">연결 대기</button>
-  </div></div></div>
-
-  <!-- M: SETTING -->
-  <div class="page" id="mSetting"><div class="screen"><div class="pad">
-    <div class="h1" style="margin-bottom:16px">설정</div>
-    <div class="card" style="margin-bottom:12px"><div class="row"><div style="width:48px;height:48px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:24px">🧑‍🌾</div><div style="flex:1"><div style="font-weight:700">우주 님</div><div class="sub" style="font-size:12px">서울 송파구 · Farmer 1대</div></div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">프리미엄</span></div></div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="h2" style="margin-bottom:10px">Farmer 기기</div>
-      <div class="stat" style="cursor:pointer" onclick="mGo('mPair')"><span>Farmer 추가 (페어링)</span><span style="color:var(--green);font-weight:700">+ 추가 ›</span></div>
-      <div class="stat"><span>베란대 토마토 Farmer</span><span style="color:var(--green);font-weight:700">온라인 ›</span></div>
-      <div class="stat"><span>자율 실행 정책</span><span class="sub">관수 자동 / Fan 자동 / Laser 승인</span></div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="h2" style="margin-bottom:10px">알림</div>
-      <div class="stat"><span>수확 알림</span><span style="color:var(--green);font-weight:700">ON</span></div>
-      <div class="stat"><span>해충 알림</span><span style="color:var(--green);font-weight:700">ON</span></div>
-      <div class="stat"><span>Farmer 오프라인</span><span style="color:var(--green);font-weight:700">ON</span></div>
-    </div>
-    <div class="card">
-      <div class="h2" style="margin-bottom:10px">기타</div>
-      <div class="stat" onclick="toastM('커뮤니티 - Phase 3')"><span>지역 커뮤니티</span><span class="sub">›</span></div>
-      <div class="stat" onclick="toastM('마켓 - Phase 4')"><span>용품 마켓</span><span class="sub">›</span></div>
-      <div class="stat" onclick="toastM('WOOJU INDUSTRY · v1.1.0')"><span>앱 정보</span><span class="sub">v1.1.0 ›</span></div>
-    </div>
-  </div></div></div>
-
-  <!-- M: MARKETPLACE MAIN -->
-  <div class="page" id="mMarket"><div class="screen"><div class="pad">
-    <div class="between" style="margin-bottom:14px">
-      <div><div class="tag">커뮤니티</div><div class="h1">마켓플레이스</div></div>
-      <div style="width:44px;height:44px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer" onclick="mGo('mSetting')">⚙️</div>
-    </div>
-
-    <div class="row" style="background:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:12px">
-      <span style="font-size:18px">🔍</span>
-      <input type="text" placeholder="작물, 모종, 부품 검색" style="border:none;outline:none;flex:1;font-size:14px;background:transparent">
-    </div>
-
-    <div class="cats" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none">
-      <span class="cat on" onclick="pickCat(this)">전체</span>
-      <span class="cat" onclick="pickCat(this)">🌱 작물</span>
-      <span class="cat" onclick="pickCat(this)">🌿 모종</span>
-      <span class="cat" onclick="pickCat(this)">🌰 씨앗</span>
-      <span class="cat" onclick="pickCat(this)">🥬 수확물</span>
-      <span class="cat" onclick="pickCat(this)">⚙️ 부품</span>
-    </div>
-
-    <div class="between" style="margin:4px 2px 12px">
-      <div style="display:flex;gap:8px">
-        <span class="chip" style="background:#FFF3E0;color:var(--amber);cursor:pointer" onclick="toastM('나눔만 필터')">나눔</span>
-        <span class="chip" style="background:var(--green-bg);color:var(--green-d);cursor:pointer" onclick="toastM('판매만 필터')">판매</span>
-      </div>
-      <span class="sub" style="cursor:pointer" onclick="toastM('거리/최신 정렬')">거리순 ▾</span>
-    </div>
-
-    <div class="card" style="background:linear-gradient(135deg,#5C6BC0,#3949AB);color:#fff;margin-bottom:14px;cursor:pointer" onclick="mGo('mTools')">
-      <div class="between">
-        <div><div style="font-size:12px;opacity:.9">추천 공구 구매</div><div class="h2" style="margin-top:2px">재배 용품 · 제휴 링크</div><div style="font-size:12px;opacity:.9;margin-top:2px">비료·밸브·ESP32·조명</div></div>
-        <div style="font-size:34px">🛒</div>
-      </div>
-    </div>
-
-    <div class="between" style="margin:4px 2px 10px"><div class="h2">가까운 나눔·거래</div><span class="sub">반경 5km</span></div>
-
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="mGo('mListing')">
-      <div class="row" style="align-items:flex-start">
-        <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#66BB6A,#2E7D32);display:flex;align-items:center;justify-content:center;font-size:30px;flex:0">🍅</div>
-        <div style="flex:1">
-          <div class="between"><div style="font-weight:700">방울토마토 모종 나눔</div><span class="chip" style="background:#FFF3E0;color:var(--amber)">나눔</span></div>
-          <div class="sub" style="font-size:12px;margin-top:2px">송파구 · 1.2km · 2시간 전</div>
-          <div class="sub" style="font-size:11px;margin-top:2px">"건강한 모종 3포기 나눔니다"</div>
+    <div class="device">
+        <!-- Header -->
+        <div class="top-bar">
+            <div class="greeting">
+                <h1>안녕하세요, 우주님!</h1>
+                <p>오늘도 농장이 싱그럽네요 🌿</p>
+            </div>
+            <div class="profile-pic"></div>
         </div>
-      </div>
-    </div>
 
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="mGo('mListing')">
-      <div class="row" style="align-items:flex-start">
-        <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#81C784,#388E3C);display:flex;align-items:center;justify-content:center;font-size:30px;flex:0">🌱</div>
-        <div style="flex:1">
-          <div class="between"><div style="font-weight:700">바질 씨앗 판매</div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">2,000원</span></div>
-          <div class="sub" style="font-size:12px;margin-top:2px">강남구 · 3.5km · 5시간 전</div>
-          <div class="sub" style="font-size:11px;margin-top:2px">"수확한 씨앗, 발아율 좋습니다"</div>
+        <!-- Main Content -->
+        <div class="content">
+            
+            <!-- 3D Viewer Placeholder -->
+            <div class="farm-view">
+                <div class="badge">Live 3D View</div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🌡️</div>
+                    <div class="stat-value">24°C</div>
+                    <div class="stat-label">온도</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💧</div>
+                    <div class="stat-value">62%</div>
+                    <div class="stat-label">습도</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🌱</div>
+                    <div class="stat-value">좋음</div>
+                    <div class="stat-label">토양 수분</div>
+                </div>
+            </div>
+
+            <!-- Action -->
+            <h2 class="section-title">빠른 액션</h2>
+            <div class="action-card" onclick="openModal()">
+                <div class="action-text">
+                    <h3>새로운 식물 등록</h3>
+                    <p>농장에 새로운 친구를 추가하세요</p>
+                </div>
+                <div class="action-icon">➕</div>
+            </div>
+
         </div>
-      </div>
-    </div>
 
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="mGo('mListing')">
-      <div class="row" style="align-items:flex-start">
-        <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#A5D6A7,#43A047);display:flex;align-items:center;justify-content:center;font-size:30px;flex:0">🥬</div>
-        <div style="flex:1">
-          <div class="between"><div style="font-weight:700">청상추 수확물 나눔</div><span class="chip" style="background:#FFF3E0;color:var(--amber)">나눔</span></div>
-          <div class="sub" style="font-size:12px;margin-top:2px">송파구 · 0.8km · 어제</div>
-          <div class="sub" style="font-size:11px;margin-top:2px">"키우다 남은 상추 나눔니다"</div>
+        <!-- Floating Bottom Nav -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab(this)">
+                <i>🏡</i>
+                <span>홈</span>
+            </div>
+            <div class="nav-item" onclick="switchTab(this)">
+                <i>🌱</i>
+                <span>식물</span>
+            </div>
+            <div class="nav-item" onclick="switchTab(this)">
+                <i>🤖</i>
+                <span>Farmer</span>
+            </div>
+            <div class="nav-item" onclick="switchTab(this)">
+                <i>🛒</i>
+                <span>마켓</span>
+            </div>
+            <div class="nav-item" onclick="switchTab(this)">
+                <i>🏘️</i>
+                <span>이웃</span>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="mGo('mListing')">
-      <div class="row" style="align-items:flex-start">
-        <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#90CAF9,#1E88E5);display:flex;align-items:center;justify-content:center;font-size:30px;flex:0">🌶️</div>
-        <div style="flex:1">
-          <div class="between"><div style="font-weight:700">고추 모종 판매</div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">3,000원</span></div>
-          <div class="sub" style="font-size:12px;margin-top:2px">송파구 · 2.1km · 1일 전</div>
-          <div class="sub" style="font-size:11px;margin-top:2px">"풋고추 모종 5포기"</div>
+        <!-- Plant Registration Modal -->
+        <div class="modal-overlay" id="regModal">
+            <div class="bottom-sheet">
+                <div class="sheet-handle" onclick="closeModal()"></div>
+                <h2 class="section-title" style="margin-bottom: 24px;">식물 등록</h2>
+                
+                <div class="form-group">
+                    <label>식물 이름 (애칭)</label>
+                    <input type="text" class="form-control" placeholder="예: 방울이">
+                </div>
+
+                <div class="form-group">
+                    <label>작물 종류</label>
+                    <select class="form-control">
+                        <option value="" disabled selected>작물을 선택하세요</option>
+                        <option>상추</option>
+                        <option>깻잎</option>
+                        <option>바질</option>
+                        <option>로즈마리</option>
+                        <option>방울토마토</option>
+                        <option>딸기</option>
+                        <option>직접 입력...</option>
+                    </select>
+                </div>
+
+                <button class="btn-submit" onclick="closeModal()">농장에 추가하기</button>
+            </div>
         </div>
-      </div>
+
     </div>
 
-    <button class="btn btn-gh" onclick="mGo('mWrite')">+ 나눔/판매 글 쓰기</button>
-  </div></div></div>
+    <script>
+        function switchTab(element) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
 
-  <!-- M: LISTING DETAIL -->
-  <div class="page" id="mListing"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mMarket')">‹ 뒤로</div>
-    <div style="height:200px;border-radius:18px;background:linear-gradient(135deg,#66BB6A,#2E7D32);display:flex;align-items:center;justify-content:center;font-size:90px">🍅</div>
-    <div class="between" style="margin-top:14px">
-      <div><div class="h1">방울토마토 모종 나눔</div><div class="sub">송파구 · 1.2km · 2시간 전</div></div>
-      <span class="chip" style="background:#FFF3E0;color:var(--amber);font-size:13px">나눔</span>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <div class="h2" style="margin-bottom:8px">설명</div>
-      <div class="sub" style="line-height:1.7">잘 자란 방울토마토 모종 3포기 나눔니다. 직접 키운 거라 건강합니다. 선착순 댓글/채팅 주세요. 직거래만 가능합니다.</div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="stat"><span class="sub">품목</span><span style="font-weight:700">방울토마토 모종</span></div>
-      <div class="stat"><span class="sub">수량</span><span style="font-weight:700">3포기</span></div>
-      <div class="stat"><span class="sub">거래 방식</span><span style="font-weight:700">나눔 · 직거래</span></div>
-      <div class="stat"><span class="sub">위치</span><span style="font-weight:700">송파구 (1.2km)</span></div>
-    </div>
-    <div class="card" style="margin-top:12px;cursor:pointer" onclick="mGo('mProfile')">
-      <div class="row">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:24px">🧑‍🌾</div>
-        <div style="flex:1"><div style="font-weight:700">이웃 농부 김씨</div><div class="sub" style="font-size:12px">송파구 · ⭐ 4.9 · 거래 23회</div></div>
-        <span style="color:var(--green);font-weight:700">프로필 ›</span>
-      </div>
-    </div>
-    <div class="row" style="margin-top:14px;gap:10px">
-      <button class="btn btn-gh btn-sm" style="flex:1" onclick="toastM('관심 등록 ♡')">관심 ♡</button>
-      <button class="btn btn-pri btn-sm" style="flex:2" onclick="mGo('mChat')">채팅하기</button>
-    </div>
-  </div></div></div>
+        function openModal() {
+            document.getElementById('regModal').classList.add('active');
+        }
 
-  <!-- M: CHAT -->
-  <div class="page" id="mChat"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mListing')">‹ 뒤로</div>
-    <div class="row" style="margin-bottom:14px">
-      <div style="width:44px;height:44px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:22px">🧑‍🌾</div>
-      <div style="flex:1"><div style="font-weight:700">이웃 농부 김씨</div><div class="sub" style="font-size:12px">방울토마토 모종 나눔</div></div>
-      <span class="chip" style="background:var(--green-bg);color:var(--green-d)">온라인</span>
-    </div>
-    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px;max-width:80%">
-      <div class="sub" style="font-size:13px;color:var(--ink)">안녕하세요! 모종 아직 있나요?</div>
-      <div class="sub" style="font-size:10px;margin-top:4px">10:24</div>
-    </div>
-    <div style="background:var(--green);color:#fff;border-radius:14px;padding:14px;margin-bottom:10px;max-width:80%;margin-left:auto">
-      <div style="font-size:13px">네 있어요! 오늘 저녁 가능하시나요?</div>
-      <div style="font-size:10px;margin-top:4px;opacity:.8">10:25</div>
-    </div>
-    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px;max-width:80%">
-      <div class="sub" style="font-size:13px;color:var(--ink)">네 7시 좋아요! 송파역 어때요?</div>
-      <div class="sub" style="font-size:10px;margin-top:4px">10:26</div>
-    </div>
-    <div class="card" style="margin-top:14px;background:var(--green-bg)">
-      <div class="between"><div><div style="font-weight:700;font-size:13px">📅 거래 약속</div><div class="sub" style="font-size:11px">오늘 19:00 · 송파역 2번 출구</div></div><span class="chip" style="background:#fff;color:var(--green-d)">확정</span></div>
-    </div>
-    <div class="row" style="margin-top:14px;background:#fff;border-radius:14px;padding:10px;box-shadow:var(--shadow)">
-      <input type="text" placeholder="메시지 입력" style="border:none;outline:none;flex:1;font-size:14px;background:transparent">
-      <button class="btn btn-pri btn-sm" style="width:auto" onclick="toastM('메시지 전송')">전송</button>
-    </div>
-  </div></div></div>
-
-  <!-- M: WRITE -->
-  <div class="page" id="mWrite"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mMarket')">‹ 뒤로</div>
-    <div class="h1" style="margin-bottom:14px">글 쓰기</div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag" style="margin-bottom:8px">사진</div>
-      <div style="display:flex;gap:10px">
-        <div style="width:72px;height:72px;border-radius:12px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--muted)">📷</div>
-        <div style="width:72px;height:72px;border-radius:12px;background:linear-gradient(135deg,#66BB6A,#2E7D32);display:flex;align-items:center;justify-content:center;font-size:30px">🍅</div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag">제목</div>
-      <input type="text" placeholder="예) 방울토마토 모종 나눔" style="border:none;outline:none;width:100%;font-size:14px;margin-top:6px;background:transparent">
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag" style="margin-bottom:6px">거래 방식</div>
-      <div style="display:flex;gap:8px">
-        <span class="chip" style="background:#FFF3E0;color:var(--amber);font-size:13px;padding:8px 16px">나눔</span>
-        <span class="chip" style="background:#fff;color:var(--muted);border:1px solid var(--line);font-size:13px;padding:8px 16px">판매</span>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag">품목 / 수량</div>
-      <input type="text" placeholder="예) 방울토마토 모종 3포기" style="border:none;outline:none;width:100%;font-size:14px;margin-top:6px;background:transparent">
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag">가격 (판매 시)</div>
-      <input type="text" placeholder="예) 2,000원" style="border:none;outline:none;width:100%;font-size:14px;margin-top:6px;background:transparent">
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="tag">설명</div>
-      <textarea placeholder="설명을 입력하세요" style="border:none;outline:none;width:100%;font-size:14px;margin-top:6px;background:transparent;resize:none;height:60px"></textarea>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="tag">위치</div>
-      <div class="sub" style="margin-top:6px">📍 송파구 (지역만 공개)</div>
-    </div>
-    <button class="btn btn-pri" onclick="mGo('mMarket');toastM('글이 등록되었습니다')">등록하기</button>
-  </div></div></div>
-
-  <!-- M: PROFILE -->
-  <div class="page" id="mProfile"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mListing')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px">
-      <div style="width:80px;height:80px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto">🧑‍🌾</div>
-      <div class="h1" style="margin-top:10px">이웃 농부 김씨</div>
-      <div class="sub">송파구 · 가입 8개월</div>
-      <div class="row" style="justify-content:center;gap:20px;margin-top:12px">
-        <div style="text-align:center"><div style="font-weight:800;font-size:18px">⭐4.9</div><div class="sub" style="font-size:11px">평판</div></div>
-        <div style="text-align:center"><div style="font-weight:800;font-size:18px">23</div><div class="sub" style="font-size:11px">거래</div></div>
-        <div style="text-align:center"><div style="font-weight:800;font-size:18px">15</div><div class="sub" style="font-size:11px">나눔</div></div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:18px">
-      <div class="h2" style="margin-bottom:8px">재배 중인 작물</div>
-      <div class="row" style="flex-wrap:wrap;gap:8px">
-        <span class="chip" style="background:var(--green-bg);color:var(--green-d)">🍅 방울토마토</span>
-        <span class="chip" style="background:var(--green-bg);color:var(--green-d)">🥬 상추</span>
-        <span class="chip" style="background:var(--green-bg);color:var(--green-d)">🌿 바질</span>
-      </div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:10px">거래 이력</div>
-      <div class="ev"><div class="em">🍅</div><div><div style="font-weight:700;font-size:13px">방울토마토 모종 나눔</div><div class="sub" style="font-size:11px">나눔 완료 · 3일 전</div></div></div>
-      <div class="ev"><div class="em">🌱</div><div><div style="font-weight:700;font-size:13px">바질 씨앗 판매</div><div class="sub" style="font-size:11px">판매 2,000원 · 1주일 전</div></div></div>
-      <div class="ev"><div class="em">🥬</div><div><div style="font-weight:700;font-size:13px">상추 수확물 나눔</div><div class="sub" style="font-size:11px">나눔 완료 · 2주 전</div></div></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:8px">이웃 후기</div>
-      <div class="sub" style="font-size:13px;line-height:1.6">"친절하시고 모종 건강했어요. 또 거래하고 싶어요! ⭐⭐⭐⭐⭐"</div>
-      <div class="sub" style="font-size:11px;margin-top:4px">— 송파구 이웃</div>
-    </div>
-    <button class="btn btn-pri" style="margin-top:12px" onclick="mGo('mChat')">채팅하기</button>
-  </div></div></div>
-
-  <!-- M: TOOLS -->
-  <div class="page" id="mTools"><div class="screen"><div class="pad">
-    <div class="back" onclick="mGo('mMarket')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:6px"><div class="tag">추천 공구</div><div class="h1" style="margin-top:4px">재배 용품</div><div class="sub">자체상품 · 제휴 링크</div></div>
-    <div class="card" style="margin-top:16px;cursor:pointer" onclick="toastM('상품 페이지')">
-      <div class="row"><div style="font-size:34px">💧</div><div style="flex:1"><div style="font-weight:700">급수 세트 (밸브+호스+펌프)</div><div class="sub" style="font-size:12px">Farmer 연동 · 자체상품</div></div><div style="text-align:right"><div style="font-weight:800;color:var(--green-d)">29,000원</div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">직송</span></div></div>
-    </div>
-    <div class="card" style="margin-top:10px;cursor:pointer" onclick="toastM('제휴 링크 이동')">
-      <div class="row"><div style="font-size:34px">🌱</div><div style="flex:1"><div style="font-weight:700">유기질 비료 1kg</div><div class="sub" style="font-size:12px">외부 제휴 링크</div></div><div style="text-align:right"><div style="font-weight:800">9,500원</div><span class="chip" style="background:#E3F2FD;color:var(--blue)">링크</span></div></div>
-    </div>
-    <div class="card" style="margin-top:10px;cursor:pointer" onclick="toastM('상품 페이지')">
-      <div class="row"><div style="font-size:34px">⚙️</div><div style="flex:1"><div style="font-weight:700">ESP32 컨트롤러 + 릴레이</div><div class="sub" style="font-size:12px">하드웨어 DIY · 자체상품</div></div><div style="text-align:right"><div style="font-weight:800;color:var(--green-d)">15,000원</div><span class="chip" style="background:var(--green-bg);color:var(--green-d)">직송</span></div></div>
-    </div>
-    <div class="card" style="margin-top:10px;cursor:pointer" onclick="toastM('제휴 링크 이동')">
-      <div class="row"><div style="font-size:34px">💡</div><div style="flex:1"><div style="font-weight:700">식물용 LED 조명</div><div class="sub" style="font-size:12px">외부 제휴 링크</div></div><div style="text-align:right"><div style="font-weight:800">22,000원</div><span class="chip" style="background:#E3F2FD;color:var(--blue)">링크</span></div></div>
-    </div>
-    <div class="card" style="margin-top:10px;cursor:pointer" onclick="toastM('제휴 링크 이동')">
-      <div class="row"><div style="font-size:34px">📱</div><div style="flex:1"><div style="font-weight:700">Farmer용 추천 중고폰</div><div class="sub" style="font-size:12px">슬레이브 기기 안내 · 제휴</div></div><div style="text-align:right"><div style="font-weight:800">별도</div><span class="chip" style="background:#E3F2FD;color:var(--blue)">링크</span></div></div>
-    </div>
-  </div></div></div>
-
-  <!-- M: TABS -->
-  <div class="tabs" id="mTabs" style="display:none">
-    <div class="tab on" onclick="mGo('mHome')"><span class="ic">🏠</span>홈</div>
-    <div class="tab" onclick="mGo('mPlantDetail')"><span class="ic">🌱</span>식물</div>
-    <div class="tab" style="flex:0"><div class="fab m" onclick="mGo('mScan')">📸</div></div>
-    <div class="tab" onclick="mGo('mNotif')"><span class="ic">🔔</span>알림</div>
-    <div class="tab" onclick="mGo('mMarket')"><span class="ic">🏪</span>마켓플레이스</div>
-  </div>
-  <div class="toast" id="toastM"></div>
-</div>
-<!-- ============================ SLAVE PHONE ============================ -->
-<div class="phone slave" id="phoneS">
-  <div class="notch"></div>
-
-  <!-- S: SPLASH -->
-  <div class="page active" id="sSplash"><div class="splash s">
-    <div class="logo"><img src="../assets/icon.svg" width="104" height="104" style="animation:bob 2.5s ease-in-out infinite"></div>
-    <h1 style="font-size:30px;margin-top:16px;letter-spacing:3px;font-weight:900">FARMER</h1>
-    <p style="opacity:.85;margin-top:6px">현장에서 스스로 키운다</p>
-    <p style="margin-top:40px;opacity:.6;font-size:12px">Slave 앱 · 온디바이스 AI</p>
-  </div></div>
-
-  <!-- S: INTRO -->
-  <div class="page" id="sIntro"><div class="screen"><div class="onb">
-    <div class="art" id="sOnbArt">🧠</div>
-    <h1 class="h1" id="sOnbTitle">온디바이스 AI 자율 관리</h1>
-    <p class="sub" id="sOnbDesc" style="margin-top:10px;max-width:280px">Farmer는 식물 앞에서 스스로 관수·퇴치·수확 감지를 판단합니다. 네트워크가 끊겨도 동작합니다.</p>
-    <div class="dots"><span class="on" style="background:var(--slave)"></span><span></span><span></span></div>
-    <button class="btn btn-sl" onclick="sOnbNext()">다음</button>
-    <button class="btn btn-ghs" style="margin-top:10px" onclick="sGo('sPair')">건너뛰기</button>
-  </div></div></div>
-
-  <!-- S: PAIRING -->
-  <div class="page" id="sPair"><div class="screen"><div class="pad">
-    <div style="text-align:center;margin-top:14px"><div style="font-size:60px">🤝</div><div class="h1" style="margin-top:6px">마스터 연결</div><div class="sub">마스터 앱에서 받은 코드를 입력</div></div>
-    <div class="card" style="margin-top:20px">
-      <div class="tag" style="text-align:center">페어링 코드 입력</div>
-      <div class="codebox" style="margin-top:10px;color:#00E676" id="codeDisp">______</div>
-      <div class="row" style="margin-top:16px;flex-wrap:wrap;justify-content:center;gap:8px">
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('7')">7</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('K')">K</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('9')">9</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('Q')">Q</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('2')">2</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('F')">F</button>
-        <button class="btn btn-ghs btn-sm" style="width:54px" onclick="typeCode('X')">⌫</button>
-      </div>
-    </div>
-    <button class="btn btn-sl" style="margin-top:16px" id="pairBtn" onclick="doPair()">연결</button>
-    <div class="sub" style="text-align:center;margin-top:8px">또는 QR 스캔</div>
-    <div class="qr" style="margin-top:8px" onclick="sGo('sCamGuide');toastS('QR로 연결 완료 ✅')"></div>
-  </div></div></div>
-
-  <!-- S: CAMERA GUIDE -->
-  <div class="page" id="sCamGuide"><div class="screen"><div class="pad">
-    <div class="back" onclick="sGo('sPair')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:6px"><div class="tag">거치 가이드</div><div class="h1" style="margin-top:4px">카메라 고정</div><div class="sub">식물이 프레임 안에 오도록</div></div>
-    <div class="live" style="margin-top:16px">
-      <div class="rec"><i></i>LIVE</div>
-      <div class="cross"></div>
-      <div style="font-size:110px">🍅</div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="between"><div class="h2">프레임 정렬</div><span class="chip" style="background:var(--slave-bg);color:var(--slave-d)">양호</span></div>
-      <div class="bar s" style="margin-top:10px"><i style="width:88%"></i></div>
-      <div class="sub" style="margin-top:6px">식물 인식률 88% · 고정 완료</div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:8px">식물 프로필 수신</div>
-      <div class="stat"><span class="sub">작물</span><span style="font-weight:700">방울토마토</span></div>
-      <div class="stat"><span class="sub">식재일</span><span style="font-weight:700">2026-05-31</span></div>
-      <div class="stat"><span class="sub">마스터</span><span style="color:var(--slave);font-weight:700">우주 님</span></div>
-    </div>
-    <button class="btn btn-sl" style="margin-top:12px" onclick="sGo('sHW')">하드웨어 페어링</button>
-  </div></div></div>
-
-  <!-- S: HARDWARE PAIRING -->
-  <div class="page" id="sHW"><div class="screen"><div class="pad">
-    <div class="back" onclick="sGo('sCamGuide')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:6px"><div style="font-size:60px">🔌</div><div class="h1" style="margin-top:6px">하드웨어 연결</div><div class="sub">현장 제어 장치 페어링</div></div>
-    <div class="card" style="margin-top:18px;text-align:center" id="hwScan">
-      <div class="ring"></div>
-      <div class="h2">BLE 기기 검색 중…</div>
-      <div class="sub" style="margin-top:4px">ESP32 모듈 스캔</div>
-    </div>
-    <div id="hwList" style="display:none">
-      <div class="card" style="margin-bottom:10px">
-        <div class="between"><div class="row"><div style="font-size:28px">💧</div><div><div style="font-weight:700">급수 밸브</div><div class="sub" style="font-size:12px">ESP32-A · 12V</div></div></div><span class="chip" style="background:#E8F5E9;color:var(--slave-d)">연결됨</span></div>
-      </div>
-      <div class="card" style="margin-bottom:10px">
-        <div class="between"><div class="row"><div style="font-size:28px">💨</div><div><div style="font-weight:700">외부 Fan</div><div class="sub" style="font-size:12px">ESP32-B · DC12V</div></div></div><span class="chip" style="background:#E8F5E9;color:var(--slave-d)">연결됨</span></div>
-      </div>
-      <div class="card" style="margin-bottom:10px">
-        <div class="between"><div class="row"><div style="font-size:28px">🔴</div><div><div style="font-weight:700">Laser 모듈</div><div class="sub" style="font-size:12px">ESP32-C · 서보 조준</div></div></div><span class="chip" style="background:#E8F5E9;color:var(--slave-d)">연결됨</span></div>
-      </div>
-      <button class="btn btn-sl" style="margin-top:6px" onclick="sGo('sDash');sShowTabs(true);toastS('자율 관리 시작! 🌱')">설정 완료 · 자율 시작</button>
-    </div>
-  </div></div></div>
-
-  <!-- S: DASHBOARD (autonomous) -->
-  <div class="page" id="sDash"><div class="screen"><div class="pad">
-    <div class="between" style="margin-bottom:12px">
-      <div><div class="tag">자율 관리 중</div><div class="h1">베란대 토마토 Farmer</div></div>
-      <span class="chip" style="background:#E8F5E9;color:var(--slave-d)"><span class="pulse s"></span> LIVE</span>
-    </div>
-    <div class="live" style="height:180px">
-      <div class="rec"><i></i>관찰중</div>
-      <div class="cross"></div>
-      <div style="font-size:96px">🍅</div>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <div class="between"><div class="h2">🧠 온디바이스 AI</div><span class="chip" style="background:var(--slave-bg);color:var(--slave-d)">동작중</span></div>
-      <div class="stat"><span class="sub">수분 판정</span><span style="color:var(--amber);font-weight:700">약간 부족</span></div>
-      <div class="stat"><span class="sub">열매 탐지</span><span style="font-weight:700">12개 · 착색 85%</span></div>
-      <div class="stat"><span class="sub">곤충 탐지</span><span style="color:var(--green);font-weight:700">없음</span></div>
-      <div class="stat"><span class="sub">AI 결정</span><span style="color:var(--blue);font-weight:700">관수 320ml 실행 예정</span></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="between"><div class="h2">자율 실행 정책</div><span class="sub">마스터 설정</span></div>
-      <div class="stat"><span class="sub">💧 관수</span><span style="color:var(--green);font-weight:700">자동</span></div>
-      <div class="stat"><span class="sub">💨 Fan 퇴치</span><span style="color:var(--green);font-weight:700">자동</span></div>
-      <div class="stat"><span class="sub">🔴 Laser 퇴치</span><span style="color:var(--amber);font-weight:700">마스터 승인</span></div>
-      <div class="stat"><span class="sub">🍅 수확 알림</span><span style="color:var(--blue);font-weight:700">마스터 전송</span></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="between"><div class="h2">마지막 관수</div><span class="sub">09:00</span></div>
-      <div class="sub" style="margin-top:4px">자율 300ml · 다음 예정 10:00</div>
-      <div class="bar s" style="margin-top:8px"><i style="width:60%"></i></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="h2" style="margin-bottom:8px">자율 액션 로그</div>
-      <div class="ev"><div class="em">💧</div><div><div style="font-weight:700;font-size:13px">자율 관수 300ml</div><div class="sub" style="font-size:11px">09:00 · 수분부족 판정</div></div></div>
-      <div class="ev"><div class="em">📸</div><div><div style="font-weight:700;font-size:13px">정기 캡처·분석</div><div class="sub" style="font-size:11px">08:00 · 열매 12개</div></div></div>
-      <div class="ev"><div class="em">🍅</div><div><div style="font-weight:700;font-size:13px">수확 적기 → 마스터 전송</div><div class="sub" style="font-size:11px">07:50 · 착색 85%</div></div></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="between"><div><div class="h2">헤드리스 모드</div><div class="sub">화면 끄고 무인 동작</div></div><div class="toggle" id="hdToggle" onclick="this.classList.toggle('on')"><i></i></div></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="between"><div class="h2">연결 상태</div><span class="chip" style="background:#E3F2FD;color:var(--blue)">마스터 온라인</span></div>
-      <div class="stat"><span class="sub">네트워크</span><span style="color:var(--green);font-weight:700">Wi-Fi 연결</span></div>
-      <div class="stat"><span class="sub">오프라인 자율</span><span style="font-weight:700">24시간 대기</span></div>
-      <div class="stat"><span class="sub">배터리</span><span style="color:var(--green);font-weight:700">충전중 98%</span></div>
-    </div>
-  </div></div></div>
-
-  <!-- S: EVENT (autonomous action detail) -->
-  <div class="page" id="sEvent"><div class="screen"><div class="pad">
-    <div class="back" onclick="sGo('sDash')">‹ 뒤로</div>
-    <div style="text-align:center;margin-top:10px"><div style="font-size:80px">💧</div><span class="chip" style="background:var(--slave-bg);color:var(--slave-d);margin-top:6px">자율 실행</span><div class="h1" style="margin-top:10px">자율 관수 실행</div><div class="sub" style="margin-top:6px">온디바이스 AI 판정</div></div>
-    <div class="card" style="margin-top:18px">
-      <div class="h2" style="margin-bottom:8px">판정 근거</div>
-      <div class="stat"><span class="sub">수분 스트레스</span><span style="color:var(--amber);font-weight:700">약간 부족</span></div>
-      <div class="stat"><span class="sub">날씨 캐시</span><span style="font-weight:700">24℃ · 습도 45%</span></div>
-      <div class="stat"><span class="sub">산출량</span><span style="font-weight:700">320ml (+20%)</span></div>
-      <div class="stat"><span class="sub">실행 장치</span><span style="color:var(--slave);font-weight:700">급수 밸브 (직접)</span></div>
-    </div>
-    <div class="bar s" style="margin-top:16px"><i id="sEvBar" style="width:0%"></i></div>
-    <div class="sub" id="sEvPct" style="margin-top:6px;text-align:center">대기 중</div>
-    <button class="btn btn-sl" id="sEvBtn" style="margin-top:14px" onclick="sRunWater()">자율 관수 즉시 실행</button>
-    <div class="card" style="margin-top:14px">
-      <div class="h2">Fail-safe</div>
-      <div class="sub" style="margin-top:4px">통신/전원 이상 시 밸브 자동 차단 타이머(60초) 동작</div>
-    </div>
-  </div></div></div>
-
-  <!-- S: TABS -->
-  <div class="tabs" id="sTabs" style="display:none">
-    <div class="tab on" onclick="sGo('sDash')"><span class="ic">🤖</span>자율</div>
-    <div class="tab" onclick="sGo('sEvent')"><span class="ic">💧</span>관수</div>
-    <div class="tab" style="flex:0"><div class="fab s" onclick="sGo('sDash')">📸</div></div>
-    <div class="tab" onclick="sGo('sDash')"><span class="ic">📋</span>로그</div>
-    <div class="tab" onclick="sGo('sHW')"><span class="ic">⚙️</span>기기</div>
-  </div>
-  <div class="toast" id="toastS"></div>
-</div>
-<script>
-var mPages=['mSplash','mOnb','mHome','mPlantDetail','mScan','mWatering','mNotif','mHarvest','mPest','mPair','mSetting','mMarket','mListing','mChat','mWrite','mProfile','mTools'];
-var sPages=['sSplash','sIntro','sPair','sCamGuide','sHW','sDash','sEvent'];
-
-function showApp(a){
-  document.getElementById('phoneM').classList.toggle('show',a==='master');
-  document.getElementById('phoneS').classList.toggle('show',a==='slave');
-  document.getElementById('swM').className=a==='master'?'on m':'m';
-  document.getElementById('swS').className=a==='slave'?'on s':'s';
-}
-function setActive(prefix,id,pages){
-  pages.forEach(function(p){document.getElementById(p).classList.remove('active')});
-  document.getElementById(id).classList.add('active');
-  var sc=document.getElementById(id).querySelector('.screen')||document.getElementById(id);
-  if(sc) sc.scrollTop=0;
-  // tabs highlight
-  var tabs=document.querySelectorAll('#'+(prefix==='m'?'mTabs':'sTabs')+' .tab');
-  tabs.forEach(function(t){t.classList.remove('on')});
-  var map={mHome:0,mPlantDetail:1,mNotif:3,mMarket:4,mListing:4,mChat:4,mWrite:4,mProfile:4,mTools:4,sDash:0,sEvent:1,sHW:4};
-  if(map[id]!==undefined&&tabs[map[id]]) tabs[map[id]].classList.add('on');
-}
-
-// MASTER
-function mGo(id){setActive('m',id,mPages);var show=['mHome','mPlantDetail','mScan','mWatering','mNotif','mHarvest','mPest','mSetting','mMarket','mListing','mChat','mWrite','mProfile','mTools'].indexOf(id)>=0;mShowTabs(show)}
-function mShowTabs(on){document.getElementById('mTabs').style.display=on?'flex':'none'}
-function toastM(msg){var t=document.getElementById('toastM');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2200)}
-
-var mOnbData=[
-  {art:'📱',t:'마스터로 지시하세요',d:'휴대폰에서 식물을 모니터링하고, 현장의 Farmer 기기에 원격으로 관수·퇴치를 지시합니다.'},
-  {art:'🤝',t:'코드로 Farmer 연결',d:'무작위 페어링 코드로 마스터와 Farmer를 안전하게 연결합니다.'},
-  {art:'🧠',t:'Farmer가 스스로 관리',d:'Farmer의 온디바이스 AI가 관수·퇴치·수확을 자율 판단해 실행합니다.'}
-];
-var mOnbIdx=0;
-function mOnbNext(){
-  mOnbIdx++;
-  if(mOnbIdx>=mOnbData.length){mGo('mHome');mShowTabs(true);return}
-  var d=mOnbData[mOnbIdx];
-  document.getElementById('mOnbArt').textContent=d.art;
-  document.getElementById('mOnbTitle').textContent=d.t;
-  document.getElementById('mOnbDesc').textContent=d.d;
-  document.querySelectorAll('#mOnb .dots span').forEach(function(s,i){s.className=i===mOnbIdx?'on':''});
-  if(mOnbIdx===mOnbData.length-1) document.querySelector('#mOnb .btn-pri').textContent='시작하기';
-}
-var mwTimer=null;
-function mStartWater(){
-  var bar=document.getElementById('mwBar'),pct=document.getElementById('mwPct'),btn=document.getElementById('mwBtn');
-  var icon=document.getElementById('mwIcon'),title=document.getElementById('mwTitle'),desc=document.getElementById('mwDesc');
-  btn.disabled=true;btn.textContent='Farmer로 전송 중…';
-  icon.textContent='📡';title.textContent='지시 전송됨';desc.textContent='Farmer가 실행 중';
-  var w=0;clearInterval(mwTimer);
-  mwTimer=setInterval(function(){
-    w+=5;if(w>100)w=100;
-    bar.style.width=w+'%';pct.textContent=Math.round(w)+'%';
-    if(w>=100){
-      clearInterval(mwTimer);
-      icon.textContent='✅';title.textContent='관수 완료!';desc.textContent='320ml 공급됨 (Farmer 보고)';
-      btn.textContent='완료';btn.disabled=false;btn.className='btn btn-gh';
-      btn.onclick=function(){mGo('mPlantDetail');toastM('관수 기록됨')};
-    }
-  },140);
-}
-
-// SLAVE
-function sGo(id){setActive('s',id,sPages);var show=['sDash','sEvent','sHW'].indexOf(id)>=0;sShowTabs(show)}
-function sShowTabs(on){document.getElementById('sTabs').style.display=on?'flex':'none'}
-function toastS(msg){var t=document.getElementById('toastS');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2200)}
-
-var sOnbData=[
-  {art:'🧠',t:'온디바이스 AI 자율 관리',d:'Farmer는 식물 앞에서 스스로 관수·퇴치·수확 감지를 판단합니다. 네트워크가 끊겨도 동작합니다.'},
-  {art:'📡',t:'마스터와 코드로 연결',d:'마스터에서 받은 무작위 페어링 코드로 연결됩니다.'},
-  {art:'🔌',t:'현장 하드웨어 직접 제어',d:'급수 밸브·Fan·Laser를 Farmer가 직접 제어합니다.'}
-];
-var sOnbIdx=0;
-function sOnbNext(){
-  sOnbIdx++;
-  if(sOnbIdx>=sOnbData.length){sGo('sPair');return}
-  var d=sOnbData[sOnbIdx];
-  document.getElementById('sOnbArt').textContent=d.art;
-  document.getElementById('sOnbTitle').textContent=d.t;
-  document.getElementById('sOnbDesc').textContent=d.d;
-  document.querySelectorAll('#sIntro .dots span').forEach(function(s,i){s.className=i===sOnbIdx?'on':''});
-  if(sOnbIdx===sOnbData.length-1) document.querySelector('#sIntro .btn-sl').textContent='시작하기';
-}
-
-// code typing
-var codeBuf='';
-function typeCode(c){
-  if(c==='X'){codeBuf=codeBuf.slice(0,-1)}
-  else if(codeBuf.length<6){codeBuf+=c}
-  document.getElementById('codeDisp').textContent=codeBuf.padEnd(6,'_').split('').join(' ');
-}
-function doPair(){
-  if(codeBuf.length<6){toastS('6자리 코드를 입력하세요');return}
-  toastS('연결 확인 중…');
-  setTimeout(function(){toastS('✅ 마스터 연결 완료!');sGo('sCamGuide')},1400);
-}
-
-// hardware scan
-var hwDone=false;
-var hwObs=new MutationObserver(function(){
-  if(document.getElementById('sHW').classList.contains('active')&&!hwDone){
-    hwDone=true;
-    setTimeout(function(){
-      document.getElementById('hwScan').style.display='none';
-      document.getElementById('hwList').style.display='block';
-    },1800);
-  }
-});
-hwObs.observe(document.getElementById('sHW'),{attributes:true,attributeFilter:['class']});
-
-// slave autonomous water
-var sEvTimer=null;
-function sRunWater(){
-  var bar=document.getElementById('sEvBar'),pct=document.getElementById('sEvPct'),btn=document.getElementById('sEvBtn');
-  btn.disabled=true;btn.textContent='밸브 열림…';
-  var w=0;clearInterval(sEvTimer);
-  sEvTimer=setInterval(function(){
-    w+=6;if(w>100)w=100;
-    bar.style.width=w+'%';pct.textContent=Math.round(w)+'%';
-    if(w>=100){
-      clearInterval(sEvTimer);
-      pct.textContent='완료 · 밸브 자동 차단';
-      btn.textContent='완료';btn.disabled=false;btn.className='btn btn-ghs';
-      btn.onclick=function(){sGo('sDash');toastS('자율 관수 기록됨')};
-    }
-  },140);
-}
-
-// splash auto
-setTimeout(function(){document.getElementById('mSplash').classList.remove('active');document.getElementById('mOnb').classList.add('active')},1800);
-setTimeout(function(){document.getElementById('sSplash').classList.remove('active');document.getElementById('sIntro').classList.add('active')},1800);
-
-// marketplace category pick
-function pickCat(el){
-  document.querySelectorAll('.cats .cat').forEach(function(c){c.classList.remove('on')});
-  el.classList.add('on');
-}
-</script>
+        function closeModal() {
+            document.getElementById('regModal').classList.remove('active');
+        }
+    </script>
 </body>
 </html>
