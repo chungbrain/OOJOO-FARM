@@ -37,6 +37,7 @@ class PlantRegistrationViewModel : ViewModel() {
     var error by mutableStateOf<String?>(null)
     var done by mutableStateOf(false)
     val stages = listOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
+    val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
 
     init { loadSlaves() }
     fun loadSlaves() { viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {} } }
@@ -57,6 +58,7 @@ class PlantRegistrationViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel = viewModel()) {
+    var speciesExpanded by remember { mutableStateOf(false) }
     var stageExpanded by remember { mutableStateOf(false) }
     var slaveExpanded by remember { mutableStateOf(false) }
     Scaffold(
@@ -67,7 +69,25 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
             Text("식물 이름 *", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(vm.name, { vm.name = it }, "예: 방울토마토")
             Text("작물 종류", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.species, { vm.species = it }, "예: 토마토, 바질")
+            ExposedDropdownMenuBox(expanded = speciesExpanded, onExpandedChange = { speciesExpanded = it }) {
+                OutlinedTextField(
+                    value = vm.species,
+                    onValueChange = { vm.species = it; speciesExpanded = true },
+                    placeholder = { Text("예: 토마토, 바질") },
+                    shape = OojooTheme.FieldShape,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = speciesExpanded) },
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line),
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                val filtered = vm.popularSpecies.filter { it.contains(vm.species, ignoreCase = true) }
+                if (filtered.isNotEmpty()) {
+                    ExposedDropdownMenu(expanded = speciesExpanded, onDismissRequest = { speciesExpanded = false }) {
+                        filtered.forEach { sp ->
+                            DropdownMenuItem(text = { Text(sp) }, onClick = { vm.species = sp; speciesExpanded = false })
+                        }
+                    }
+                }
+            }
             Text("식재일", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(vm.plantedAt, { vm.plantedAt = it }, "YYYY-MM-DD")
 
