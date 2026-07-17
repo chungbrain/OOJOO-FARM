@@ -585,14 +585,14 @@ function mHome() {
       </div>
     </div>
 
-    <!-- 3D FARM CARD -->
+    <!-- 3D FARM CARD & STATUS LIST (COMBINED) -->
     <div class="card">
       <div class="card-title" style="font-size: 18px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <span>🚜 나의 3D 농장</span>
+        <span>🚜 나의 농장</span>
         <span style="font-size:12px; color:var(--muted)">실시간 자동 관리</span>
       </div>
       
-      <div class="farm-3d-wrapper">
+      <div class="farm-3d-wrapper" style="margin-bottom: 25px;">
         <div class="farm-3d">
           ${farm3DPlants}
           <div class="item-3d robot-3d">
@@ -602,14 +602,11 @@ function mHome() {
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- STATUS LIST -->
-    <div class="card" style="margin-top:-20px;">
-      <div class="card-title" style="font-size: 18px; font-weight: 800; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">📋 식물 건강 상태</div>
       <div style="font-size:14px; font-weight:800; line-height:2;">
+        <div style="margin-bottom: 10px; font-size: 16px; color: var(--ink);">📋 식물 건강 상태</div>
         ${statusList}
-        <div style="margin-top:12px; border-top:2px dashed var(--ink); padding-top:12px; font-size:12px; color:var(--muted); line-height:1.4;">
+        <div style="margin-top:12px; border-top:2px dashed var(--line); padding-top:12px; font-size:12px; color:var(--muted); line-height:1.4;">
           <strong>※ 상태 범례</strong><br>
           <span class="st-100">100% 건강</span> | <span class="st-70">70% 아픔</span> | <span class="st-50">50% 위험</span><br>
           <span class="st-25">25% 죽기직전</span> | <span class="st-0">0% 사망</span>
