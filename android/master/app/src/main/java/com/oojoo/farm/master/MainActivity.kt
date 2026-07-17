@@ -84,7 +84,11 @@ import com.oojoo.farm.master.ui.SubscriptionScreen
 class MainActivity : ComponentActivity() {
     companion object {
         init {
-            com.google.android.filament.utils.Utils.init()
+            try {
+                com.google.android.filament.utils.Utils.init()
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
         }
     }
 
