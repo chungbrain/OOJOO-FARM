@@ -9,6 +9,7 @@ import android.opengl.Matrix
 import android.os.Build
 import android.util.Log
 import android.view.Choreographer
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,23 +20,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.filament.Camera
+import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.LightManager
+import com.google.android.filament.Renderer
+import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
+import com.google.android.filament.SwapChain
+import com.google.android.filament.View as FilamentView
+import com.google.android.filament.Viewport
 import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.FilamentAsset
 import com.google.android.filament.gltfio.ResourceLoader
 import com.google.android.filament.gltfio.UbershaderProvider
-import com.google.android.filament.utils.ModelViewer
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "FilamentFarmView"
 
-/**
- * Filament + Android Emulator SwiftShader/ANGLE has caused qemu ACCESS_VIOLATION
- * crashes (host process dies). Skip the native 3D path on emulator images.
- */
 private fun isRunningOnEmulator(): Boolean {
     val fingerprint = Build.FINGERPRINT.lowercase()
     val model = Build.MODEL.lowercase()
@@ -58,15 +61,84 @@ private fun isRunningOnEmulator(): Boolean {
 }
 
 /**
- * Home 3D farm preview.
+ * Process-lifetime singleton for the Filament Engine and all long-lived GPU objects.
  *
- * Crash-prone patterns this avoids:
- * - Compose state writes from AndroidView.factory (lifecycle owned by the View)
- * - Engine.destroy() racing with Choreographer render callbacks
- * - Reusing one ByteBuffer across multiple createAsset() calls
- * - Destroying Engine while gltfio ResourceLoader still has pending async work
- * - Filament GL on emulator SwiftShader (kills qemu-system-x86_64)
+ * Filament 1.73.0 throws an uncatchable native PreconditionPanic (SIGABRT) when
+ * Engine.destroy() is called while gltfio-created material instances are still
+ * alive. destroyAsset() does NOT synchronously release those material instances,
+ * so destroying the Engine right after destroyAsset() still panics with:
+ *   "destroying material 'base_lit_opaque' but N instances still alive"
+ *
+ * Additionally, ModelViewer registers an OnAttachStateChangeListener that auto-
+ * calls destroy() (which calls engine.destroy()) when the View detaches —
+ * impossible to remove since the listener is private. So we bypass ModelViewer
+ * entirely and drive Filament directly.
+ *
+ * Fix: keep Engine, AssetLoader, ResourceLoader, Renderer, Scene, View, Camera
+ * and lights alive for the whole process and NEVER call engine.destroy(). The
+ * OS reclaims all native memory when the process dies. Each screen entry only
+ * loads GLB assets + creates a SwapChain tied to the current Surface, and
+ * releaseFilament() tears those down without touching the Engine.
  */
+private object FarmEngineHolder {
+    @Volatile private var engine: Engine? = null
+    @Volatile private var assetLoader: AssetLoader? = null
+    @Volatile private var resourceLoader: ResourceLoader? = null
+    @Volatile private var renderer: Renderer? = null
+    @Volatile private var scene: Scene? = null
+    @Volatile private var view: FilamentView? = null
+    @Volatile private var camera: Camera? = null
+    private val lock = Any()
+
+    fun acquireEngine(): Engine {
+        val existing = engine
+        if (existing != null) return existing
+        return synchronized(lock) {
+            engine ?: run {
+                val e = Engine.create()
+                engine = e
+                assetLoader = AssetLoader(e, UbershaderProvider(e), EntityManager.get())
+                resourceLoader = ResourceLoader(e)
+                renderer = e.createRenderer()
+                scene = e.createScene()
+                view = e.createView().also { v ->
+                    v.scene = scene!!
+                }
+                val camEntity = EntityManager.get().create()
+                camera = e.createCamera(camEntity)
+                view!!.camera = camera
+
+                val sun = EntityManager.get().create()
+                LightManager.Builder(LightManager.Type.SUN)
+                    .color(1.0f, 1.0f, 0.9f)
+                    .intensity(100_000.0f)
+                    .direction(-1.0f, -1.0f, -1.0f)
+                    .castShadows(true)
+                    .build(e, sun)
+                scene!!.addEntity(sun)
+
+                val fill = EntityManager.get().create()
+                LightManager.Builder(LightManager.Type.DIRECTIONAL)
+                    .color(0.8f, 0.8f, 1.0f)
+                    .intensity(30_000.0f)
+                    .direction(1.0f, 1.0f, 1.0f)
+                    .castShadows(false)
+                    .build(e, fill)
+                scene!!.addEntity(fill)
+                e
+            }
+        }
+    }
+
+    fun engine(): Engine = engine!!
+    fun assetLoader(): AssetLoader = assetLoader!!
+    fun resourceLoader(): ResourceLoader = resourceLoader!!
+    fun renderer(): Renderer = renderer!!
+    fun scene(): Scene = scene!!
+    fun view(): FilamentView = view!!
+    fun camera(): Camera = camera!!
+}
+
 @Composable
 fun FilamentFarmView(
     modifier: Modifier = Modifier,
@@ -142,7 +214,6 @@ private class FarmFallbackView(
         if (!transparentBackground) {
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), groundPaint)
         }
-        // Decorative plants sitting on the weather ground
         val y = height * 0.62f
         canvas.drawText("🌱", width * 0.22f, y, plantPaint)
         canvas.drawText("🌿", width * 0.50f, y - 8f, plantPaint)
@@ -152,26 +223,45 @@ private class FarmFallbackView(
     }
 }
 
+/**
+ * SurfaceView backed directly by Filament (no ModelViewer).
+ *
+ * We implement SurfaceHolder.Callback ourselves to manage the SwapChain tied to
+ * the current Surface, and drive the render loop via Choreographer. There is no
+ * OnAttachStateChangeListener here, so no hidden Engine.destroy() on detach.
+ */
 private class FarmFilamentSurface(
     context: Context,
     skyArgb: Int
-) : SurfaceView(context) {
+) : SurfaceView(context), SurfaceHolder.Callback {
+
     private val disposed = AtomicBoolean(false)
     private val choreographer = Choreographer.getInstance()
 
-    private var modelViewer: ModelViewer? = null
-    private var assetLoader: AssetLoader? = null
-    private var resourceLoader: ResourceLoader? = null
+    // Shared, process-lifetime objects.
+    private val engine = FarmEngineHolder.acquireEngine()
+    private val assetLoader = FarmEngineHolder.assetLoader()
+    private val resourceLoader = FarmEngineHolder.resourceLoader()
+    private val renderer = FarmEngineHolder.renderer()
+    private val scene = FarmEngineHolder.scene()
+    private val view = FarmEngineHolder.view()
+    private val camera = FarmEngineHolder.camera()
+    private var swapChain: SwapChain? = null
+    private var skybox: Skybox? = null
     private val assets = mutableListOf<FilamentAsset>()
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (disposed.get()) return
-            val viewer = modelViewer ?: return
-            val loader = resourceLoader
             try {
-                loader?.asyncUpdateLoad()
-                viewer.render(frameTimeNanos)
+                resourceLoader.asyncUpdateLoad()
+                val sc = swapChain
+                if (sc != null) {
+                    if (renderer.beginFrame(sc, frameTimeNanos)) {
+                        renderer.render(view)
+                        renderer.endFrame()
+                    }
+                }
             } catch (e: Throwable) {
                 Log.e(TAG, "render frame failed", e)
             }
@@ -182,44 +272,20 @@ private class FarmFilamentSurface(
     }
 
     init {
-        val viewer = ModelViewer(this)
-        modelViewer = viewer
-        val engine = viewer.engine
-
-        val sun = EntityManager.get().create()
-        LightManager.Builder(LightManager.Type.SUN)
-            .color(1.0f, 1.0f, 0.9f)
-            .intensity(100_000.0f)
-            .direction(-1.0f, -1.0f, -1.0f)
-            .castShadows(true)
-            .build(engine, sun)
-        viewer.scene.addEntity(sun)
-
-        val fill = EntityManager.get().create()
-        LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(0.8f, 0.8f, 1.0f)
-            .intensity(30_000.0f)
-            .direction(1.0f, 1.0f, 1.0f)
-            .castShadows(false)
-            .build(engine, fill)
-        viewer.scene.addEntity(fill)
-
+        // Skybox color may change per entry (weather scene); replace the Scene's skybox.
         val r = android.graphics.Color.red(skyArgb) / 255f
         val g = android.graphics.Color.green(skyArgb) / 255f
         val b = android.graphics.Color.blue(skyArgb) / 255f
-        viewer.scene.skybox = Skybox.Builder()
-            .color(r, g, b, 1.0f)
-            .build(engine)
+        skybox = Skybox.Builder().color(r, g, b, 1.0f).build(engine)
+        scene.skybox = skybox
 
-        viewer.camera.lookAt(0.0, 3.0, 8.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
-
-        assetLoader = AssetLoader(engine, UbershaderProvider(engine), EntityManager.get())
-        resourceLoader = ResourceLoader(engine)
+        camera.lookAt(0.0, 3.0, 8.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
 
         loadAsset("models/robot.glb", 0.5f, 0.5f, 0.5f, 0f, 0f, 0f)
         loadAsset("models/plant.glb", 15f, 15f, 15f, -1.5f, 0f, -1f)
         loadAsset("models/plant.glb", 15f, 15f, 15f, 2f, 0f, 1f)
 
+        holder.addCallback(this)
         choreographer.postFrameCallback(frameCallback)
     }
 
@@ -228,23 +294,19 @@ private class FarmFilamentSurface(
         scaleX: Float, scaleY: Float, scaleZ: Float,
         transX: Float, transY: Float, transZ: Float
     ) {
-        val viewer = modelViewer ?: return
-        val loader = assetLoader ?: return
-        val resources = resourceLoader ?: return
         try {
             context.assets.open(filename).use { stream ->
                 val bytes = stream.readBytes()
-                // Each createAsset needs its own direct buffer — do not share/rewind one buffer.
                 val buffer = ByteBuffer.allocateDirect(bytes.size)
                 buffer.put(bytes)
                 buffer.rewind()
 
-                val asset = loader.createAsset(buffer) ?: return
-                resources.asyncBeginLoad(asset)
-                viewer.scene.addEntities(asset.entities)
+                val asset = assetLoader.createAsset(buffer) ?: return
+                resourceLoader.asyncBeginLoad(asset)
+                scene.addEntities(asset.entities)
                 assets.add(asset)
 
-                val tm = viewer.engine.transformManager
+                val tm = engine.transformManager
                 val instance = tm.getInstance(asset.root)
                 val transform = FloatArray(16)
                 Matrix.setIdentityM(transform, 0)
@@ -257,51 +319,60 @@ private class FarmFilamentSurface(
         }
     }
 
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        try {
+            swapChain = engine.createSwapChain(holder.surface)
+        } catch (e: Throwable) {
+            Log.e(TAG, "createSwapChain failed", e)
+        }
+    }
+
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        try {
+            view.setViewport(Viewport(0, 0, width, height))
+            val aspect = if (height > 0) width.toDouble() / height.toDouble() else 1.0
+            camera.setProjection(45.0, aspect, 0.1, 100.0, Camera.Fov.VERTICAL)
+        } catch (e: Throwable) {
+            Log.e(TAG, "surfaceChanged failed", e)
+        }
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        try {
+            swapChain?.let { engine.destroySwapChain(it) }
+        } catch (_: Throwable) {}
+        swapChain = null
+    }
+
     fun releaseFilament() {
         if (!disposed.compareAndSet(false, true)) return
-        // Stop rendering first so no frame touches a torn-down Engine.
+        // Stop render loop and detach surface listener first.
         choreographer.removeFrameCallback(frameCallback)
+        try { holder.removeCallback(this) } catch (_: Throwable) {}
 
-        val viewer = modelViewer
-        val loader = assetLoader
-        val resources = resourceLoader
-
-        try {
-            if (viewer != null) {
-                for (asset in assets) {
-                    try {
-                        viewer.scene.removeEntities(asset.entities)
-                    } catch (_: Throwable) {}
-                    try {
-                        loader?.destroyAsset(asset)
-                    } catch (_: Throwable) {}
-                }
-            }
-            assets.clear()
-        } catch (e: Throwable) {
-            Log.w(TAG, "asset destroy failed", e)
+        // Remove assets from the shared Scene and destroy them.
+        for (asset in assets) {
+            try { scene.removeEntities(asset.entities) } catch (_: Throwable) {}
+            try { assetLoader.destroyAsset(asset) } catch (_: Throwable) {}
         }
+        assets.clear()
+        try { resourceLoader.evictResourceData() } catch (_: Throwable) {}
 
-        // Avoid asyncCancelLoad() — it has native crash reports on some Filament builds
-        // when cancel races with in-flight uploads. Render loop is already stopped.
+        // Tear down this entry's skybox and swapchain. These are not tied to
+        // gltfio material instances, so destroying them is safe.
         try {
-            resources?.evictResourceData()
+            scene.skybox = null
+            skybox?.let { engine.destroySkybox(it) }
         } catch (_: Throwable) {}
-        try {
-            resources?.destroy()
-        } catch (_: Throwable) {}
-        try {
-            loader?.destroy()
-        } catch (_: Throwable) {}
+        skybox = null
+        try { swapChain?.let { engine.destroySwapChain(it) } } catch (_: Throwable) {}
+        swapChain = null
 
-        try {
-            viewer?.engine?.destroy()
-        } catch (e: Throwable) {
-            Log.w(TAG, "engine destroy failed", e)
-        }
-
-        modelViewer = null
-        assetLoader = null
-        resourceLoader = null
+        // IMPORTANT: do NOT call engine.destroy(), renderer/scene/view/camera
+        // destroy, assetLoader.destroy(), or resourceLoader.destroy().
+        // Filament 1.73.0 panics (uncatchable SIGABRT) when destroying the
+        // Engine while gltfio material instances are still alive. All shared
+        // objects live for the whole process (FarmEngineHolder) and are
+        // reclaimed by the OS on process death.
     }
 }
