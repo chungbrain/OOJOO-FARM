@@ -23,4 +23,9 @@ object Session {
         this.nickname = nickname
         this.region = region
     }
+
+    fun updateRegion(ctx: Context, region: String) {
+        this.region = region
+        Prefs.setRegion(ctx, region)
+    }
 }

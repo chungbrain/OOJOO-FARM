@@ -16,6 +16,10 @@ object Prefs {
     fun nickname(ctx: Context): String? = sp(ctx).getString(K_NICK, null)
     fun region(ctx: Context): String = sp(ctx).getString(K_REGION, "Seoul") ?: "Seoul"
 
+    fun setRegion(ctx: Context, region: String) {
+        sp(ctx).edit().putString(K_REGION, region).apply()
+    }
+
     // YAML에서 기본 주소 읽기 → 없으면 에뮬레이터 기본값
     fun defaultServerUrl(ctx: Context): String =
         ServerConfig.serverUrl(ctx) ?: "http://10.0.2.2:4000/"

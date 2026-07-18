@@ -136,6 +136,12 @@ interface ApiService {
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
 
+    @GET("api/weather/coords")
+    suspend fun weatherByCoords(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double
+    ): WeatherResponse
+
     // ---------- 비디오 캡처 ----------
     @GET("api/videos/by-command/{commandId}")
     suspend fun videoByCommand(@Path("commandId") commandId: String): VideoInfoResponse

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,8 +60,6 @@ import com.oojoo.farm.master.ui.OojooMasterTheme
 import com.oojoo.farm.master.ui.OojooTheme
 import com.oojoo.farm.master.ui.LocalOojooUi
 import com.oojoo.farm.master.ui.OojooUiState
-import com.oojoo.farm.master.ui.ThemeEditorScreen
-import com.oojoo.farm.master.ui.cartoonShadow
 import com.oojoo.farm.master.ui.ThemeEditorScreen
 import com.oojoo.farm.master.ui.FarmerListScreen
 import com.oojoo.farm.master.ui.CartScreen
@@ -131,83 +131,14 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
     val showBottomBar = currentRoute in items.map { it.route }
     val startRoute = if (Prefs.isOnboarded(ctx)) "home" else "onboarding"
 
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 18.dp)
-                        .padding(bottom = 18.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(28.dp),
-                        color = OojooTheme.Card,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(68.dp)
-                            .cartoonShadow(offsetX = OojooTheme.ShadowOffsetLg, offsetY = OojooTheme.ShadowOffsetLg, shape = RoundedCornerShape(28.dp))
-                            .border(OojooTheme.Border, RoundedCornerShape(28.dp))
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                        ) {
-                            items.forEach { item ->
-                                val isSelected = currentRoute == item.route
-                                val scale by animateFloatAsState(targetValue = if (isSelected) 1.3f else 1f, label = "scale")
-                                val offsetY by animateDpAsState(targetValue = if (isSelected) (-3).dp else 0.dp, label = "offsetY")
-                                val color = if (isSelected) OojooTheme.GreenDark else OojooTheme.Muted
-
-                                Column(
-                                    Modifier
-                                        .clickable(
-                                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                            indication = null
-                                        ) {
-                                            nav.navigate(item.route) {
-                                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        }
-                                        .weight(1f)
-                                        .padding(vertical = 6.dp),
-                                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = item.icon,
-                                        fontSize = 22.sp,
-                                        modifier = Modifier.offset(y = offsetY).graphicsLayer(scaleX = scale, scaleY = scale)
-                                    )
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(
-                                        item.label,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = color
-                                    )
-                                    if (isSelected) {
-                                        Spacer(Modifier.height(4.dp))
-                                        Box(Modifier.size(6.dp).background(OojooTheme.GreenDark, CircleShape))
-                                    } else {
-                                        Spacer(Modifier.height(10.dp)) // To keep height consistent when indicator is missing
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        containerColor = OojooTheme.Bg
-    ) { p ->
+    // Transparent floating tabs — no beige/cream dock panel behind the menu
+    Box(Modifier.fillMaxSize().background(OojooTheme.Bg)) {
         NavHost(
             nav,
             startDestination = startRoute,
-            modifier = Modifier.padding(p)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = if (showBottomBar) 76.dp else 0.dp)
         ) {
             composable("onboarding") { OnboardingScreen(nav) }
             composable("home") { HomeScreen(nav) }
@@ -237,6 +168,62 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
             composable("gallery") { GalleryScreen(nav) }
             composable("subscription") { SubscriptionScreen(nav) }
             composable("theme_editor") { ThemeEditorScreen(nav, uiState) }
+        }
+
+        if (showBottomBar) {
+            Row(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .height(68.dp)
+                    .background(Color.Transparent),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEach { item ->
+                    val isSelected = currentRoute == item.route
+                    val scale by animateFloatAsState(targetValue = if (isSelected) 1.3f else 1f, label = "scale")
+                    val offsetY by animateDpAsState(targetValue = if (isSelected) (-3).dp else 0.dp, label = "offsetY")
+                    val color = if (isSelected) OojooTheme.GreenDark else OojooTheme.Muted
+
+                    Column(
+                        Modifier
+                            .clickable(
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                nav.navigate(item.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                            .weight(1f)
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = item.icon,
+                            fontSize = 22.sp,
+                            modifier = Modifier.offset(y = offsetY).graphicsLayer(scaleX = scale, scaleY = scale)
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            item.label,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = color
+                        )
+                        if (isSelected) {
+                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.size(6.dp).background(OojooTheme.GreenDark, CircleShape))
+                        } else {
+                            Spacer(Modifier.height(10.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }

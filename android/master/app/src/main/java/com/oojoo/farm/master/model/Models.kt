@@ -338,7 +338,11 @@ data class WeatherResponse(
     val humidity: Double? = null,
     val precipitation: Double? = null,
     val weatherCode: Int? = null,
-    val weatherFactor: Double = 1.0
+    val weatherFactor: Double = 1.0,
+    val label: String? = null,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val cached: Boolean? = null
 )
 
 @Serializable
