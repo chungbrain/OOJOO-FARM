@@ -328,10 +328,11 @@ private fun FarmWeatherCard(
                 if (scene.isRain) RainAnimation()
                 if (scene.isNight && !scene.isRain) StarField()
 
-                FilamentFarmView(
+                FarmSceneView(
                     modifier = Modifier.fillMaxSize(),
-                    transparentBackground = true,
-                    skyColor = scene.gradient.first()
+                    plants = plants,
+                    isNight = scene.isNight,
+                    isRain = scene.isRain
                 )
 
                 Column(
