@@ -273,8 +273,8 @@ fun CartoonAppBar(
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(64.dp)
                 .statusBarsPadding()
+                .height(64.dp)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
