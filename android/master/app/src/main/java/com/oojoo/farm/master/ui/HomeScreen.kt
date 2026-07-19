@@ -319,7 +319,7 @@ private fun FarmWeatherCard(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.38f)
+                        .fillMaxHeight(0.6f)
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(listOf(scene.groundTop.copy(alpha = 0.85f), scene.groundBottom))

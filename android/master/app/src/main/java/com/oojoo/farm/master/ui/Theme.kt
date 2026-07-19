@@ -255,7 +255,8 @@ fun Modifier.oojooShadow(): Modifier = composed {
     this.cartoonShadow(offsetX = OojooTheme.ShadowOffset, offsetY = OojooTheme.ShadowOffset, shape = OojooTheme.CardShape)
 }
 
-// 컴팩트 카툰 앱바 — 다른 페이지의 Material3 TopAppBar와 동일한 상단 inset 적용
+// 컴팩트 카툰 앱바 — 다른 페이지의 Material3 TopAppBar와 동일한 상단 처리.
+// Surface를 status bar 영역까지 확장해서 상단 알림바 배경도 초록색으로 통일.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartoonAppBar(
@@ -267,12 +268,13 @@ fun CartoonAppBar(
     Surface(
         color = OojooTheme.Green,
         shadowElevation = 0.dp,
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
