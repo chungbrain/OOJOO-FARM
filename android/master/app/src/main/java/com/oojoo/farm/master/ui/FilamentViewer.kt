@@ -93,6 +93,13 @@ private data class PlantCell(val row: Int, val col: Int)
 /** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
 private data class Waypoint(val row: Int, val col: Float)
 
+/** 격자 중심으로부터의 거리 (유클리드). */
+private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Float {
+    val dr = row - centerRow
+    val dc = col - centerCol
+    return kotlin.math.sqrt(dr * dr + dc * dc)
+}
+
 /**
  * 2D emoji farm scene.
  *
@@ -112,31 +119,37 @@ fun FarmSceneView(
 ) {
     val displayPlants = plants.ifEmpty { defaultDemoPlants() }
 
-    // 식물을 4x4 격자에 배치 — 같은 행에 여러 식물이면 한 칸씩 띄어 배치.
+    // 식물을 4x4 격자에 배치 — 로봇 홈(격자 중심 1.5, 1.5)을 중심으로 가까운 cell부터 랜덤 배정.
+    // 같은 행에 여러 식물이면 한 칸씩 띄어 배치.
     val plantCells = remember(displayPlants.map { it.id }) {
         val seed = displayPlants.map { it.id }.joinToString("").hashCode().toLong()
         val rnd = Random(seed)
-        val rowOrder = (0 until GRID).shuffled(rnd)
+        val centerRow = (GRID - 1) / 2f  // 1.5
+        val centerCol = (GRID - 1) / 2f  // 1.5
+        // 모든 cell을 중심에서 가까운 순으로 정렬 (거리 같으면 랜덤)
+        val allCellsByDistance = (0 until GRID).flatMap { r ->
+            (0 until GRID).map { c -> PlantCell(r, c) to distance(r, c, centerRow, centerCol) }
+        }.sortedWith(compareBy({ it.second }, { rnd.nextFloat() })).map { it.first }
+
         val usedColsByRow = mutableMapOf<Int, MutableList<Int>>()
-        val allCells = mutableListOf<PlantCell>()
-        for (plant in displayPlants) {
-            var placed = false
-            for (r in rowOrder) {
-                val used = usedColsByRow.getOrPut(r) { mutableListOf() }
-                val candidates = (0 until GRID).filter { c ->
-                    used.none { it == c || it == c - 1 || it == c + 1 }
-                }
-                if (candidates.isNotEmpty()) {
-                    val c = candidates.random(rnd)
-                    used.add(c)
-                    allCells.add(PlantCell(r, c))
-                    placed = true
-                    break
-                }
+        val result = mutableListOf<PlantCell>()
+        for (cell in allCellsByDistance) {
+            if (result.size >= displayPlants.size) break
+            val used = usedColsByRow.getOrPut(cell.row) { mutableListOf() }
+            // 같은 행에서 인접하지 않게 (한 칸 띄어 배치)
+            if (used.none { it == cell.col || it == cell.col - 1 || it == cell.col + 1 }) {
+                used.add(cell.col)
+                result.add(cell)
             }
-            if (!placed) allCells.add(PlantCell(rnd.nextInt(GRID), rnd.nextInt(GRID)))
         }
-        allCells
+        // 인접 제약 때문에 덜 배정된 경우 남은 cell에 강제 배정
+        if (result.size < displayPlants.size) {
+            for (cell in allCellsByDistance) {
+                if (result.size >= displayPlants.size) break
+                if (cell !in result) result.add(cell)
+            }
+        }
+        result
     }
 
     // 로봇 웨이포인트: 각 식물 cell의 가장자리 (식물 바로 옆).
@@ -172,13 +185,14 @@ fun FarmSceneView(
         var idx = 0
         while (true) {
             val wp = waypoints[idx]
-            // 식물 옆으로 부드럽게 이동 (2초, 가감속)
-            robotX.animateTo(wp.col, animationSpec = tween(2000, easing = FastOutSlowInEasing))
-            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(2000, easing = FastOutSlowInEasing))
-            // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 1.8초 관리)
+            // 식물 옆으로 천천히 이동 (5초, 가감속 — 스타크래프트 일꾼급 느린 이동)
+            // 이동 중에는 물 주기 표시가 보이지 않음 (tendingAlpha = 0 유지)
+            robotX.animateTo(wp.col, animationSpec = tween(5000, easing = FastOutSlowInEasing))
+            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(5000, easing = FastOutSlowInEasing))
+            // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 정확히 2초 관류)
             robotScale.animateTo(1.25f, animationSpec = tween(400, easing = FastOutSlowInEasing))
             tendingAlpha.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-            delay(1800)
+            delay(2000)
             tendingAlpha.animateTo(0f, animationSpec = tween(300, easing = FastOutSlowInEasing))
             robotScale.animateTo(1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
             // 다음 식물로
@@ -249,6 +263,26 @@ fun FarmSceneView(
                 .fillMaxWidth()
                 .height(groundH.dp)
         ) {
+            // 로봇 홈 (초록색 원, 격자 중심)
+            val homeSize = (minOf(cellW, cellH) * 0.8f).dp
+            val homeCenterCol = (GRID - 1) / 2f  // 1.5
+            val homeCenterRow = (GRID - 1) / 2f  // 1.5
+            val homePxX = homeCenterCol * cellW + cellW * 0.5f
+            val homePxY = homeCenterRow * cellH + cellH * 0.5f
+            Box(
+                Modifier
+                    .offset(
+                        x = (homePxX - homeSize.value / 2f).dp,
+                        y = (homePxY - homeSize.value / 2f).dp
+                    )
+                    .size(homeSize)
+                    .clip(CircleShape)
+                    .background(OojooTheme.Green.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🏠", fontSize = 24.sp, modifier = Modifier.alpha(0.6f))
+            }
+
             displayPlants.forEachIndexed { i, plant ->
                 val cell = plantCells[i]
                 val cellLeft = cell.col * cellW

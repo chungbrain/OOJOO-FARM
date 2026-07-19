@@ -42,13 +42,15 @@ class PlantRegistrationViewModel : ViewModel() {
     init { loadSlaves() }
     fun loadSlaves() { viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {} } }
 
-    fun register() {
+    fun register(onSuccess: () -> Unit = {}) {
         if (name.isBlank()) { error = "식물 이름을 입력하세요"; return }
         loading = true; error = null
         viewModelScope.launch {
             try {
                 api.createPlant(CreatePlantRequest(userId, selectedSlaveId, name.trim(), species.trim().ifBlank { null }, plantedAt.trim().ifBlank { null }, stage))
                 done = true
+                kotlinx.coroutines.delay(800)  // 등록 완료 메시지를 잠깐 보여줌
+                onSuccess()
             } catch (e: Exception) { error = e.message ?: "등록 실패" }
             loading = false
         }
@@ -128,7 +130,7 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
                 }
             }
 
-            GradientButton(text = "식물 등록", onClick = { vm.register() }, enabled = !vm.loading && vm.name.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            GradientButton(text = "식물 등록", onClick = { vm.register { nav.navigateUp() } }, enabled = !vm.loading && vm.name.isNotBlank(), modifier = Modifier.fillMaxWidth())
             if (vm.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
             if (vm.done) {
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape) {
