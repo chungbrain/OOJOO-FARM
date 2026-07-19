@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,17 +24,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import com.oojoo.farm.master.model.Plant
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /**
@@ -106,8 +111,8 @@ private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Fl
  * 레이아웃:
  *   하늘   : 천체/구름 (상단 40%)
  *   바닥   : 4x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지.
- *   로봇   : 식물들을 하나씩 방문하며 관리. 각 식물 옆으로 이동 → 1.5초 관류 → 다음 식물로.
- *            Animatable 기반 부드러운 이동 + 도착 시 살짝 점프.
+ *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다.
+ *   로봇   : 식물들을 하나씩 방문하며 관리. 5초 이동 → 2초 관류.
  *   잔디   : 최하단 풀잎들.
  */
 @Composable
@@ -119,45 +124,23 @@ fun FarmSceneView(
 ) {
     val displayPlants = plants.ifEmpty { defaultDemoPlants() }
 
-    // 식물을 4x4 격자에 배치 — 로봇 홈(격자 중심 1.5, 1.5)을 중심으로 가까운 cell부터 랜덤 배정.
-    // 같은 행에 여러 식물이면 한 칸씩 띄어 배치.
-    val plantCells = remember(displayPlants.map { it.id }) {
-        val seed = displayPlants.map { it.id }.joinToString("").hashCode().toLong()
-        val rnd = Random(seed)
-        val centerRow = (GRID - 1) / 2f  // 1.5
-        val centerCol = (GRID - 1) / 2f  // 1.5
-        // 모든 cell을 중심에서 가까운 순으로 정렬 (거리 같으면 랜덤)
-        val allCellsByDistance = (0 until GRID).flatMap { r ->
-            (0 until GRID).map { c -> PlantCell(r, c) to distance(r, c, centerRow, centerCol) }
-        }.sortedWith(compareBy({ it.second }, { rnd.nextFloat() })).map { it.first }
-
-        val usedColsByRow = mutableMapOf<Int, MutableList<Int>>()
-        val result = mutableListOf<PlantCell>()
-        for (cell in allCellsByDistance) {
-            if (result.size >= displayPlants.size) break
-            val used = usedColsByRow.getOrPut(cell.row) { mutableListOf() }
-            // 같은 행에서 인접하지 않게 (한 칸 띄어 배치)
-            if (used.none { it == cell.col || it == cell.col - 1 || it == cell.col + 1 }) {
-                used.add(cell.col)
-                result.add(cell)
-            }
-        }
-        // 인접 제약 때문에 덜 배정된 경우 남은 cell에 강제 배정
-        if (result.size < displayPlants.size) {
-            for (cell in allCellsByDistance) {
-                if (result.size >= displayPlants.size) break
-                if (cell !in result) result.add(cell)
-            }
-        }
-        result
+    // 식물 위치 — 드래그로 변경 가능하도록 mutableStateOf로 관리.
+    // 초기 배치: 격자 중심(1.5, 1.5)에서 가까운 cell부터 랜덤 배정.
+    var plantCells by remember(displayPlants.map { it.id }) {
+        mutableStateOf(initialPlantCells(displayPlants))
     }
 
+    // 드래그 중인 식물 인덱스 (-1 = 드래그 아님)
+    var draggingIndex by remember { mutableStateOf(-1) }
+    // 드래그 중인 식물의 픽셀 오프셋 (바닥 Box 기준)
+    var dragOffsetX by remember { mutableStateOf(0f) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+
     // 로봇 웨이포인트: 각 식물 cell의 가장자리 (식물 바로 옆).
-    // 식물 원형이 cell 중앙에 있으므로, 로봇은 같은 cell의 좌측 또는 우측 가장자리에 위치.
-    // cell 너비의 0.3만큼 옆으로 → 식물 원형(0.7) 경계에 거의 닿는 거리.
+    // plantCells가 변경되면 자동 재계산 → 로봇 순찰 경로 업데이트.
     val waypoints = remember(plantCells) {
         plantCells.map { cell ->
-            val sideOffset = 0.32f  // 식물 중심에서 cell 너비의 32% 옆
+            val sideOffset = 0.32f
             val col = if (cell.col > 0) (cell.col - sideOffset) else (cell.col + sideOffset)
             Waypoint(cell.row, col)
         }
@@ -174,19 +157,16 @@ fun FarmSceneView(
     // 로봇 부드러운 이동을 위한 Animatable (x, y)
     val robotX = remember { Animatable(waypoints.firstOrNull()?.col ?: 0f) }
     val robotY = remember { Animatable((waypoints.firstOrNull()?.row ?: 0).toFloat()) }
-    // 로봇 관리 액션 펄스 (도착 시 살짝 커짐)
     val robotScale = remember { Animatable(1f) }
-    // 관리 액션 표시 (💧 이모지 페이드인/아웃)
     val tendingAlpha = remember { Animatable(0f) }
 
-    // 로봇 순찰 루프: 웨이포인트를 순회하며 이동 + 관리
+    // 로봇 순찰 루프: 웨이포인트가 변경되면 재시작 (LaunchedEffect key = waypoints)
     LaunchedEffect(waypoints) {
         if (waypoints.isEmpty()) return@LaunchedEffect
         var idx = 0
         while (true) {
             val wp = waypoints[idx]
-            // 식물 옆으로 천천히 이동 (5초, 가감속 — 스타크래프트 일꾼급 느린 이동)
-            // 이동 중에는 물 주기 표시가 보이지 않음 (tendingAlpha = 0 유지)
+            // 식물 옆으로 천천히 이동 (5초, 가감속)
             robotX.animateTo(wp.col, animationSpec = tween(5000, easing = FastOutSlowInEasing))
             robotY.animateTo(wp.row.toFloat(), animationSpec = tween(5000, easing = FastOutSlowInEasing))
             // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 정확히 2초 관류)
@@ -195,7 +175,6 @@ fun FarmSceneView(
             delay(2000)
             tendingAlpha.animateTo(0f, animationSpec = tween(300, easing = FastOutSlowInEasing))
             robotScale.animateTo(1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
-            // 다음 식물로
             idx = (idx + 1) % waypoints.size
         }
     }
@@ -263,56 +242,74 @@ fun FarmSceneView(
                 .fillMaxWidth()
                 .height(groundH.dp)
         ) {
-            // 로봇 홈 (초록색 원, 격자 중심)
-            val homeSize = (minOf(cellW, cellH) * 0.8f).dp
-            val homeCenterCol = (GRID - 1) / 2f  // 1.5
-            val homeCenterRow = (GRID - 1) / 2f  // 1.5
-            val homePxX = homeCenterCol * cellW + cellW * 0.5f
-            val homePxY = homeCenterRow * cellH + cellH * 0.5f
-            Box(
-                Modifier
-                    .offset(
-                        x = (homePxX - homeSize.value / 2f).dp,
-                        y = (homePxY - homeSize.value / 2f).dp
-                    )
-                    .size(homeSize)
-                    .clip(CircleShape)
-                    .background(OojooTheme.Green.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("🏠", fontSize = 24.sp, modifier = Modifier.alpha(0.6f))
-            }
-
             displayPlants.forEachIndexed { i, plant ->
                 val cell = plantCells[i]
-                val cellLeft = cell.col * cellW
-                val cellTop = cell.row * cellH
                 val emoji = plantEmojiFor(plant.species, plant.stage)
                 val fontSize = (16f + (cell.row.toFloat() / (GRID - 1)) * 18f).sp
-
                 val soilSize = (minOf(cellW, cellH) * 0.7f).dp
+                val cellLeft = cell.col * cellW
+                val cellTop = cell.row * cellH
+
+                val isDragging = (draggingIndex == i)
+
+                // 드래그 중이면 픽셀 오프셋 사용, 아니면 cell 기준
+                val boxX = if (isDragging) dragOffsetX else (cellLeft + (cellW - soilSize.value) / 2f)
+                val boxY = if (isDragging) dragOffsetY else (cellTop + (cellH - soilSize.value) / 2f)
+
                 Box(
                     Modifier
-                        .offset(x = (cellLeft + (cellW - soilSize.value) / 2f).dp,
-                                y = (cellTop + (cellH - soilSize.value) / 2f).dp)
+                        .offset(x = boxX.dp, y = boxY.dp)
                         .size(soilSize)
                         .clip(CircleShape)
-                        .background(soilColor.copy(alpha = 0.9f)),
+                        .background(soilColor.copy(alpha = if (isDragging) 0.7f else 0.9f))
+                        .graphicsLayer {
+                            scaleX = if (isDragging) 1.15f else 1f
+                            scaleY = if (isDragging) 1.15f else 1f
+                        }
+                        .pointerInput(i) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggingIndex = i
+                                    dragOffsetX = cellLeft + (cellW - soilSize.value) / 2f
+                                    dragOffsetY = cellTop + (cellH - soilSize.value) / 2f
+                                },
+                                onDragEnd = {
+                                    // 드래그 종료 — 가장 가까운 cell로 스냅
+                                    val newCol = ((dragOffsetX + soilSize.value / 2f) / cellW)
+                                        .roundToInt().coerceIn(0, GRID - 1)
+                                    val newRow = ((dragOffsetY + soilSize.value / 2f) / cellH)
+                                        .roundToInt().coerceIn(0, GRID - 1)
+                                    // plantCells 업데이트 → waypoints 자동 재계산 → 로봇 순찰 경로 변경
+                                    plantCells = plantCells.toMutableList().also {
+                                        it[i] = PlantCell(newRow, newCol)
+                                    }
+                                    draggingIndex = -1
+                                },
+                                onDragCancel = { draggingIndex = -1 },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffsetX = (dragOffsetX + dragAmount.x)
+                                        .coerceIn(-soilSize.value / 2f, maxW - soilSize.value / 2f)
+                                    dragOffsetY = (dragOffsetY + dragAmount.y)
+                                        .coerceIn(-soilSize.value / 2f, groundH - soilSize.value / 2f)
+                                }
+                            )
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         emoji,
                         fontSize = fontSize,
-                        modifier = Modifier.graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
+                        modifier = Modifier
+                            .alpha(if (isDragging) 0.8f else 1f)
+                            .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
                     )
                 }
             }
 
-            // === 로봇 (식물과 같은 바닥 Box 안에서 offset으로 배치 — 좌표계 일치) ===
-            // robotX/robotY는 cell 좌표 (col, row). 식물과 동일한 방식으로 픽셀 변환.
+            // === 로봇 (식물과 같은 바닥 Box 안에서 offset으로 배치) ===
             val robotPxX = robotX.value * cellW + cellW * 0.5f
             val robotPxY = robotY.value * cellH + cellH * 0.5f
-            // 로봇 이모지를 중앙 정렬하기 위해 로봇 Box 크기 추정 (대략 40dp)
             val robotBoxSize = 40f
             Box(
                 Modifier
@@ -326,7 +323,6 @@ fun FarmSceneView(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // 관리 액션 💧 표시 (로봇 위에)
                 if (tendingAlpha.value > 0.01f) {
                     Text(
                         "💧",
@@ -368,6 +364,35 @@ fun FarmSceneView(
             }
         }
     }
+}
+
+/** 초기 식물 배치 — 격자 중심에서 가까운 cell부터 랜덤 배정. */
+private fun initialPlantCells(plants: List<Plant>): List<PlantCell> {
+    val seed = plants.map { it.id }.joinToString("").hashCode().toLong()
+    val rnd = Random(seed)
+    val centerRow = (GRID - 1) / 2f
+    val centerCol = (GRID - 1) / 2f
+    val allCellsByDistance = (0 until GRID).flatMap { r ->
+        (0 until GRID).map { c -> PlantCell(r, c) to distance(r, c, centerRow, centerCol) }
+    }.sortedWith(compareBy({ it.second }, { rnd.nextFloat() })).map { it.first }
+
+    val usedColsByRow = mutableMapOf<Int, MutableList<Int>>()
+    val result = mutableListOf<PlantCell>()
+    for (cell in allCellsByDistance) {
+        if (result.size >= plants.size) break
+        val used = usedColsByRow.getOrPut(cell.row) { mutableListOf() }
+        if (used.none { it == cell.col || it == cell.col - 1 || it == cell.col + 1 }) {
+            used.add(cell.col)
+            result.add(cell)
+        }
+    }
+    if (result.size < plants.size) {
+        for (cell in allCellsByDistance) {
+            if (result.size >= plants.size) break
+            if (cell !in result) result.add(cell)
+        }
+    }
+    return result
 }
 
 private fun defaultDemoPlants(): List<Plant> = listOf(
