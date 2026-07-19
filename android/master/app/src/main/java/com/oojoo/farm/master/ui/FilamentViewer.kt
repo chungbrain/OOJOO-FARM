@@ -1,6 +1,7 @@
 package com.oojoo.farm.master.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -138,14 +139,14 @@ fun FarmSceneView(
         allCells
     }
 
-    // 로봇 웨이포인트: 각 식물 바로 옆 (같은 행, col±1 중 유효한 칸).
-    // 식물에 다가가서 관리하는 모습을 위해 로봇 위치 = 식물 옆 칸.
+    // 로봇 웨이포인트: 각 식물 cell의 가장자리 (식물 바로 옆).
+    // 식물 원형이 cell 중앙에 있으므로, 로봇은 같은 cell의 좌측 또는 우측 가장자리에 위치.
+    // cell 너비의 0.3만큼 옆으로 → 식물 원형(0.7) 경계에 거의 닿는 거리.
     val waypoints = remember(plantCells) {
         plantCells.map { cell ->
-            // 식물 옆 칸 (왼쪽 우선, 경계 밖이면 오른쪽)
-            val adjacentCol = if (cell.col > 0) (cell.col - 1).toFloat()
-                              else (cell.col + 1).toFloat()
-            Waypoint(cell.row, adjacentCol)
+            val sideOffset = 0.32f  // 식물 중심에서 cell 너비의 32% 옆
+            val col = if (cell.col > 0) (cell.col - sideOffset) else (cell.col + sideOffset)
+            Waypoint(cell.row, col)
         }
     }
 
@@ -162,6 +163,8 @@ fun FarmSceneView(
     val robotY = remember { Animatable((waypoints.firstOrNull()?.row ?: 0).toFloat()) }
     // 로봇 관리 액션 펄스 (도착 시 살짝 커짐)
     val robotScale = remember { Animatable(1f) }
+    // 관리 액션 표시 (💧 이모지 페이드인/아웃)
+    val tendingAlpha = remember { Animatable(0f) }
 
     // 로봇 순찰 루프: 웨이포인트를 순회하며 이동 + 관리
     LaunchedEffect(waypoints) {
@@ -169,13 +172,15 @@ fun FarmSceneView(
         var idx = 0
         while (true) {
             val wp = waypoints[idx]
-            // 식물 옆으로 이동 (1.2초 부드러운 이동)
-            robotX.animateTo(wp.col, animationSpec = tween(1200, easing = LinearEasing))
-            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(1200, easing = LinearEasing))
-            // 도착 — 관리 액션 (살짝 커짐 + 1.5초 대기)
-            robotScale.animateTo(1.2f, animationSpec = tween(300, easing = LinearEasing))
-            delay(1500)
-            robotScale.animateTo(1f, animationSpec = tween(300, easing = LinearEasing))
+            // 식물 옆으로 부드럽게 이동 (2초, 가감속)
+            robotX.animateTo(wp.col, animationSpec = tween(2000, easing = FastOutSlowInEasing))
+            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(2000, easing = FastOutSlowInEasing))
+            // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 1.8초 관리)
+            robotScale.animateTo(1.25f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            tendingAlpha.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            delay(1800)
+            tendingAlpha.animateTo(0f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            robotScale.animateTo(1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
             // 다음 식물로
             idx = (idx + 1) % waypoints.size
         }
@@ -275,17 +280,30 @@ fun FarmSceneView(
         val robotPxX = robotX.value * cellW + cellW * 0.5f
         val robotPxY = robotY.value * cellH + cellH * 0.5f
         // 로봇을 바닥 Box 안에 배치 (바닥 상단에서부터 robotPxY 위치)
-        Text(
-            "🤖", fontSize = 32.sp,
-            modifier = Modifier
+        Box(
+            Modifier
                 .align(Alignment.BottomCenter)
                 .graphicsLayer {
                     translationX = robotPxX - maxW / 2f
                     translationY = -(groundH - robotPxY) + robotBob
                     scaleX = robotScale.value
                     scaleY = robotScale.value
-                }
-        )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            // 관리 액션 💧 표시 (로봇 위에)
+            if (tendingAlpha.value > 0.01f) {
+                Text(
+                    "💧",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .offset(y = (-22).dp)
+                        .alpha(tendingAlpha.value)
+                        .graphicsLayer { rotationZ = sway * 0.3f }
+                )
+            }
+            Text("🤖", fontSize = 34.sp)
+        }
 
         // === 잔디 ===
         Row(
