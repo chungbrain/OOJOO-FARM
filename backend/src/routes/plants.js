@@ -32,4 +32,21 @@ r.post('/', (req, res) => {
   res.json({ plantId: id });
 });
 
+// 식물 수정 (Farmer 배정/해제, 이름/종류/단계/식재일 변경)
+r.put('/plant/:id', (req, res) => {
+  const { slaveId, name, species, plantedAt, stage } = req.body;
+  const cur = db.prepare('SELECT * FROM plants WHERE id=?').get(req.params.id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  db.prepare(`UPDATE plants SET slave_id=?, name=?, species=?, planted_at=?, stage=? WHERE id=?`)
+    .run(
+      slaveId !== undefined ? (slaveId || null) : cur.slave_id,
+      name ?? cur.name,
+      species ?? cur.species,
+      plantedAt ?? cur.planted_at,
+      stage ?? cur.stage,
+      req.params.id
+    );
+  res.json({ ok: true, plantId: req.params.id });
+});
+
 export default r;

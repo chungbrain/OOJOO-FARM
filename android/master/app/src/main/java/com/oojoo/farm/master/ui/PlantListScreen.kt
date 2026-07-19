@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
+import com.oojoo.farm.master.model.Slave
+import com.oojoo.farm.master.model.UpdatePlantRequest
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
@@ -37,8 +40,33 @@ class PlantListViewModel : ViewModel() {
     private val api get() = ApiClient.api
     val userId get() = Session.userId
     var plants by mutableStateOf<List<Plant>>(emptyList())
+    var slaves by mutableStateOf<List<Slave>>(emptyList())
     var loading by mutableStateOf(false)
-    fun refresh() { loading = true; viewModelScope.launch { try { plants = api.plants(userId).plants } catch (_: Exception) {}; loading = false } }
+    var msg by mutableStateOf<String?>(null)
+
+    fun refresh() {
+        loading = true; msg = null
+        viewModelScope.launch {
+            try {
+                plants = api.plants(userId).plants
+                slaves = try { api.slaves(userId).slaves } catch (_: Exception) { emptyList() }
+            } catch (_: Exception) {}
+            loading = false
+        }
+    }
+
+    fun assignSlave(plant: Plant, slaveId: String?) {
+        viewModelScope.launch {
+            try {
+                api.updatePlant(plant.id, UpdatePlantRequest(slaveId = slaveId))
+                msg = if (slaveId == null) "Farmer 배정 해제" else "Farmer 배정 완료"
+                refresh()
+            } catch (e: Exception) {
+                msg = e.message ?: "배정 실패"
+            }
+        }
+    }
+
     init { refresh() }
 }
 
@@ -70,7 +98,6 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             return@Scaffold
         }
         if (vm.plants.isEmpty()) {
-            // Farmer 페이지와 동일하게 상단부터 배치 (LazyColumn 첫 item)
             LazyColumn(
                 Modifier.fillMaxSize().padding(p).padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -99,7 +126,6 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             }
             return@Scaffold
         }
-        // 2열 카드 그리드 — 한 화면에 많은 식물이 빠르게 보이도록
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize().padding(p).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -107,12 +133,22 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(vm.plants, key = { it.id }) { plant ->
-                PlantGridCard(plant) { nav.navigate("plant_detail/${plant.id}") }
+                PlantGridCard(
+                    plant = plant,
+                    slaves = vm.slaves,
+                    onClick = { nav.navigate("plant_detail/${plant.id}") },
+                    onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) }
+                )
             }
-            // 하단 새로고침 버튼 (전체 너비)
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+            item(span = { GridItemSpan(2) }) {
+                Column {
+                    vm.msg?.let {
+                        Text(it, fontSize = 13.sp, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                    }
+                    TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -120,9 +156,15 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
 }
 
 @Composable
-private fun PlantGridCard(plant: Plant, onClick: () -> Unit) {
+private fun PlantGridCard(
+    plant: Plant,
+    slaves: List<Slave>,
+    onClick: () -> Unit,
+    onAssignSlave: (String?) -> Unit
+) {
     val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
     val emoji = plantEmojiFor(plant.species, plant.stage)
+    var showAssignDialog by remember { mutableStateOf(false) }
 
     Card(
         Modifier
@@ -140,7 +182,6 @@ private fun PlantGridCard(plant: Plant, onClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 큰 이모지 (작물 종류별)
             Text(emoji, fontSize = 48.sp, textAlign = TextAlign.Center)
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -176,6 +217,120 @@ private fun PlantGridCard(plant: Plant, onClick: () -> Unit) {
                     fontWeight = FontWeight.ExtraBold
                 )
             }
+
+            // Farmer 배정 상태 / 버튼
+            val assignedSlave = slaves.find { it.id == plant.slave_id }
+            if (assignedSlave != null) {
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.Green,
+                    border = BorderStroke(1.5.dp, OojooTheme.Ink),
+                    modifier = Modifier.clickable { showAssignDialog = true }
+                ) {
+                    Text(
+                        "🤖 ${assignedSlave.name}",
+                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            } else {
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.Yellow,
+                    border = BorderStroke(1.5.dp, OojooTheme.Ink),
+                    modifier = Modifier.clickable { showAssignDialog = true }
+                ) {
+                    Text(
+                        "＋ Farmer 배정",
+                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        color = OojooTheme.Ink,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
         }
     }
+
+    if (showAssignDialog) {
+        AssignFarmerDialog(
+            plant = plant,
+            slaves = slaves,
+            onDismiss = { showAssignDialog = false },
+            onAssign = { slaveId ->
+                onAssignSlave(slaveId)
+                showAssignDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun AssignFarmerDialog(
+    plant: Plant,
+    slaves: List<Slave>,
+    onDismiss: () -> Unit,
+    onAssign: (String?) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("🤖 Farmer 배정", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("${plant.name}에 배정할 Farmer를 선택하세요", fontSize = 13.sp, color = OojooTheme.Muted)
+                Spacer(Modifier.height(12.dp))
+                if (slaves.isEmpty()) {
+                    Text("연결된 Farmer가 없습니다.\nFarmer 페이지에서 먼저 페어링하세요.",
+                        fontSize = 13.sp, color = OojooTheme.Muted)
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(slaves) { slave ->
+                            val isAssigned = slave.id == plant.slave_id
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isAssigned) OojooTheme.GreenBg else OojooTheme.Card,
+                                border = BorderStroke(1.dp, OojooTheme.Line),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onAssign(slave.id) }
+                            ) {
+                                Row(
+                                    Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🤖", fontSize = 20.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(slave.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
+                                        Text(if (slave.online == 1) "🟢 온라인" else "⚪ 오프라인",
+                                            fontSize = 11.sp, color = OojooTheme.Muted)
+                                    }
+                                    if (isAssigned) Text("✓", color = OojooTheme.Green, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = OojooTheme.Card,
+                                border = BorderStroke(1.dp, OojooTheme.Line),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onAssign(null) }
+                            ) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("❌", fontSize = 20.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("배정 해제", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Red)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("닫기") } }
+    )
 }

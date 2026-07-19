@@ -106,8 +106,8 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
                     }
                 }
             }
-            Text("식재일", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.plantedAt, { vm.plantedAt = it }, "YYYY-MM-DD")
+            Text("식재일 (선택)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.plantedAt, { vm.plantedAt = it }, "YYYY-MM-DD (비워도 됨)")
 
             Text("담당 Farmer", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             ExposedDropdownMenuBox(expanded = slaveExpanded, onExpandedChange = { slaveExpanded = it }) {

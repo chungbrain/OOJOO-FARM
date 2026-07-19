@@ -64,6 +64,14 @@ data class CreatePlantRequest(
     val stage: String = "seedling"
 )
 @Serializable
+data class UpdatePlantRequest(
+    val slaveId: String? = null,
+    val name: String? = null,
+    val species: String? = null,
+    val plantedAt: String? = null,
+    val stage: String? = null
+)
+@Serializable
 data class PlantIdResponse(val plantId: String)
 @Serializable
 data class PlantsResponse(val plants: List<Plant>)
