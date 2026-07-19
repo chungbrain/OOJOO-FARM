@@ -273,36 +273,38 @@ fun FarmSceneView(
                     )
                 }
             }
-        }
 
-        // === 로봇 (식물들을 순회하며 관리) ===
-        // robotX/robotY는 cell 좌표 (col, row). 픽셀로 변환.
-        val robotPxX = robotX.value * cellW + cellW * 0.5f
-        val robotPxY = robotY.value * cellH + cellH * 0.5f
-        // 로봇을 바닥 Box 안에 배치 (바닥 상단에서부터 robotPxY 위치)
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .graphicsLayer {
-                    translationX = robotPxX - maxW / 2f
-                    translationY = -(groundH - robotPxY) + robotBob
-                    scaleX = robotScale.value
-                    scaleY = robotScale.value
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // 관리 액션 💧 표시 (로봇 위에)
-            if (tendingAlpha.value > 0.01f) {
-                Text(
-                    "💧",
-                    fontSize = 18.sp,
-                    modifier = Modifier
-                        .offset(y = (-22).dp)
-                        .alpha(tendingAlpha.value)
-                        .graphicsLayer { rotationZ = sway * 0.3f }
-                )
+            // === 로봇 (식물과 같은 바닥 Box 안에서 offset으로 배치 — 좌표계 일치) ===
+            // robotX/robotY는 cell 좌표 (col, row). 식물과 동일한 방식으로 픽셀 변환.
+            val robotPxX = robotX.value * cellW + cellW * 0.5f
+            val robotPxY = robotY.value * cellH + cellH * 0.5f
+            // 로봇 이모지를 중앙 정렬하기 위해 로봇 Box 크기 추정 (대략 40dp)
+            val robotBoxSize = 40f
+            Box(
+                Modifier
+                    .offset(
+                        x = (robotPxX - robotBoxSize / 2f).dp,
+                        y = (robotPxY - robotBoxSize / 2f + robotBob).dp
+                    )
+                    .graphicsLayer {
+                        scaleX = robotScale.value
+                        scaleY = robotScale.value
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                // 관리 액션 💧 표시 (로봇 위에)
+                if (tendingAlpha.value > 0.01f) {
+                    Text(
+                        "💧",
+                        fontSize = 18.sp,
+                        modifier = Modifier
+                            .offset(y = (-22).dp)
+                            .alpha(tendingAlpha.value)
+                            .graphicsLayer { rotationZ = sway * 0.3f }
+                    )
+                }
+                Text("🤖", fontSize = 34.sp)
             }
-            Text("🤖", fontSize = 34.sp)
         }
 
         // === 잔디 ===
