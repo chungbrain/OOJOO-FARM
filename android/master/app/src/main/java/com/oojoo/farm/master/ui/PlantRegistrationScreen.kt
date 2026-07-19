@@ -66,6 +66,21 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
         containerColor = OojooTheme.Bg
     ) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 선택한 작물 종류의 이모지 미리보기
+            Card(
+                Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape),
+                shape = OojooTheme.CardShape,
+                colors = CardDefaults.cardColors(containerColor = OojooTheme.GreenBg)
+            ) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(plantEmojiFor(vm.species.ifBlank { null }, vm.stage), fontSize = 40.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("선택된 작물", color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(vm.species.ifBlank { "작물 종류를 선택/입력하세요" }, color = OojooTheme.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    }
+                }
+            }
             Text("식물 이름 *", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(vm.name, { vm.name = it }, "예: 방울토마토")
             Text("작물 종류", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
@@ -83,7 +98,10 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
                 if (filtered.isNotEmpty()) {
                     ExposedDropdownMenu(expanded = speciesExpanded, onDismissRequest = { speciesExpanded = false }) {
                         filtered.forEach { sp ->
-                            DropdownMenuItem(text = { Text(sp) }, onClick = { vm.species = sp; speciesExpanded = false })
+                            DropdownMenuItem(
+                                text = { Text("${plantEmojiFor(sp, null)}  $sp") },
+                                onClick = { vm.species = sp; speciesExpanded = false }
+                            )
                         }
                     }
                 }
