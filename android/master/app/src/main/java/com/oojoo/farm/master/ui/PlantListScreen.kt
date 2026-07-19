@@ -7,12 +7,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +46,20 @@ class PlantListViewModel : ViewModel() {
 @Composable
 fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("🌱 내 식물", color = Color.White, fontWeight = FontWeight.Black) }, actions = { TextButton(onClick = { nav.navigate("plant_register") }) { Text("＋ 등록", color = Color.White, fontWeight = FontWeight.Bold) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = {
+            TopAppBar(
+                title = { Text("🌱 내 식물", color = Color.White, fontWeight = FontWeight.Black) },
+                actions = {
+                    IconButton(onClick = { vm.refresh() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "새로고침", tint = Color.White)
+                    }
+                    TextButton(onClick = { nav.navigate("plant_register") }) {
+                        Text("＋ 등록", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)
+            )
+        },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("plant_register") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "식물 등록") } },
         containerColor = OojooTheme.Bg
     ) { p ->
@@ -54,17 +70,30 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             return@Scaffold
         }
         if (vm.plants.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(p).padding(20.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Farmer 페이지와 동일하게 상단부터 배치 (LazyColumn 첫 item)
+            LazyColumn(
+                Modifier.fillMaxSize().padding(p).padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
-                    Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🌱", fontSize = 56.sp); Spacer(Modifier.height(14.dp))
-                        Text("등록된 식물이 없어요!", color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("＋ 버튼으로 등록해요!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                item {
+                    Card(
+                        Modifier.fillMaxWidth()
+                            .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
+                            .border(2.dp, OojooTheme.Ink, OojooTheme.CardShape),
+                        shape = OojooTheme.CardShape,
+                        colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
+                    ) {
+                        Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🌱", fontSize = 56.sp); Spacer(Modifier.height(14.dp))
+                            Text("등록된 식물이 없어요!", color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text("＋ 버튼으로 등록해요!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                item {
+                    TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -79,6 +108,12 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
         ) {
             items(vm.plants, key = { it.id }) { plant ->
                 PlantGridCard(plant) { nav.navigate("plant_detail/${plant.id}") }
+            }
+            // 하단 새로고침 버튼 (전체 너비)
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

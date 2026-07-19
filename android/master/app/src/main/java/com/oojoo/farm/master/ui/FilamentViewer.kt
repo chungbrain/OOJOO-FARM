@@ -6,21 +6,24 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -31,7 +34,6 @@ import kotlin.random.Random
 
 /**
  * 작물 종류(species)와 생장 단계(stage)를 함께 고려한 이모지.
- * species가 알려진 작물이면 해당 작물 이모지를, 아니면 stage 기반 기본 이모지.
  */
 fun plantEmojiFor(species: String?, stage: String?): String {
     val sp = species?.trim()?.lowercase()?.replace(" ", "")
@@ -79,18 +81,19 @@ private fun stageEmoji(stage: String?): String = when (stage) {
     else -> "🌱"
 }
 
-/** 식물 하나의 무작위 배치 (0~1 범위). depth: 0=뒤(위/작음), 1=앞(아래/큼). */
-private data class PlantLayout(val xPct: Float, val depthPct: Float)
+private const val GRID = 4
+
+/** 식물 하나의 4x4 격자 위치 (row, col). row 0=맨 위(뒤), row 3=맨 아래(앞). */
+private data class PlantCell(val row: Int, val col: Int)
 
 /**
  * 2D emoji farm scene.
  *
- * 레이아웃 (BoxWithConstraints 기반, 하단 60%가 초록 바닥):
+ * 레이아웃 (하단 60%가 초록 바닥):
  *   하늘   : 천체/구름 (상단 40%)
- *   바닥   : 초록 영역 (하단 60%) — 여기에 식물과 로봇이 모두 배치됨
- *   식물   : 바닥 영역 안에서 무작위 x/depth 배치. depth가 클수록(아래일수록) 크고 진함.
- *   로봇   : 식물보다 더 앞(아래)의 통로에서 좌우로 자율 왕복.
- *            y축이 식물과 분리되어 있어 이모지가 절대 겹치지 않음.
+ *   바닥   : 4x4 격자. 식물이 심어진 cell은 흙(갈색)으로 표시, 빈 cell은 초록.
+ *            row 0(맨 위/뒤) → 이모지 작게, row 3(맨 아래/앞) → 이모지 크게 (원근감).
+ *   로봇   : 격자 아래 통로에서 좌우로 자율 왕복 (식물과 y축 분리로 겹치지 않음).
  *   잔디   : 최하단 풀잎들.
  */
 @Composable
@@ -102,81 +105,56 @@ fun FarmSceneView(
 ) {
     val displayPlants = plants.ifEmpty { defaultDemoPlants() }
 
-    // 식물 목록(= id 리스트)이 바뀔 때만 무작위 배치를 다시 계산.
-    // 같은 식물 목록이면 항상 같은 위치에 그려진다 (재진입/리컴포지션 안정성).
-    val plantLayouts = remember(displayPlants.map { it.id }) {
+    // 4x4 격자의 16개 cell 중 식물 개수만큼 무작위 선택 (시드 = 식물 id 해시).
+    val plantCells = remember(displayPlants.map { it.id }) {
         val seed = displayPlants.map { it.id }.joinToString("").hashCode().toLong()
         val rnd = Random(seed)
-        displayPlants.map {
-            PlantLayout(
-                xPct = 0.08f + rnd.nextFloat() * 0.84f,     // 0.08 ~ 0.92
-                depthPct = rnd.nextFloat() * 0.7f            // 0 ~ 0.7 (로봇은 0.85)
-            )
-        }
+        val allCells = (0 until GRID).flatMap { r -> (0 until GRID).map { c -> PlantCell(r, c) } }
+        val shuffled = allCells.shuffled(rnd)
+        displayPlants.mapIndexed { i, _ -> shuffled[i % shuffled.size] }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "farm")
 
-    // 식물 미세 흔들림 (좌우 회전, 제자리).
     val sway by infiniteTransition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = -3f, targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Reverse),
         label = "sway"
     )
 
-    // 로봇 자율 순찰 — 좌우로 넓게 왕복.
     val robotX by infiniteTransition.animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(7000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = -1f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing), RepeatMode.Reverse),
         label = "robotX"
     )
 
-    // 로봇 살짝 상하 떠움직임.
     val robotBob by infiniteTransition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = -3f, targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Reverse),
         label = "robotBob"
     )
 
-    // 천체 펄스.
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.94f, targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Reverse),
         label = "pulse"
     )
 
-    // 구름 떠다님.
     val cloudDrift by infiniteTransition.animateFloat(
-        initialValue = -14f,
-        targetValue = 14f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = -14f, targetValue = 14f,
+        animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing), RepeatMode.Reverse),
         label = "cloudDrift"
     )
 
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val maxW = maxWidth
-        val maxH = maxHeight
-        // 초록 바닥 영역 높이 (HomeScreen FarmWeatherCard의 fillMaxHeight(0.6f)와 일치).
+        val maxW = maxWidth.value
+        val maxH = maxHeight.value
         val groundH = maxH * 0.6f
+        val cellW = maxW / GRID
+        val cellH = groundH / GRID
+
+        // 흙 색상
+        val soilColor = androidx.compose.ui.graphics.Color(0xFF6D4C2E)
 
         // === 하늘 (상단 40%) ===
         Text(
@@ -190,8 +168,7 @@ fun FarmSceneView(
         )
         if (!isNight || isRain) {
             Text(
-                "☁️",
-                fontSize = 28.sp,
+                "☁️", fontSize = 28.sp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(top = 18.dp)
@@ -199,8 +176,7 @@ fun FarmSceneView(
                     .alpha(0.7f)
             )
             Text(
-                "☁️",
-                fontSize = 22.sp,
+                "☁️", fontSize = 22.sp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(top = 42.dp, start = 120.dp)
@@ -209,39 +185,48 @@ fun FarmSceneView(
             )
         }
 
-        // === 식물 (바닥 영역 안, 무작위 배치 + 원근감) ===
-        // align(BottomCenter) 기준: y=0이 박스 바닥, 음수 y가 위.
-        // depth 0(뒤/위) → 바닥 상단, 작은 이모지, 약간 투명
-        // depth 1(앞/아래) → 바닥 하단, 큰 이모지, 불투명
-        plantLayouts.forEachIndexed { i, layout ->
-            val plant = displayPlants[i]
-            val emoji = plantEmojiFor(plant.species, plant.stage)
-            // depth 0~0.7 → 바닥의 15%~55% 위쪽 위치
-            val yFactor = 0.15f + layout.depthPct * 0.4f
-            val xOffset = ((layout.xPct - 0.5f) * maxW.value).dp
-            val yOffset = -(groundH.value * yFactor).dp
-            // 원근감: 뒤(작음) ~ 앞(큼), 20~52sp
-            val fontSize = (20f + layout.depthPct * 32f).sp
-            val emojiAlpha = 0.72f + layout.depthPct * 0.28f
+        // === 4x4 격자 바닥 ===
+        // 바닥 전체 Box (초록 바닥 위에 흙 cell들을 그림)
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(groundH.dp)
+        ) {
+            // 식물이 있는 cell들에 흙 배경 + 식물 이모지
+            displayPlants.forEachIndexed { i, plant ->
+                val cell = plantCells[i]
+                val cellLeft = cell.col * cellW
+                // row 0이 맨 위(뒤), row 3이 맨 아래(앞). 바닥 Box 기준 위에서부터 배치.
+                val cellTop = cell.row * cellH
+                val emoji = plantEmojiFor(plant.species, plant.stage)
+                // 원근감: row 0(뒤) = 18sp, row 3(앞) = 38sp
+                val fontSize = (18f + (cell.row.toFloat() / (GRID - 1)) * 20f).sp
 
-            Text(
-                emoji,
-                fontSize = fontSize,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(x = xOffset, y = yOffset)
-                    .alpha(emojiAlpha)
-                    .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
-            )
+                // 흙 cell
+                Box(
+                    Modifier
+                        .offset(x = cellLeft.dp, y = cellTop.dp)
+                        .height(cellH.dp)
+                        .padding(2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(soilColor.copy(alpha = 0.85f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        emoji,
+                        fontSize = fontSize,
+                        modifier = Modifier.graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
+                    )
+                }
+            }
         }
 
-        // === 로봇 (가장 앞 통로, 식물보다 아래 → 절대 겹치지 않음) ===
-        // offset 기반 이동 (graphicsLayer의 size=0 문제 회피).
-        val robotXOffset = (robotX * maxW.value * 0.3f).dp
-        val robotYOffset = -(groundH.value * 0.08f).dp + robotBob.dp  // 바닥에서 8% 위 (식물보다 아래)
+        // === 로봇 (격자 아래 통로, 식물과 y축 분리) ===
+        val robotXOffset = (robotX * maxW * 0.3f).dp
+        val robotYOffset = -(groundH * 0.04f).dp + robotBob.dp
         Text(
-            "🤖",
-            fontSize = 44.sp,
+            "🤖", fontSize = 40.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .offset(x = robotXOffset, y = robotYOffset)
@@ -252,19 +237,16 @@ fun FarmSceneView(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 6.dp),
+                .padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             repeat(6) { i ->
-                Text(
-                    "🌱",
-                    fontSize = (14 + (i % 3) * 4).sp,
-                    modifier = Modifier.graphicsLayer { rotationZ = sway * 0.5f }
-                )
+                Text("🌱", fontSize = (12 + (i % 3) * 4).sp,
+                    modifier = Modifier.graphicsLayer { rotationZ = sway * 0.5f })
             }
         }
 
-        // 비 오버레이.
+        // 비 오버레이
         if (isRain) {
             Row(
                 Modifier
