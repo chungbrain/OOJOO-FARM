@@ -40,6 +40,9 @@ interface ApiService {
     @PUT("api/plants/plant/{id}")
     suspend fun updatePlant(@Path("id") id: String, @Body body: UpdatePlantRequest): OkResponse
 
+    @DELETE("api/plants/plant/{id}")
+    suspend fun deletePlant(@Path("id") id: String): OkResponse
+
     @GET("api/plants/plant/{id}")
     suspend fun plant(@Path("id") id: String): Plant
 

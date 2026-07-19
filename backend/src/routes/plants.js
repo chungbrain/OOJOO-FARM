@@ -49,4 +49,15 @@ r.put('/plant/:id', (req, res) => {
   res.json({ ok: true, plantId: req.params.id });
 });
 
+// 식물 삭제
+r.delete('/plant/:id', (req, res) => {
+  const cur = db.prepare('SELECT * FROM plants WHERE id=?').get(req.params.id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  db.prepare('DELETE FROM plants WHERE id=?').run(req.params.id);
+  // 관련 데이터도 정리 (이벤트, 관수 기록)
+  try { db.prepare('DELETE FROM events WHERE plant_id=?').run(req.params.id); } catch (_) {}
+  try { db.prepare('DELETE FROM waterings WHERE plant_id=?').run(req.params.id); } catch (_) {}
+  res.json({ ok: true });
+});
+
 export default r;

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -63,6 +64,18 @@ class PlantListViewModel : ViewModel() {
                 refresh()
             } catch (e: Exception) {
                 msg = e.message ?: "배정 실패"
+            }
+        }
+    }
+
+    fun deletePlant(plant: Plant) {
+        viewModelScope.launch {
+            try {
+                api.deletePlant(plant.id)
+                msg = "🗑️ '${plant.name}' 삭제됨"
+                refresh()
+            } catch (e: Exception) {
+                msg = e.message ?: "삭제 실패"
             }
         }
     }
@@ -137,7 +150,8 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                     plant = plant,
                     slaves = vm.slaves,
                     onClick = { nav.navigate("plant_detail/${plant.id}") },
-                    onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) }
+                    onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
+                    onDelete = { vm.deletePlant(plant) }
                 )
             }
             item(span = { GridItemSpan(2) }) {
@@ -160,11 +174,13 @@ private fun PlantGridCard(
     plant: Plant,
     slaves: List<Slave>,
     onClick: () -> Unit,
-    onAssignSlave: (String?) -> Unit
+    onAssignSlave: (String?) -> Unit,
+    onDelete: () -> Unit
 ) {
     val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
     val emoji = plantEmojiFor(plant.species, plant.stage)
     var showAssignDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(
         Modifier
@@ -177,11 +193,25 @@ private fun PlantGridCard(
         shape = OojooTheme.CardShape,
         colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
     ) {
-        Column(
-            Modifier.fillMaxSize().padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
+        Box(Modifier.fillMaxSize()) {
+            // 삭제 버튼 (우상단)
+            Surface(
+                shape = CircleShape,
+                color = OojooTheme.Red.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, OojooTheme.Red.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(24.dp)
+                    .clickable { showDeleteDialog = true }
+            ) {
+                Text("🗑️", fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 1.dp))
+            }
+            Column(
+                Modifier.fillMaxSize().padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
             Text(emoji, fontSize = 48.sp, textAlign = TextAlign.Center)
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -252,6 +282,7 @@ private fun PlantGridCard(
                 }
             }
         }
+        }
     }
 
     if (showAssignDialog) {
@@ -262,6 +293,22 @@ private fun PlantGridCard(
             onAssign = { slaveId ->
                 onAssignSlave(slaveId)
                 showAssignDialog = false
+            }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("🗑️ 식물 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("'${plant.name}'을(를) 삭제합니다.\n관련 이벤트/관수 기록도 함께 삭제됩니다.") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showDeleteDialog = false }) {
+                    Text("삭제", color = OojooTheme.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
             }
         )
     }

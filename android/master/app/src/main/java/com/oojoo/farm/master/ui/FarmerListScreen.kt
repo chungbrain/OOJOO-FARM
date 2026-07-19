@@ -94,7 +94,23 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                         }, modifier = Modifier.fillMaxWidth())
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text("📊 리포트", color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-                            TextButton(onClick = { vm.unpair(s.id) }) { Text("연결 해제", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            var showUnpairDialog by remember { mutableStateOf(false) }
+                            TextButton(onClick = { showUnpairDialog = true }) { Text("🗑️ 삭제", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            if (showUnpairDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showUnpairDialog = false },
+                                    title = { Text("🗑️ Farmer 삭제", fontWeight = FontWeight.Bold) },
+                                    text = { Text("'${s.name}'을(를) 삭제합니다.\n페어링이 해제되고 목록에서 사라집니다.") },
+                                    confirmButton = {
+                                        TextButton(onClick = { vm.unpair(s.id); showUnpairDialog = false }) {
+                                            Text("삭제", color = OojooTheme.Red, fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showUnpairDialog = false }) { Text("취소") }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

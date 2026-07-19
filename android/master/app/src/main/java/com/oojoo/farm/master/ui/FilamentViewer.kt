@@ -1,5 +1,6 @@
 package com.oojoo.farm.master.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import com.oojoo.farm.master.model.Plant
+import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 /**
@@ -86,16 +89,17 @@ private const val GRID = 4
 /** 식물 하나의 4x4 격자 위치 (row, col). row 0=맨 위(뒤), row 3=맨 아래(앞). */
 private data class PlantCell(val row: Int, val col: Int)
 
+/** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
+private data class Waypoint(val row: Int, val col: Float)
+
 /**
  * 2D emoji farm scene.
  *
- * 레이아웃 (하단 60%가 초록 바닥):
+ * 레이아웃:
  *   하늘   : 천체/구름 (상단 40%)
- *   바닥   : 4x4 격자. 식물이 심어진 cell은 밝은 흙색 원형으로 표시.
- *            식물이 없는 행은 로봇이 돌아다닐 수 있는 통로로 비워둠.
- *            식물이 같은 행에 여러 개면 한 칸씩 띄어 배치.
- *            row 0(맨 위/뒤) → 이모지 작게, row 3(맨 아래/앞) → 이모지 크게 (원근감).
- *   로봇   : 빈 통로(행)를 따라 1~2초에 1칸씩 이동하며 관리.
+ *   바닥   : 4x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지.
+ *   로봇   : 식물들을 하나씩 방문하며 관리. 각 식물 옆으로 이동 → 1.5초 관류 → 다음 식물로.
+ *            Animatable 기반 부드러운 이동 + 도착 시 살짝 점프.
  *   잔디   : 최하단 풀잎들.
  */
 @Composable
@@ -108,11 +112,9 @@ fun FarmSceneView(
     val displayPlants = plants.ifEmpty { defaultDemoPlants() }
 
     // 식물을 4x4 격자에 배치 — 같은 행에 여러 식물이면 한 칸씩 띄어 배치.
-    // 시드 = 식물 id 해시로 안정성 확보.
     val plantCells = remember(displayPlants.map { it.id }) {
         val seed = displayPlants.map { it.id }.joinToString("").hashCode().toLong()
         val rnd = Random(seed)
-        // 행별로 최대 2개까지만 (한 칸 띄어 배치 가능). 행 순서도 섞음.
         val rowOrder = (0 until GRID).shuffled(rnd)
         val usedColsByRow = mutableMapOf<Int, MutableList<Int>>()
         val allCells = mutableListOf<PlantCell>()
@@ -120,7 +122,6 @@ fun FarmSceneView(
             var placed = false
             for (r in rowOrder) {
                 val used = usedColsByRow.getOrPut(r) { mutableListOf() }
-                // 사용 가능한 col (이미 사용된 col과 인접하지 않게 한 칸 띄어)
                 val candidates = (0 until GRID).filter { c ->
                     used.none { it == c || it == c - 1 || it == c + 1 }
                 }
@@ -132,21 +133,22 @@ fun FarmSceneView(
                     break
                 }
             }
-            if (!placed) {
-                // 모든 행이 꽉 찬 경우 임의 위치에 배치
-                allCells.add(PlantCell(rnd.nextInt(GRID), rnd.nextInt(GRID)))
-            }
+            if (!placed) allCells.add(PlantCell(rnd.nextInt(GRID), rnd.nextInt(GRID)))
         }
         allCells
     }
 
-    // 로봇이 순찰할 빈 행들 (식물이 전혀 없는 행).
-    val emptyRows = remember(plantCells) {
-        val usedRows = plantCells.map { it.row }.toSet()
-        ((0 until GRID) - usedRows.toSet()).toList().ifEmpty { listOf(0) }
+    // 로봇 웨이포인트: 각 식물 바로 옆 (같은 행, col±1 중 유효한 칸).
+    // 식물에 다가가서 관리하는 모습을 위해 로봇 위치 = 식물 옆 칸.
+    val waypoints = remember(plantCells) {
+        plantCells.map { cell ->
+            // 식물 옆 칸 (왼쪽 우선, 경계 밖이면 오른쪽)
+            val adjacentCol = if (cell.col > 0) (cell.col - 1).toFloat()
+                              else (cell.col + 1).toFloat()
+            Waypoint(cell.row, adjacentCol)
+        }
     }
 
-    // 로봇이 현재 위치한 빈 행 (시간에 따라 순환).
     val infiniteTransition = rememberInfiniteTransition(label = "farm")
 
     val sway by infiniteTransition.animateFloat(
@@ -155,26 +157,29 @@ fun FarmSceneView(
         label = "sway"
     )
 
-    // 로봇이 1~2초에 1칸씩 움직이도록 1.5초 주기로 col 인덱스 변경.
-    // 0→1→2→3→2→1→0... (양끝에서 반전).
-    val robotColCycle by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = (GRID - 1).toFloat(),
-        animationSpec = infiniteRepeatable(
-            tween(1500, easing = LinearEasing),
-            RepeatMode.Reverse
-        ),
-        label = "robotCol"
-    )
+    // 로봇 부드러운 이동을 위한 Animatable (x, y)
+    val robotX = remember { Animatable(waypoints.firstOrNull()?.col ?: 0f) }
+    val robotY = remember { Animatable((waypoints.firstOrNull()?.row ?: 0).toFloat()) }
+    // 로봇 관리 액션 펄스 (도착 시 살짝 커짐)
+    val robotScale = remember { Animatable(1f) }
 
-    // 로봇이 빈 행을 순환 (8초마다 다음 빈 행으로).
-    val robotRowCycle by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = (emptyRows.size - 1).toFloat().coerceAtLeast(0f),
-        animationSpec = infiniteRepeatable(
-            tween((emptyRows.size * 8000).coerceAtLeast(8000), easing = LinearEasing),
-            RepeatMode.Restart
-        ),
-        label = "robotRow"
-    )
+    // 로봇 순찰 루프: 웨이포인트를 순회하며 이동 + 관리
+    LaunchedEffect(waypoints) {
+        if (waypoints.isEmpty()) return@LaunchedEffect
+        var idx = 0
+        while (true) {
+            val wp = waypoints[idx]
+            // 식물 옆으로 이동 (1.2초 부드러운 이동)
+            robotX.animateTo(wp.col, animationSpec = tween(1200, easing = LinearEasing))
+            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(1200, easing = LinearEasing))
+            // 도착 — 관리 액션 (살짝 커짐 + 1.5초 대기)
+            robotScale.animateTo(1.2f, animationSpec = tween(300, easing = LinearEasing))
+            delay(1500)
+            robotScale.animateTo(1f, animationSpec = tween(300, easing = LinearEasing))
+            // 다음 식물로
+            idx = (idx + 1) % waypoints.size
+        }
+    }
 
     val robotBob by infiniteTransition.animateFloat(
         initialValue = -2f, targetValue = 2f,
@@ -201,10 +206,9 @@ fun FarmSceneView(
         val cellW = maxW / GRID
         val cellH = groundH / GRID
 
-        // 밝은 흙색 (네모 → 원형)
         val soilColor = androidx.compose.ui.graphics.Color(0xFFB5905E)
 
-        // === 하늘 (상단 40%) ===
+        // === 하늘 ===
         Text(
             if (isNight) "🌙" else "☀️",
             fontSize = 36.sp,
@@ -240,16 +244,13 @@ fun FarmSceneView(
                 .fillMaxWidth()
                 .height(groundH.dp)
         ) {
-            // 식물이 있는 cell들에 흙 원형 + 식물 이모지
             displayPlants.forEachIndexed { i, plant ->
                 val cell = plantCells[i]
                 val cellLeft = cell.col * cellW
                 val cellTop = cell.row * cellH
                 val emoji = plantEmojiFor(plant.species, plant.stage)
-                // 원근감: row 0(뒤) = 16sp, row 3(앞) = 34sp
                 val fontSize = (16f + (cell.row.toFloat() / (GRID - 1)) * 18f).sp
 
-                // 흙 원형 (cell 중앙, cell 크기의 70%)
                 val soilSize = (minOf(cellW, cellH) * 0.7f).dp
                 Box(
                     Modifier
@@ -269,21 +270,24 @@ fun FarmSceneView(
             }
         }
 
-        // === 로봇 (빈 통로 행을 따라 1~2초에 1칸씩 이동) ===
-        val robotRowIdx = robotRowCycle.toInt().coerceIn(0, emptyRows.size - 1)
-        val robotRow = emptyRows[robotRowIdx]
-        // robotColCycle: 0→3→0 반전. col을 정수 인덱스로 반올림해서 1칸씩 이동 효과.
-        val robotCol = robotColCycle.toInt().coerceIn(0, GRID - 1)
-        val robotXOffset = (robotCol * cellW + cellW * 0.5f - 20f).dp  // cell 중앙으로
-        val robotYOffset = -(groundH - (robotRow * cellH + cellH * 0.5f) + 20f).dp + robotBob.dp
+        // === 로봇 (식물들을 순회하며 관리) ===
+        // robotX/robotY는 cell 좌표 (col, row). 픽셀로 변환.
+        val robotPxX = robotX.value * cellW + cellW * 0.5f
+        val robotPxY = robotY.value * cellH + cellH * 0.5f
+        // 로봇을 바닥 Box 안에 배치 (바닥 상단에서부터 robotPxY 위치)
         Text(
-            "🤖", fontSize = 36.sp,
+            "🤖", fontSize = 32.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(x = robotXOffset - (maxW / 2f).dp, y = robotYOffset)
+                .graphicsLayer {
+                    translationX = robotPxX - maxW / 2f
+                    translationY = -(groundH - robotPxY) + robotBob
+                    scaleX = robotScale.value
+                    scaleY = robotScale.value
+                }
         )
 
-        // === 잔디 (최하단) ===
+        // === 잔디 ===
         Row(
             Modifier
                 .align(Alignment.BottomCenter)
