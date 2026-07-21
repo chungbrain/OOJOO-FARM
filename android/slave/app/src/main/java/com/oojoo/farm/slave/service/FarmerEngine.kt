@@ -220,13 +220,6 @@ object FarmerEngine {
         })
         // SSE: 실시간 명령 수신 (폴링 대체)
         startSSE()
-        // Fallback: SSE 연결이 안 될 때를 대비해 30초 간격으로 폴링도 유지
-        loops.add(scope.launch {
-            while (isActive) {
-                delay(30_000L)
-                pollCommands()
-            }
-        })
         addLog("[${now()}] 엔진 시작")
     }
 

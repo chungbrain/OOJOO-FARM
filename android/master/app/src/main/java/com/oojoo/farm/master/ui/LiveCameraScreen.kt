@@ -53,6 +53,8 @@ class LiveCameraViewModel : ViewModel() {
 
     private var sseJob: Job? = null
 
+    private var videoHandled = false
+
     fun requestAndWatch(slaveId: String, slaveName: String, ctx: android.content.Context) {
         loading = true
         error = null
@@ -60,6 +62,7 @@ class LiveCameraViewModel : ViewModel() {
         videoInfo = null
         savedPath = null
         savedMsg = null
+        videoHandled = false
         // 기존 SSE 연결 종료
         sseJob?.cancel()
         viewModelScope.launch {
@@ -67,23 +70,19 @@ class LiveCameraViewModel : ViewModel() {
                 val cmdResp = api.sendCommand(CommandRequest(slaveId, null, "capture_video"))
                 val commandId = cmdResp.commandId
                 status = "캡처 요청 전송됨 — SSE로 응답 대기 중"
-                // SSE로 영상 준비 완료 대기 + 폴링 fallback 병행
+                // SSE로 영상 준비 완료 대기
                 startMasterSSE(slaveId, commandId, slaveName, ctx)
-                // Fallback: SSE가 안 되면 1초 폴링
+                // 시간 초과 감시 (40초)
                 launch {
                     var waited = 0
-                    while (waited < 40 && loading) {
+                    while (waited < 40 && loading && !videoHandled) {
                         delay(1000)
                         waited += 1
-                        try {
-                            val v = api.videoByCommand(commandId)
-                            onVideoReady(v, slaveName, ctx)
-                            return@launch
-                        } catch (_: Exception) { }
                     }
-                    if (loading) {
+                    if (loading && !videoHandled) {
                         status = "시간 초과 — Slave가 오프라인이거나 카메라 미준비일 수 있습니다"
                         loading = false
+                        sseJob?.cancel()
                     }
                 }
             } catch (e: Exception) {
@@ -143,7 +142,10 @@ class LiveCameraViewModel : ViewModel() {
         }
     }
 
+    /** 영상 수신 처리 — SSE와 폴링 중 먼저 도착한 쪽만 처리 (중복 저장 방지). */
     private fun onVideoReady(v: VideoInfoResponse, slaveName: String, ctx: android.content.Context) {
+        if (videoHandled) return
+        videoHandled = true
         videoInfo = v
         status = "영상 수신 완료!"
         loading = false
