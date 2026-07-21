@@ -59,8 +59,8 @@ class LiveCameraViewModel : ViewModel() {
                 status = "캡처 요청 전송됨 — Slave 응답 대기 (최대 40초)"
                 var waited = 0
                 while (waited < 40) {
-                    delay(2000)
-                    waited += 2
+                    delay(1000)
+                    waited += 1
                     try {
                         val v = api.videoByCommand(commandId)
                         videoInfo = v

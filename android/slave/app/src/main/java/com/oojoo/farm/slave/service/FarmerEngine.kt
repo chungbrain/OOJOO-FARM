@@ -119,7 +119,7 @@ object FarmerEngine {
         loops.add(scope.launch {
             while (isActive) {
                 pollCommands()
-                delay(10_000L)
+                delay(2_000L)
             }
         })
         addLog("[${now()}] 엔진 시작")
