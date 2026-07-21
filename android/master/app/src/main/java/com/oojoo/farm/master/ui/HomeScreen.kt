@@ -234,6 +234,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                 region = vm.regionLabel,
                 locating = vm.locating,
                 plants = vm.plants,
+                slaves = vm.slaves,
                 onClickPlant = { nav.navigate("plant_detail/${it.id}") }
             )
             TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
@@ -259,28 +260,13 @@ private fun FarmWeatherCard(
     region: String,
     locating: Boolean,
     plants: List<Plant>,
+    slaves: List<Slave>,
     onClickPlant: (Plant) -> Unit
 ) {
     val scene = weatherScene(weather)
     val w = weather
     val screenH = LocalConfiguration.current.screenHeightDp.dp
     val farmHeight = (screenH * 0.55f).coerceIn(520.dp, 780.dp)
-    val healths = listOf(
-        Pair("100% 건강", "아주 건강해요! 😊"),
-        Pair("70% 아픔", "조금 아파요 😢"),
-        Pair("25% 죽기직전", "살려주세요... 😱"),
-        Pair("50% 위험", "위험해요 🚨"),
-        Pair("0% 사망", "...")
-    )
-    val healthColors = listOf(Color(0xFF2E7D32), Color(0xFFF57C00), Color(0xFFC2185B), Color(0xFFD32F2F), Color(0xFF616161))
-    val stageEmoji = { stage: String? ->
-        when (stage) {
-            "fruiting" -> "🍅"
-            "flowering" -> "🌸"
-            "vegetative" -> "🌿"
-            else -> "🌱"
-        }
-    }
     val hum = w?.humidity?.toInt()?.toString()
         ?: if (scene.isRain) "85" else if (scene.isNight) "60" else "45"
     val sun = if (scene.isNight) "0" else if (scene.isRain) "150" else "850"
@@ -384,8 +370,17 @@ private fun FarmWeatherCard(
                 if (plants.isEmpty()) {
                     Text("등록된 식물이 없습니다.", color = OojooTheme.Muted, fontSize = 14.sp)
                 } else {
-                    plants.forEachIndexed { i, p ->
-                        val hIdx = i % healths.size
+                    plants.forEach { p ->
+                        val emoji = plantEmojiFor(p.species, p.stage)
+                        val assignedSlave = slaves.find { it.id == p.slave_id }
+                        // Farmer가 없으면 "담당 Farmer 없음", 있으면 Farmer 판단 결과 (현재는 "정보없음")
+                        val healthText = if (assignedSlave == null) {
+                            "담당 Farmer 없음"
+                        } else {
+                            // TODO: Farmer로부터 받은 분석 결과를 표시. 현재는 정보없음.
+                            "정보없음"
+                        }
+                        val healthColor = if (assignedSlave == null) OojooTheme.Muted else OojooTheme.Muted2
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -396,13 +391,13 @@ private fun FarmWeatherCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stageEmoji(p.stage), fontSize = 18.sp)
+                                Text(emoji, fontSize = 18.sp)
                                 Spacer(Modifier.width(8.dp))
                                 Text(p.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
                             }
                             Text(
-                                "\"${healths[hIdx].second}\" (${healths[hIdx].first})",
-                                color = healthColors[hIdx],
+                                healthText,
+                                color = healthColor,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 12.sp
                             )
@@ -412,13 +407,6 @@ private fun FarmWeatherCard(
                 }
                 Spacer(Modifier.height(6.dp))
                 HorizontalDivider(color = OojooTheme.Line, thickness = 2.dp)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "※ 상태 범례\n100% 건강 | 70% 아픔 | 50% 위험\n25% 죽기직전 | 0% 사망",
-                    fontSize = 12.sp,
-                    color = OojooTheme.Muted,
-                    lineHeight = 18.sp
-                )
             }
         }
     }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,9 +37,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
 import com.oojoo.farm.master.model.Plant
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -297,13 +301,33 @@ fun FarmSceneView(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        emoji,
-                        fontSize = fontSize,
-                        modifier = Modifier
-                            .alpha(if (isDragging) 0.8f else 1f)
-                            .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // 이름 말풍선 (작게, 반투명 배경)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.graphicsLayer { alpha = if (isDragging) 0.6f else 0.9f }
+                        ) {
+                            Text(
+                                plant.name,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = androidx.compose.ui.graphics.Color(0xFF2D3436),
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                        Text(
+                            emoji,
+                            fontSize = fontSize,
+                            modifier = Modifier
+                                .alpha(if (isDragging) 0.8f else 1f)
+                                .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
+                        )
+                    }
                 }
             }
 
