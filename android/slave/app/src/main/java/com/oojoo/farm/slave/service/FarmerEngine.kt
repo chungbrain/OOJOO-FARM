@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlin.coroutines.resume
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -86,6 +90,104 @@ object FarmerEngine {
 
     private fun slaveId() = Prefs.slaveId(appCtx) ?: ""
 
+    @Volatile private var sseJob: Job? = null
+
+    /** SSE 클라이언트 — 백엔드에서 명령을 실시간으로 수신. */
+    private fun startSSE() {
+        sseJob?.cancel()
+        sseJob = scope.launch {
+            val baseUrl = ApiClient.baseUrl.trimEnd('/')
+            val sid = slaveId()
+            val sessionKey = Prefs.sessionKey(appCtx) ?: ""
+            val url = "$baseUrl/api/commands/sse/slave/$sid"
+
+            while (isActive) {
+                try {
+                    val client = OkHttpClient.Builder()
+                        .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+                    val request = Request.Builder()
+                        .url(url)
+                        .header("x-session-key", sessionKey)
+                        .build()
+                    val response = client.newCall(request).execute()
+                    if (!response.isSuccessful) {
+                        addLog("[${now()}] SSE 연결 실패 (${response.code}) — 5초 후 재시도")
+                        delay(5000)
+                        continue
+                    }
+                    addLog("[${now()}] SSE 연결됨 — 실시간 명령 대기")
+                    val reader = BufferedReader(InputStreamReader(response.body!!.byteStream()))
+                    var line: String?
+                    while (isActive) {
+                        line = reader.readLine()
+                        if (line == null) break
+                        if (line.startsWith("data: ")) {
+                            val jsonStr = line.removePrefix("data: ").trim()
+                            if (jsonStr.isNotEmpty()) {
+                                try {
+                                    val json = JSONObject(jsonStr)
+                                    if (json.optString("type") == "command") {
+                                        scope.launch { handleSSECommand(json.getJSONObject("command")) }
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    }
+                    response.close()
+                    if (isActive) { delay(3000) }
+                } catch (_: Exception) {
+                    if (isActive) { delay(5000) }
+                }
+            }
+        }
+    }
+
+    /** SSE로 수신한 명령 처리. */
+    private suspend fun handleSSECommand(cmd: JSONObject) {
+        try {
+            val id = cmd.getString("id")
+            val action = cmd.getString("action")
+            val amountMl = cmd.optInt("amount_ml", 300)
+            val plantId = cmd.optString("plant_id", null)
+            when (action) {
+                "water" -> {
+                    addLog("[${now()}] 마스터 지시(SSE): 관수 ${amountMl}ml")
+                    doWater("manual", 1.0, amountMl, plantId)
+                    ApiClient.api.commandDone(id)
+                }
+                "pause" -> {
+                    _autoOn.value = false; Prefs.setAutoWater(appCtx, false)
+                    addLog("[${now()}] 마스터 지시(SSE): 일시정지")
+                    ApiClient.api.commandDone(id)
+                }
+                "resume" -> {
+                    _autoOn.value = true; Prefs.setAutoWater(appCtx, true)
+                    addLog("[${now()}] 마스터 지시(SSE): 재개")
+                    ApiClient.api.commandDone(id)
+                }
+                "fan" -> {
+                    Hardware.controller.fan(10_000L)
+                    addLog("[${now()}] 마스터 지시(SSE): Fan 퇴치")
+                    postEventSafe("pest_control", mapOf("response" to "fan_manual"))
+                    ApiClient.api.commandDone(id)
+                }
+                "laser" -> {
+                    Hardware.controller.laserPulse(500L)
+                    _pendingLaser.value = false
+                    addLog("[${now()}] 마스터 승인(SSE): Laser 퇴치")
+                    postEventSafe("pest_control", mapOf("response" to "laser_approved"))
+                    ApiClient.api.commandDone(id)
+                }
+                "capture_video" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 3초 영상 캡처")
+                    captureAndUploadVideo(id)
+                    ApiClient.api.commandDone(id)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
     fun start(context: Context) {
         appCtx = context.applicationContext
         ApiClient.setBaseUrl(Prefs.serverUrl(appCtx))
@@ -116,10 +218,13 @@ object FarmerEngine {
                 delay(30 * 60 * 1000L)
             }
         })
+        // SSE: 실시간 명령 수신 (폴링 대체)
+        startSSE()
+        // Fallback: SSE 연결이 안 될 때를 대비해 30초 간격으로 폴링도 유지
         loops.add(scope.launch {
             while (isActive) {
+                delay(30_000L)
                 pollCommands()
-                delay(2_000L)
             }
         })
         addLog("[${now()}] 엔진 시작")
@@ -128,6 +233,8 @@ object FarmerEngine {
     fun stop() {
         loops.forEach { it.cancel() }
         loops.clear()
+        sseJob?.cancel()
+        sseJob = null
         started = false
         _online.value = false
     }

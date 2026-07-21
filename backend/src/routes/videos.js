@@ -5,6 +5,7 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
+import { notifyMasterEvent } from './commands.js';
 
 const r = Router();
 
@@ -52,6 +53,16 @@ r.post('/upload/:slaveId', slaveAuth, upload.single('video'), (req, res) => {
   const id = nanoid(12);
   db.prepare('INSERT INTO videos(id, slave_id, command_id, filename, mime, size) VALUES(?,?,?,?,?,?)')
     .run(id, slaveId, commandId || null, req.file.filename, req.file.mimetype, req.file.size);
+  // SSE: 연결된 Master에게 영상 준비 완료 알림
+  notifyMasterEvent(slaveId, {
+    type: 'video_ready',
+    videoId: id,
+    slaveId,
+    commandId: commandId || null,
+    url: `/api/videos/file/${req.file.filename}`,
+    mime: req.file.mimetype,
+    size: req.file.size,
+  });
   res.json({ videoId: id, url: `/api/videos/file/${req.file.filename}` });
 });
 
