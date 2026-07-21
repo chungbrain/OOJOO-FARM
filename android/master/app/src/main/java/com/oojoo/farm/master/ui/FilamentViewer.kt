@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oojoo.farm.master.model.Plant
+import com.oojoo.farm.master.model.Slave
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -123,10 +124,14 @@ private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Fl
 fun FarmSceneView(
     modifier: Modifier = Modifier,
     plants: List<Plant> = emptyList(),
+    slaves: List<Slave> = emptyList(),
     isNight: Boolean = false,
     isRain: Boolean = false
 ) {
     val displayPlants = plants.ifEmpty { defaultDemoPlants() }
+
+    // Farmer가 배정된 식물만 로봇 순찰 대상
+    val assignedPlants = displayPlants.filter { p -> slaves.any { it.id == p.slave_id } }
 
     // 식물 위치 — 드래그로 변경 가능하도록 mutableStateOf로 관리.
     // 초기 배치: 격자 중심(1.5, 1.5)에서 가까운 cell부터 랜덤 배정.
@@ -136,19 +141,25 @@ fun FarmSceneView(
 
     // 드래그 중인 식물 인덱스 (-1 = 드래그 아님)
     var draggingIndex by remember { mutableStateOf(-1) }
-    // 드래그 중인 식물의 픽셀 오프셋 (바닥 Box 기준)
     var dragOffsetX by remember { mutableStateOf(0f) }
     var dragOffsetY by remember { mutableStateOf(0f) }
 
-    // 로봇 웨이포인트: 각 식물 cell의 가장자리 (식물 바로 옆).
-    // plantCells가 변경되면 자동 재계산 → 로봇 순찰 경로 업데이트.
-    val waypoints = remember(plantCells) {
-        plantCells.map { cell ->
+    // 로봇 웨이포인트: Farmer가 배정된 식물만 순찰 대상.
+    // plantCells는 displayPlants 전체에 대한 것이므로, assignedPlants의 인덱스로 매핑.
+    val assignedIndices = remember(displayPlants, slaves) {
+        displayPlants.mapIndexedNotNull { i, p ->
+            if (slaves.any { it.id == p.slave_id }) i else null
+        }
+    }
+    val waypoints = remember(plantCells, assignedIndices) {
+        assignedIndices.map { i ->
+            val cell = plantCells[i]
             val sideOffset = 0.32f
             val col = if (cell.col > 0) (cell.col - sideOffset) else (cell.col + sideOffset)
             Waypoint(cell.row, col)
         }
     }
+    val showRobot = assignedIndices.isNotEmpty()
 
     val infiniteTransition = rememberInfiniteTransition(label = "farm")
 
@@ -164,21 +175,24 @@ fun FarmSceneView(
     val robotScale = remember { Animatable(1f) }
     val tendingAlpha = remember { Animatable(0f) }
 
-    // 로봇 순찰 루프: 웨이포인트가 변경되면 재시작 (LaunchedEffect key = waypoints)
-    LaunchedEffect(waypoints) {
-        if (waypoints.isEmpty()) return@LaunchedEffect
+    // 로봇 순찰 루프: 할당된 식물이 있을 때만 동작.
+    // 이산적 이동 — 한 칸씩 snap 이동 (1.5초 이동 + 2초 관리).
+    LaunchedEffect(waypoints, showRobot) {
+        if (!showRobot || waypoints.isEmpty()) return@LaunchedEffect
         var idx = 0
         while (true) {
             val wp = waypoints[idx]
-            // 식물 옆으로 천천히 이동 (5초, 가감속)
-            robotX.animateTo(wp.col, animationSpec = tween(5000, easing = FastOutSlowInEasing))
-            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(5000, easing = FastOutSlowInEasing))
-            // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 정확히 2초 관류)
-            robotScale.animateTo(1.25f, animationSpec = tween(400, easing = FastOutSlowInEasing))
-            tendingAlpha.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            // 한 칸씩 이산적으로 이동 (빠른 snap, 0.4초)
+            robotX.animateTo(wp.col, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            robotY.animateTo(wp.row.toFloat(), animationSpec = tween(400, easing = FastOutSlowInEasing))
+            // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 2초 관류)
+            robotScale.animateTo(1.25f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            tendingAlpha.animateTo(1f, animationSpec = tween(200, easing = FastOutSlowInEasing))
             delay(2000)
-            tendingAlpha.animateTo(0f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-            robotScale.animateTo(1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            tendingAlpha.animateTo(0f, animationSpec = tween(200, easing = FastOutSlowInEasing))
+            robotScale.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            // 다음 식물로 이동 전 대기 (1초)
+            delay(1000)
             idx = (idx + 1) % waypoints.size
         }
     }
@@ -278,12 +292,10 @@ fun FarmSceneView(
                                     dragOffsetY = cellTop + (cellH - soilSize.value) / 2f
                                 },
                                 onDragEnd = {
-                                    // 드래그 종료 — 가장 가까운 cell로 스냅
                                     val newCol = ((dragOffsetX + soilSize.value / 2f) / cellW)
                                         .roundToInt().coerceIn(0, GRID - 1)
                                     val newRow = ((dragOffsetY + soilSize.value / 2f) / cellH)
                                         .roundToInt().coerceIn(0, GRID - 1)
-                                    // plantCells 업데이트 → waypoints 자동 재계산 → 로봇 순찰 경로 변경
                                     plantCells = plantCells.toMutableList().also {
                                         it[i] = PlantCell(newRow, newCol)
                                     }
@@ -301,63 +313,63 @@ fun FarmSceneView(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    Text(
+                        emoji,
+                        fontSize = fontSize,
+                        modifier = Modifier
+                            .alpha(if (isDragging) 0.8f else 1f)
+                            .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
+                    )
+                    // 이름표 — 흙 원 하단 경계(초록-흙 overlap)에 직사각형으로 배치
+                    Surface(
+                        shape = RoundedCornerShape(0.dp),
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .offset(y = (soilSize.value * 0.35f).dp)
+                            .graphicsLayer { alpha = if (isDragging) 0.6f else 1f }
                     ) {
-                        // 이름 말풍선 (작게, 반투명 배경)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.graphicsLayer { alpha = if (isDragging) 0.6f else 0.9f }
-                        ) {
-                            Text(
-                                plant.name,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = androidx.compose.ui.graphics.Color(0xFF2D3436),
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
                         Text(
-                            emoji,
-                            fontSize = fontSize,
-                            modifier = Modifier
-                                .alpha(if (isDragging) 0.8f else 1f)
-                                .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
+                            plant.name,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color(0xFF2D3436),
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
                 }
             }
 
-            // === 로봇 (식물과 같은 바닥 Box 안에서 offset으로 배치) ===
-            val robotPxX = robotX.value * cellW + cellW * 0.5f
-            val robotPxY = robotY.value * cellH + cellH * 0.5f
-            val robotBoxSize = 40f
-            Box(
-                Modifier
-                    .offset(
-                        x = (robotPxX - robotBoxSize / 2f).dp,
-                        y = (robotPxY - robotBoxSize / 2f + robotBob).dp
-                    )
-                    .graphicsLayer {
-                        scaleX = robotScale.value
-                        scaleY = robotScale.value
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (tendingAlpha.value > 0.01f) {
-                    Text(
-                        "💧",
-                        fontSize = 18.sp,
-                        modifier = Modifier
-                            .offset(y = (-22).dp)
-                            .alpha(tendingAlpha.value)
-                            .graphicsLayer { rotationZ = sway * 0.3f }
-                    )
+            // === 로봇 (할당된 식물이 있을 때만 표시) ===
+            if (showRobot) {
+                val robotPxX = robotX.value * cellW + cellW * 0.5f
+                val robotPxY = robotY.value * cellH + cellH * 0.5f
+                val robotBoxSize = 40f
+                Box(
+                    Modifier
+                        .offset(
+                            x = (robotPxX - robotBoxSize / 2f).dp,
+                            y = (robotPxY - robotBoxSize / 2f + robotBob).dp
+                        )
+                        .graphicsLayer {
+                            scaleX = robotScale.value
+                            scaleY = robotScale.value
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (tendingAlpha.value > 0.01f) {
+                        Text(
+                            "💧",
+                            fontSize = 18.sp,
+                            modifier = Modifier
+                                .offset(y = (-22).dp)
+                                .alpha(tendingAlpha.value)
+                                .graphicsLayer { rotationZ = sway * 0.3f }
+                        )
+                    }
+                    Text("🤖", fontSize = 34.sp)
                 }
-                Text("🤖", fontSize = 34.sp)
             }
         }
 

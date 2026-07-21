@@ -333,6 +333,7 @@ private fun FarmWeatherCard(
                 FarmSceneView(
                     modifier = Modifier.fillMaxSize(),
                     plants = plants,
+                    slaves = slaves,
                     isNight = scene.isNight,
                     isRain = scene.isRain
                 )
