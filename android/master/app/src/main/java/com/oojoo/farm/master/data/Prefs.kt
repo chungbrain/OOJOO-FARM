@@ -73,4 +73,11 @@ object Prefs {
 
     fun borderWidth(ctx: Context): Int = sp(ctx).getInt(K_BORDER_WIDTH, 2)
     fun setBorderWidth(ctx: Context, value: Int) = sp(ctx).edit().putInt(K_BORDER_WIDTH, value).apply()
+
+    // ---------- 언어 설정 ----------
+    private const val K_LANGUAGE = "language"
+    fun language(ctx: Context): String = sp(ctx).getString(K_LANGUAGE, "system") ?: "system"
+    fun setLanguage(ctx: Context, lang: String) {
+        sp(ctx).edit().putString(K_LANGUAGE, lang).apply()
+    }
 }

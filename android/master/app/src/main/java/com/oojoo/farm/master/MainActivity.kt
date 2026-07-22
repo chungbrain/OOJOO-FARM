@@ -53,6 +53,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
+import com.oojoo.farm.master.data.AppStringsProvider
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
@@ -95,8 +96,10 @@ class MainActivity : ComponentActivity() {
             )) }
             
             CompositionLocalProvider(LocalOojooUi provides uiState.value) {
-                OojooMasterTheme {
-                    MainApp(uiState)
+                AppStringsProvider {
+                    OojooMasterTheme {
+                        MainApp(uiState)
+                    }
                 }
             }
         }

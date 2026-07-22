@@ -16,23 +16,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.AppLocale
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
     val ctx = LocalContext.current
+    val S = LocalAppStrings.current
     val scrollState = rememberScrollState()
-    
-    // Local state for sliders so they drag smoothly
     var cornerRadius by remember { mutableStateOf(uiState.value.cornerRadius.toFloat()) }
     var shadowOffset by remember { mutableStateOf(uiState.value.shadowOffset.toFloat()) }
     var borderWidth by remember { mutableStateOf(uiState.value.borderWidth.toFloat()) }
+    var selectedLang by remember { mutableStateOf(Prefs.language(ctx)) }
 
     Scaffold(
         topBar = {
             CartoonAppBar(
-                title = "UI 커스터마이징",
+                title = S.uiCustomize,
                 onBack = { nav.popBackStack() }
             )
         },
@@ -98,7 +100,7 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                 Spacer(Modifier.height(20.dp))
                 
                 OutlineButton(
-                    text = "기본값으로 초기화",
+                    text = S.reset,
                     onClick = {
                         cornerRadius = 24f
                         shadowOffset = 4f
@@ -110,6 +112,39 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     color = OojooTheme.Red
+                )
+
+                // === 언어 설정 ===
+                Spacer(Modifier.height(20.dp))
+                Text(S.language, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                val langOptions = listOf(
+                    AppLocale.SYSTEM to S.languageSystem,
+                    AppLocale.KOREAN to S.languageKorean,
+                    AppLocale.ENGLISH to S.languageEnglish
+                )
+                langOptions.forEach { (code, label) ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedLang == code,
+                            onClick = {
+                                selectedLang = code
+                                Prefs.setLanguage(ctx, code)
+                            },
+                            colors = RadioButtonDefaults.colors(selectedColor = OojooTheme.Green)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, fontSize = 15.sp, color = OojooTheme.Ink)
+                    }
+                }
+                Text(
+                    if (AppLocale.resolve(ctx) == AppLocale.KOREAN)
+                        "앱 재시작 후 적용됩니다"
+                    else
+                        "Takes effect after app restart",
+                    fontSize = 12.sp, color = OojooTheme.Muted
                 )
             }
         }

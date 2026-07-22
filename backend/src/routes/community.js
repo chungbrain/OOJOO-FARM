@@ -5,6 +5,24 @@ const r = Router();
 
 const TYPES = ['share', 'sell', 'buy'];
 
+// lat/lon 컬럼 보장
+try {
+  db.exec('ALTER TABLE community_posts ADD COLUMN lat REAL');
+} catch (_) {}
+try {
+  db.exec('ALTER TABLE community_posts ADD COLUMN lon REAL');
+} catch (_) {}
+
+// Haversine 거리 (m)
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function bumpReputation(userId, delta) {
   db.prepare('INSERT OR IGNORE INTO community_reputation(user_id, score, deals) VALUES(?,0,0)').run(userId);
   db.prepare('UPDATE community_reputation SET score = score + ?, deals = deals + 1 WHERE user_id=?').run(delta, userId);
@@ -18,19 +36,36 @@ function decorate(rows) {
   });
 }
 
-// 지역 피드 (type/검색 필터, 차단 사용자 제외)
+// 지역 피드 — 위도/경도 기반 500m 반경 필터 + type/검색/차단
 r.get('/posts', (req, res) => {
-  const { region, type, q, viewerId } = req.query;
+  const { region, type, q, viewerId, lat, lon, radius } = req.query;
+  const userLat = lat ? parseFloat(lat) : null;
+  const userLon = lon ? parseFloat(lon) : null;
+  const maxDist = radius ? parseFloat(radius) : 500; // 기본 500m
+
+  let sql = 'SELECT * FROM community_posts';
   const where = [];
   const args = [];
+
   if (region) { where.push('region = ?'); args.push(region); }
   if (type && TYPES.includes(type)) { where.push('type = ?'); args.push(type); }
   if (q) { where.push('(title LIKE ? OR crop LIKE ? OR description LIKE ?)'); const like = `%${q}%`; args.push(like, like, like); }
   if (viewerId) { where.push('user_id NOT IN (SELECT blocked_id FROM community_blocks WHERE blocker_id = ?)'); args.push(viewerId); }
-  let sql = 'SELECT * FROM community_posts';
+
   if (where.length) sql += ' WHERE ' + where.join(' AND ');
   sql += ' ORDER BY created_at DESC LIMIT 100';
-  res.json({ posts: decorate(db.prepare(sql).all(...args)) });
+
+  let rows = db.prepare(sql).all(...args);
+
+  // 500m 반경 필터 (lat/lon이 있는 경우만)
+  if (userLat != null && userLon != null) {
+    rows = rows.filter(p => {
+      if (p.lat == null || p.lon == null) return false; // 위치 정보 없는 글 제외
+      return haversine(userLat, userLon, p.lat, p.lon) <= maxDist;
+    });
+  }
+
+  res.json({ posts: decorate(rows) });
 });
 
 // 게시물 상세 + 댓글
@@ -44,21 +79,22 @@ r.get('/posts/:id', (req, res) => {
   res.json({ post: decorate([post])[0], comments });
 });
 
-// 게시물 작성
+// 게시물 작성 (lat/lon 추가)
 r.post('/posts', (req, res) => {
-  const { userId, type, title, crop, quantity, price, region, description, image } = req.body;
+  const { userId, type, title, crop, quantity, price, region, description, image, lat, lon } = req.body;
   if (!userId || !type || !title) return res.status(400).json({ error: 'userId, type, title required' });
   if (!TYPES.includes(type)) return res.status(400).json({ error: 'invalid type' });
   const id = nanoid(12);
-  db.prepare(`INSERT INTO community_posts(id, user_id, type, title, crop, quantity, price, region, description, image)
-    VALUES(?,?,?,?,?,?,?,?,?,?)`)
+  db.prepare(`INSERT INTO community_posts(id, user_id, type, title, crop, quantity, price, region, description, image, lat, lon)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(id, userId, type, title, crop || null, quantity || null,
-      type === 'sell' ? (Number(price) || 0) : null, region || null, description || null, image || null);
+      type === 'sell' ? (Number(price) || 0) : null, region || null, description || null, image || null,
+      lat != null ? Number(lat) : null, lon != null ? Number(lon) : null);
   db.prepare('INSERT OR IGNORE INTO community_reputation(user_id, score, deals) VALUES(?,0,0)').run(userId);
   res.json({ postId: id });
 });
 
-// 댓글 작성 (이웃과 소통)
+// 댓글 작성
 r.post('/posts/:id/comments', (req, res) => {
   const { userId, body } = req.body;
   if (!userId || !body) return res.status(400).json({ error: 'userId, body required' });
@@ -69,7 +105,7 @@ r.post('/posts/:id/comments', (req, res) => {
   res.json({ commentId: id });
 });
 
-// 상태 변경: reserved / done. done 시 작성자 평판 +1
+// 상태 변경
 r.patch('/posts/:id/status', (req, res) => {
   const { status } = req.body;
   if (!['open', 'reserved', 'done'].includes(status)) return res.status(400).json({ error: 'invalid status' });

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -182,7 +184,7 @@ fun FarmSceneView(
         var idx = 0
         while (true) {
             val wp = waypoints[idx]
-            // 한 칸씩 이산적으로 이동 (빠른 snap, 0.4초)
+            // 한 칸씩 이산적으로 이동 (0.4초 snap) + 0.5초 휴식 + 2초 관리
             robotX.animateTo(wp.col, animationSpec = tween(400, easing = FastOutSlowInEasing))
             robotY.animateTo(wp.row.toFloat(), animationSpec = tween(400, easing = FastOutSlowInEasing))
             // 도착 — 관리 액션 (살짝 커짐 + 💧 표시 + 2초 관류)
@@ -191,8 +193,8 @@ fun FarmSceneView(
             delay(2000)
             tendingAlpha.animateTo(0f, animationSpec = tween(200, easing = FastOutSlowInEasing))
             robotScale.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-            // 다음 식물로 이동 전 대기 (1초)
-            delay(1000)
+            // 0.5초 휴식 후 다음 식물로
+            delay(500)
             idx = (idx + 1) % waypoints.size
         }
     }
@@ -320,14 +322,28 @@ fun FarmSceneView(
                             .alpha(if (isDragging) 0.8f else 1f)
                             .graphicsLayer { rotationZ = sway + (i % 2) * 1.5f }
                     )
-                    // 이름표 — 흙 원 하단 경계(초록-흙 overlap)에 직사각형으로 배치
+                }
+
+                // 이름표 — 흙 원 밖 아래에 팻말처럼 표시 (직사각형, 작은 줄기 연결)
+                val nameTagX = boxX + soilSize.value / 2f
+                val nameTagY = boxY + soilSize.value  // 원 하단
+                Box(
+                    Modifier
+                        .offset(x = (nameTagX - 30f).dp, y = nameTagY.dp)
+                        .graphicsLayer { alpha = if (isDragging) 0.6f else 1f }
+                ) {
+                    // 작은 줄기 (원과 팻말 연결)
+                    Box(
+                        Modifier
+                            .offset(x = 28.dp, y = (-4).dp)
+                            .size(width = 2.dp, height = 8.dp)
+                            .background(androidx.compose.ui.graphics.Color(0xFF8B4513))
+                    )
+                    // 팻말 (직사각형)
                     Surface(
-                        shape = RoundedCornerShape(0.dp),
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .offset(y = (soilSize.value * 0.35f).dp)
-                            .graphicsLayer { alpha = if (isDragging) 0.6f else 1f }
+                        shape = RoundedCornerShape(2.dp),
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.92f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFF8B4513))
                     ) {
                         Text(
                             plant.name,

@@ -35,12 +35,20 @@ async function reverseGeocode(lat, lon) {
     const resp = await fetch(url);
     if (resp.ok) {
       const data = await resp.json();
+      // 시/구/동/부근 형식으로 label 구성
+      // BigDataCloud: city(동/읍), principalSubdivision(시/도), locality(구), countryName
+      const parts = [];
+      // 시/도 (예: 경기도, 서울특별시)
+      if (data.principalSubdivision) parts.push(data.principalSubdivision);
+      // 구 (예: 용인시 처인구 — locality가 구 단위인 경우)
+      if (data.locality && data.locality !== data.city) parts.push(data.locality);
+      // 동/읍 (예: 동백동)
+      if (data.city) parts.push(data.city);
+      // 부근 표시
       const short = data.city || data.locality || data.principalSubdivision || data.countryName;
-      const label = [data.city || data.locality, data.principalSubdivision, data.countryName]
-        .filter(Boolean)
-        .join(', ');
+      const label = parts.length > 0 ? parts.join(' ') + ' 부근' : short;
       if (short) {
-        const value = { label: label || short, short };
+        const value = { label, short };
         geoCache.set(key, value);
         return value;
       }
