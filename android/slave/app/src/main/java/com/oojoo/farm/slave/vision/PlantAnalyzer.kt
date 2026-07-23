@@ -3,20 +3,42 @@ package com.oojoo.farm.slave.vision
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
 import android.media.Image
-import android.media.Image.Plane
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import kotlin.math.abs
 
+/** 3단계 침대라 분석 결과. */
 data class AnalysisResult(
     val greenness: Double,
     val brightness: Double,
     val healthStatus: String,
     val needWater: Boolean,
     val confidence: Double,
-    val fruitRipeness: Double = 0.0,   // 열매 익음도(붉은 비율 추정) 0~1
-    val pestSuspected: Boolean = false // 해충 의심(어두운 반점 휴리스틱)
+    val fruitRipeness: Double = 0.0,
+    val pestSuspected: Boolean = false,
+    val wideShot: WideAnalysis? = null,
+    val normalShot: NormalAnalysis? = null,
+    val zoomShot: ZoomAnalysis? = null
+)
+
+data class WideAnalysis(
+    val plantCount: Int,
+    val distribution: String,
+    val overallHealth: String
+)
+
+data class NormalAnalysis(
+    val plantHealth: String,
+    val healthScore: Int,
+    val growthStage: String
+)
+
+data class ZoomAnalysis(
+    val fruitDetected: Boolean,
+    val fruitCount: Int,
+    val pestDetail: String,
+    val leafCondition: String
 )
 
 object PlantAnalyzer {
@@ -50,23 +72,18 @@ object PlantAnalyzer {
         for (row in 0 until height step step) {
             for (col in 0 until width step step) {
                 val yVal = yPlane.buffer.get(row * yPlane.rowStride + col * yPlane.pixelStride).toInt() and 0xFF
-                val uvRow = (row / 2)
-                val uvCol = (col / 2)
+                val uvRow = row / 2
+                val uvCol = col / 2
                 val uVal = uPlane.buffer.get(uvRow * uPlane.rowStride + uvCol * uPlane.pixelStride).toInt() and 0xFF
                 val vVal = vPlane.buffer.get(uvRow * vPlane.rowStride + uvCol * vPlane.pixelStride).toInt() and 0xFF
 
                 totalBrightness += yVal
-
                 val u = uVal - 128
                 val v = vVal - 128
                 val g = yVal - ((u * 39192) shr 8) - ((v * 32800) shr 8)
                 totalGreen += g.coerceIn(0, 255)
-
-                // 붉은 열매: 높은 Cr(v) + 낮은 Cb(u)
                 if (vVal > 150 && uVal < 118 && yVal > 40) redCount++
-                // 어두운 반점(해충 의심)
                 if (yVal < 45) darkCount++
-
                 sampleCount++
             }
         }
@@ -79,7 +96,7 @@ object PlantAnalyzer {
         val darkRatio = if (sampleCount > 0) darkCount.toDouble() / sampleCount else 0.0
 
         val healthStatus = when {
-            brightnessNorm < 0.1 -> "너무 어두움 (카메라 위치 확인 필요)"
+            brightnessNorm < 0.1 -> "너무 어두움 (침대라 위치 확인 필요)"
             greenness > 0.45 -> "건강 (녹색 충분)"
             greenness > 0.25 -> "보통 (녹색 약간 부족)"
             greenness > 0.1 -> "주의 (황변 의심)"
@@ -91,7 +108,27 @@ object PlantAnalyzer {
         val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
         val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
 
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
+        // 3단계 분석 시뮬레이션
+        val plantCount = when {
+            greenness > 0.4 -> (1 + (greenness * 10).toInt()).coerceAtMost(8)
+            greenness > 0.25 -> (1 + (greenness * 8).toInt()).coerceAtMost(5)
+            else -> 1
+        }
+        val distribution = when { greenness > 0.35 -> "고름"; greenness > 0.2 -> "편중"; else -> "불량" }
+        val overallHealth = when { greenness > 0.4 -> "양호"; greenness > 0.25 -> "보통"; else -> "주의" }
+        val healthScore = (greenness * 60 + (1 - abs(brightnessNorm - 0.5)) * 40).toInt().coerceIn(0, 100)
+        val growthStage = when { ripeness > 0.3 -> "결실"; redRatio > 0.08 -> "개화"; greenness > 0.35 -> "영양생장"; else -> "묘목" }
+        val fruitDetected = redRatio > 0.03
+        val fruitCount = (redRatio * 20).toInt().coerceAtMost(15)
+        val pestDetail = when { darkRatio > 0.25 -> "확인"; darkRatio > 0.08 -> "의심"; else -> "없음" }
+        val leafCondition = when { greenness > 0.4 -> "건강"; greenness > 0.2 -> "황변"; brightnessNorm > 0.8 -> "마름"; else -> "반점" }
+
+        return AnalysisResult(
+            greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest,
+            wideShot = WideAnalysis(plantCount, distribution, overallHealth),
+            normalShot = NormalAnalysis(healthStatus, healthScore, growthStage),
+            zoomShot = ZoomAnalysis(fruitDetected, fruitCount, pestDetail, leafCondition)
+        )
     }
 
     fun analyzeBitmap(bitmap: Bitmap): AnalysisResult {
@@ -128,7 +165,7 @@ object PlantAnalyzer {
         val darkRatio = if (sampleCount > 0) darkCount.toDouble() / sampleCount else 0.0
 
         val healthStatus = when {
-            brightnessNorm < 0.1 -> "너무 어두움 (카메라 위치 확인 필요)"
+            brightnessNorm < 0.1 -> "너무 어두움 (침대라 위치 확인 필요)"
             greenness > 0.4 -> "건강 (녹색 충분)"
             greenness > 0.25 -> "보통 (녹색 약간 부족)"
             greenness > 0.1 -> "주의 (황변 의심)"
@@ -140,6 +177,21 @@ object PlantAnalyzer {
         val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
         val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
 
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
+        val plantCount = when { greenness > 0.4 -> (1 + (greenness * 10).toInt()).coerceAtMost(8); greenness > 0.25 -> (1 + (greenness * 8).toInt()).coerceAtMost(5); else -> 1 }
+        val distribution = when { greenness > 0.35 -> "고름"; greenness > 0.2 -> "편중"; else -> "불량" }
+        val overallHealth = when { greenness > 0.4 -> "양호"; greenness > 0.25 -> "보통"; else -> "주의" }
+        val healthScore = (greenness * 60 + (1 - abs(brightnessNorm - 0.5)) * 40).toInt().coerceIn(0, 100)
+        val growthStage = when { ripeness > 0.3 -> "결실"; redRatio > 0.08 -> "개화"; greenness > 0.35 -> "영양생장"; else -> "묘목" }
+        val fruitDetected = redRatio > 0.03
+        val fruitCount = (redRatio * 20).toInt().coerceAtMost(15)
+        val pestDetail = when { darkRatio > 0.25 -> "확인"; darkRatio > 0.08 -> "의심"; else -> "없음" }
+        val leafCondition = when { greenness > 0.4 -> "건강"; greenness > 0.2 -> "황변"; brightnessNorm > 0.8 -> "마름"; else -> "반점" }
+
+        return AnalysisResult(
+            greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest,
+            wideShot = WideAnalysis(plantCount, distribution, overallHealth),
+            normalShot = NormalAnalysis(healthStatus, healthScore, growthStage),
+            zoomShot = ZoomAnalysis(fruitDetected, fruitCount, pestDetail, leafCondition)
+        )
     }
 }

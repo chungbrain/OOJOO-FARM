@@ -151,4 +151,11 @@ interface ApiService {
     // ---------- 비디오 캡처 ----------
     @GET("api/videos/by-command/{commandId}")
     suspend fun videoByCommand(@Path("commandId") commandId: String): VideoInfoResponse
+
+    // ---------- Farmer 분석 결과 ----------
+    @GET("api/analysis/latest/{plantId}")
+    suspend fun latestAnalysis(@Path("plantId") plantId: String): AnalysisResponse
+
+    @GET("api/analysis/history/{plantId}")
+    suspend fun analysisHistory(@Path("plantId") plantId: String): AnalysisHistoryResponse
 }

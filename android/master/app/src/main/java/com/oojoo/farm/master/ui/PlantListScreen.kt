@@ -45,6 +45,7 @@ class PlantListViewModel : ViewModel() {
     val userId get() = Session.userId
     var plants by mutableStateOf<List<Plant>>(emptyList())
     var slaves by mutableStateOf<List<Slave>>(emptyList())
+    var analyses by mutableStateOf<Map<String, com.oojoo.farm.master.model.AnalysisResponse>>(emptyMap())
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
 
@@ -52,8 +53,21 @@ class PlantListViewModel : ViewModel() {
         loading = true; msg = null
         viewModelScope.launch {
             try {
-                plants = api.plants(userId).plants
+                val newPlants = api.plants(userId).plants
+                plants = newPlants
                 slaves = try { api.slaves(userId).slaves } catch (_: Exception) { emptyList() }
+                
+                // Fetch latest analysis for each assigned plant
+                val analysisMap = mutableMapOf<String, com.oojoo.farm.master.model.AnalysisResponse>()
+                for (p in newPlants) {
+                    if (p.slave_id != null) {
+                        try {
+                            val analysis = api.latestAnalysis(p.id)
+                            analysisMap[p.id] = analysis
+                        } catch (_: Exception) {}
+                    }
+                }
+                analyses = analysisMap
             } catch (_: Exception) {}
             loading = false
         }
@@ -162,6 +176,7 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                 PlantGridCard(
                     plant = plant,
                     slaves = vm.slaves,
+                    latestAnalysis = vm.analyses[plant.id],
                     onClick = { nav.navigate("plant_detail/${plant.id}") },
                     onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
                     onDelete = { vm.deletePlant(plant) }
@@ -186,6 +201,7 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
 private fun PlantGridCard(
     plant: Plant,
     slaves: List<Slave>,
+    latestAnalysis: com.oojoo.farm.master.model.AnalysisResponse?,
     onClick: () -> Unit,
     onAssignSlave: (String?) -> Unit,
     onDelete: () -> Unit
@@ -261,22 +277,43 @@ private fun PlantGridCard(
                 )
             }
 
-            // Farmer 배정 상태 / 버튼
+            // Farmer 배정 상태 / 건강 상태 표시
             val assignedSlave = slaves.find { it.id == plant.slave_id }
             if (assignedSlave != null) {
-                Surface(
-                    shape = OojooTheme.PillShape,
-                    color = OojooTheme.Green,
-                    border = BorderStroke(1.5.dp, OojooTheme.Ink),
-                    modifier = Modifier.clickable { showAssignDialog = true }
-                ) {
-                    Text(
-                        "🤖 ${assignedSlave.name}",
-                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        shape = OojooTheme.PillShape,
+                        color = OojooTheme.Green,
+                        border = BorderStroke(1.5.dp, OojooTheme.Ink),
+                        modifier = Modifier.clickable { showAssignDialog = true }
+                    ) {
+                        Text(
+                            "🤖 ${assignedSlave.name}",
+                            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    if (latestAnalysis?.analysis != null) {
+                        Spacer(Modifier.height(4.dp))
+                        val health = latestAnalysis.analysis.healthStatus
+                        val color = if (health.contains("건강") || health.contains("양호")) OojooTheme.Teal else OojooTheme.Orange
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = color.copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, color)
+                        ) {
+                            Text(
+                                health,
+                                Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                color = color,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             } else {
                 Surface(

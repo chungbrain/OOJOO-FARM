@@ -85,3 +85,47 @@ data class VideoUploadResponse(
     val videoId: String,
     val url: String
 )
+
+// 10분 세션 단위 분석 전송용 — 백엔드 POST /api/analysis/report
+@Serializable
+data class AnalysisReportRequest(
+    val slaveId: String,
+    val plantId: String,
+    val analysis: AnalysisSessionData
+)
+
+@Serializable
+data class AnalysisSessionData(
+    val greenness: Double,
+    val brightness: Double,
+    val healthStatus: String,
+    val needWater: Boolean,
+    val confidence: Double,
+    val fruitRipeness: Double,
+    val pestSuspected: Boolean,
+    val wideShot: WideAnalysis? = null,
+    val normalShot: NormalAnalysis? = null,
+    val zoomShot: ZoomAnalysis? = null
+)
+
+@Serializable
+data class WideAnalysis(
+    val plantCount: Int,
+    val distribution: String,
+    val overallHealth: String
+)
+
+@Serializable
+data class NormalAnalysis(
+    val plantHealth: String,
+    val healthScore: Int,
+    val growthStage: String
+)
+
+@Serializable
+data class ZoomAnalysis(
+    val fruitDetected: Boolean,
+    val fruitCount: Int,
+    val pestDetail: String,
+    val leafCondition: String
+)

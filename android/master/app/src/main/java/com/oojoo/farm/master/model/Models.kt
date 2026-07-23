@@ -363,3 +363,47 @@ data class VideoInfoResponse(
     val size: Int = 0,
     val created_at: String? = null
 )
+
+// ---------- Farmer 분석 결과 ----------
+@Serializable
+data class AnalysisResponse(
+    val id: String,
+    val slaveId: String? = null,
+    val plantId: String? = null,
+    val analysis: AnalysisData? = null,
+    val createdAt: String? = null
+)
+@Serializable
+data class AnalysisData(
+    val greenness: Double = 0.0,
+    val brightness: Double = 0.0,
+    val healthStatus: String = "",
+    val needWater: Boolean = false,
+    val confidence: Double = 0.0,
+    val fruitRipeness: Double = 0.0,
+    val pestSuspected: Boolean = false,
+    val wideShot: WideShotData? = null,
+    val normalShot: NormalShotData? = null,
+    val zoomShot: ZoomShotData? = null
+)
+@Serializable
+data class WideShotData(
+    val plantCount: Int = 0,
+    val distribution: String = "",
+    val overallHealth: String = ""
+)
+@Serializable
+data class NormalShotData(
+    val plantHealth: String = "",
+    val healthScore: Int = 0,
+    val growthStage: String = ""
+)
+@Serializable
+data class ZoomShotData(
+    val fruitDetected: Boolean = false,
+    val fruitCount: Int = 0,
+    val pestDetail: String = "",
+    val leafCondition: String = ""
+)
+@Serializable
+data class AnalysisHistoryResponse(val analyses: List<AnalysisResponse> = emptyList())

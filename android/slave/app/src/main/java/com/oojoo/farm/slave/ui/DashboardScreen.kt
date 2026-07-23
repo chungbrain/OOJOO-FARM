@@ -42,6 +42,7 @@ fun DashboardScreen(nav: NavController) {
     val captureRequested by FarmerEngine.captureRequested.collectAsState()
     val pendingLaser by FarmerEngine.pendingLaser.collectAsState()
     var headless by remember { mutableStateOf(Prefs.headless(ctx)) }
+    var currentZoomRatio by remember { mutableFloatStateOf(1.0f) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Farmer 대시보드", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { nav.navigate("settings") }) { Text("설정", color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal)) },
@@ -70,9 +71,10 @@ fun DashboardScreen(nav: NavController) {
             }
 
             // 카메라 프리뷰 (프로토타입 .cam 스타일)
-            Card(Modifier.fillMaxWidth().height(180.dp).shadow(OojooTheme.ShadowOffset, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp)) {
+            Card(Modifier.fillMaxWidth().height(220.dp).shadow(OojooTheme.ShadowOffset, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp)) {
                 Box(Modifier.fillMaxSize().background(Brush.linearGradient(OojooTheme.CamGradient))) {
                     com.oojoo.farm.slave.vision.CameraPreview(
+                        zoomRatio = currentZoomRatio,
                         onAnalysisResult = { FarmerEngine.onAnalysis(it) },
                         captureRequested = captureRequested,
                         onCaptureDone = { FarmerEngine.onCaptureDone() }
@@ -81,6 +83,13 @@ fun DashboardScreen(nav: NavController) {
                     Row(Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.4f)).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF5252)))
                         Text("LIVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    // 렌즈 제어 버튼 (광각, 일반, 확대)
+                    Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LensButton("광각", currentZoomRatio == 1.0f) { currentZoomRatio = 1.0f }
+                        LensButton("일반", currentZoomRatio == 1.5f) { currentZoomRatio = 1.5f }
+                        LensButton("확대", currentZoomRatio == 3.0f) { currentZoomRatio = 3.0f }
                     }
                 }
             }
@@ -116,5 +125,21 @@ fun DashboardScreen(nav: NavController) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LensButton(text: String, selected: Boolean, onClick: () -> Unit) {
+    val bgColor = if (selected) OojooTheme.Teal else Color.Transparent
+    val textColor = if (selected) Color.White else Color.LightGray
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .androidx.compose.foundation.clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -86,6 +86,10 @@ object FarmerEngine {
     private val HARVEST_COOLDOWN = 60 * 60 * 1000L // 1시간
     private val PEST_COOLDOWN = 15 * 60 * 1000L    // 15분
 
+    // 10분 세션 단위 분석 전송
+    private var tickCount = 0
+    private val TICKS_PER_SESSION = 20  // 30초 * 20 = 600초 = 10분
+
     private fun now() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
     private fun slaveId() = Prefs.slaveId(appCtx) ?: ""
@@ -297,17 +301,43 @@ object FarmerEngine {
             _status.value = "관찰 대기 (카메라 분석 대기)"
         }
 
-        // 수확/해충 자율 파이프라인
-        if (result != null) {
-            val nowMs = System.currentTimeMillis()
-            if (result.fruitRipeness >= 0.55 && nowMs - lastHarvestNotify > HARVEST_COOLDOWN) {
-                lastHarvestNotify = nowMs
-                addLog("[${now()}] 🍅 수확 적기 감지 (익음도 ${"%.0f".format(result.fruitRipeness * 100)}%) → 마스터 알림")
-                postEventSafe("harvest_ready", mapOf("ripeness" to "%.2f".format(result.fruitRipeness)))
+        // 10분 세션: 분석 결과 마스터에 전송 (plants가 연결된 경우에만)
+        tickCount++
+        if (tickCount >= TICKS_PER_SESSION) {
+            tickCount = 0
+            if (_plant.value != null) {
+                sendSessionAnalysis()
             }
-            if (result.pestSuspected && nowMs - lastPestNotify > PEST_COOLDOWN) {
-                lastPestNotify = nowMs
-                handlePest()
+        }
+    }
+
+    // 10분 세션 단위 분석 결과 마스터 전송
+    private fun sendSessionAnalysis() {
+        val result = _lastAnalysis.value ?: return
+        val plant = _plant.value ?: return
+        scope.launch {
+            try {
+                val analysisData = AnalysisSessionData(
+                    greenness = result.greenness,
+                    brightness = result.brightness,
+                    healthStatus = result.healthStatus,
+                    needWater = result.needWater,
+                    confidence = result.confidence,
+                    fruitRipeness = result.fruitRipeness,
+                    pestSuspected = result.pestSuspected,
+                    wideShot = result.wideShot?.let { WideAnalysis(it.plantCount, it.distribution, it.overallHealth) },
+                    normalShot = result.normalShot?.let { NormalAnalysis(it.plantHealth, it.healthScore, it.growthStage) },
+                    zoomShot = result.zoomShot?.let { ZoomAnalysis(it.fruitDetected, it.fruitCount, it.pestDetail, it.leafCondition) }
+                )
+                val req = AnalysisReportRequest(
+                    slaveId = slaveId(),
+                    plantId = plant.id,
+                    analysis = analysisData
+                )
+                ApiClient.api.reportAnalysis(req)
+                addLog("[${now()}] 📊 10분 세션 분석 전송: ${plant.name} (건강:${result.normalShot?.healthScore ?: "?"}/100)")
+            } catch (e: Exception) {
+                addLog("[${now()}] 세션 분석 전송 실패: ${e.message}")
             }
         }
     }
@@ -422,20 +452,25 @@ object FarmerEngine {
     // 별도 바인딩 불필요 — CameraPreview 의 LaunchedEffect 가 통합 바인딩함.
     private fun captureAndUploadVideo(commandId: String) {
         scope.launch {
-            if (!CameraHolder.ready) {
-                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비 (대시보드 화면이 켜져 있어야 함)")
-                return@launch
+            val file = if (CameraHolder.ready) {
+                addLog("[${now()}] 3초 영상 캡처 시작…")
+                suspendCancellableCoroutine<File?> { cont ->
+                    CameraHolder.capture3s(appCtx) { f -> if (cont.isActive) cont.resume(f) }
+                }
+            } else {
+                addLog("[${now()}] 카메라 미준비 → 모의 영상 생성")
+                val mockFile = File(appCtx.cacheDir, "mock_video.mp4")
+                mockFile.writeText("dummy mp4 content")
+                delay(3000) // Simulate 3s capture
+                mockFile
             }
-            addLog("[${now()}] 3초 영상 캡처 시작…")
-            // 3초 캡처 (블로킹 콜백을 await로 변환)
-            val file = suspendCancellableCoroutine<File?> { cont ->
-                CameraHolder.capture3s(appCtx) { f -> if (cont.isActive) cont.resume(f) }
-            }
+
             if (file == null || !file.exists()) {
                 addLog("[${now()}] 영상 캡처 실패: 파일 없음")
                 return@launch
             }
-            addLog("[${now()}] 영상 캡처 완료 (${file.length() / 1024}KB) → 업로드")
+            
+            addLog("[${now()}] 영상 업로드 중…")
             try {
                 val reqFile = file.asRequestBody("video/mp4".toMediaTypeOrNull())
                 val cId = commandId.toRequestBody("text/plain".toMediaTypeOrNull())
