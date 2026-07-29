@@ -188,6 +188,24 @@ CREATE TABLE IF NOT EXISTS community_blocks (
   PRIMARY KEY(blocker_id, blocked_id)
 );
 
+CREATE TABLE IF NOT EXISTS api_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  method TEXT,
+  path TEXT,
+  status INTEGER,
+  duration INTEGER,
+  ip TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS crash_logs (
+  id TEXT PRIMARY KEY,
+  source TEXT,           -- 'backend', 'master_app', 'slave_app'
+  device_id TEXT,        -- user_id or slave_id
+  error_message TEXT,
+  stack_trace TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- 조회 성능용 인덱스
 CREATE INDEX IF NOT EXISTS idx_slaves_user      ON slaves(user_id);
 CREATE INDEX IF NOT EXISTS idx_plants_user      ON plants(user_id);
@@ -201,6 +219,8 @@ CREATE INDEX IF NOT EXISTS idx_order_items_ord  ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_cposts_region    ON community_posts(region, type, created_at);
 CREATE INDEX IF NOT EXISTS idx_cposts_user      ON community_posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_ccomments_post   ON community_comments(post_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_api_logs_path    ON api_logs(path, created_at);
+CREATE INDEX IF NOT EXISTS idx_crash_logs_src   ON crash_logs(source, created_at);
 `);
 
 // 기존 DB 에 신규 컬럼이 없을 수 있으므로 안전하게 마이그레이션.
