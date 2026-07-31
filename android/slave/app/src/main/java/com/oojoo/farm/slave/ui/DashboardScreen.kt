@@ -2,6 +2,7 @@ package com.oojoo.farm.slave.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -136,7 +137,7 @@ fun LensButton(text: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
-            .androidx.compose.foundation.clickable { onClick() }
+            .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
