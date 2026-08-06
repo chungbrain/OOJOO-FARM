@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
+import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.service.FarmerService
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +32,8 @@ fun SettingsScreen(nav: NavController) {
     var captureInterval by remember { mutableStateOf(Prefs.captureIntervalMinutes(ctx).toString()) }
     var autoWater by remember { mutableStateOf(Prefs.autoWater(ctx)) }
     var hwMsg by remember { mutableStateOf<String?>(null) }
+    var serverUrl by remember { mutableStateOf(Prefs.serverUrl(ctx)) }
+    var serverMsg by remember { mutableStateOf<String?>(null) }
 
     val blePermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) { Hardware.useBle(ctx); hwMsg = "ESP32 BLE 스캔/연결 시도 중…" }
@@ -39,6 +42,20 @@ fun SettingsScreen(nav: NavController) {
 
     Scaffold(topBar = { TopAppBar(title = { Text("Farmer 설정", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // === 서버 주소 설정 ===
+            Text("서버 주소 (Master 서버)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(serverUrl, { serverUrl = it }, "http://10.0.2.2:4000/")
+            GradientButton(text = "서버 주소 적용", onClick = {
+                val normalized = serverUrl.trim().ifBlank { Prefs.serverUrl(ctx) }
+                Prefs.setServerUrl(ctx, normalized)
+                ApiClient.setBaseUrl(normalized)
+                serverUrl = normalized
+                serverMsg = "✅ 적용됨: $normalized\n⚠️ 서버가 바뀌면 페어링을 다시 해야 할 수 있어요."
+            }, modifier = Modifier.fillMaxWidth())
+            serverMsg?.let { Text(it, color = OojooTheme.TealDark, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 18.sp) }
+
+            HorizontalDivider(color = OojooTheme.Line)
+
             Text("재배 지역 (날씨 조회용)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(region, { region = it }, "지역 (예: Seoul, Busan)")
             Text("캡처 주기 (분)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)

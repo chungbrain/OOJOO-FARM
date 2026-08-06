@@ -19,6 +19,7 @@ import androidx.navigation.NavController
 import com.oojoo.farm.master.data.AppLocale
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
+import com.oojoo.farm.master.network.ApiClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +31,8 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
     var shadowOffset by remember { mutableStateOf(uiState.value.shadowOffset.toFloat()) }
     var borderWidth by remember { mutableStateOf(uiState.value.borderWidth.toFloat()) }
     var selectedLang by remember { mutableStateOf(Prefs.language(ctx)) }
+    var serverUrl by remember { mutableStateOf(Prefs.serverUrl(ctx)) }
+    var serverMsg by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -131,7 +134,7 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                             selected = selectedLang == code,
                             onClick = {
                                 selectedLang = code
-                                Prefs.setLanguage(ctx, code)
+                                AppLocale.setLanguage(ctx, code)
                             },
                             colors = RadioButtonDefaults.colors(selectedColor = OojooTheme.Green)
                         )
@@ -146,6 +149,32 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                         "Takes effect after app restart",
                     fontSize = 12.sp, color = OojooTheme.Muted
                 )
+
+                // === 서버 설정 ===
+                Spacer(Modifier.height(20.dp))
+                Text(S.serverAddress, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                OojooField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it },
+                    placeholder = "http://10.0.2.2:4000/"
+                )
+                Spacer(Modifier.height(8.dp))
+                GradientButton(
+                    text = if (AppLocale.resolve(ctx) == AppLocale.KOREAN) "서버 주소 적용" else "Apply server URL",
+                    onClick = {
+                        val normalized = serverUrl.trim().ifBlank { Prefs.serverUrl(ctx) }
+                        Prefs.setServerUrl(ctx, normalized)
+                        ApiClient.setBaseUrl(normalized)
+                        serverMsg = if (AppLocale.resolve(ctx) == AppLocale.KOREAN)
+                            "✅ 적용됨: $normalized (앱 재시작 시에도 유지됩니다)"
+                        else
+                            "✅ Applied: $normalized (persists across restarts)"
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                serverMsg?.let {
+                    Text(it, fontSize = 12.sp, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

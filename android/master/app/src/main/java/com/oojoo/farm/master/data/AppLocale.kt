@@ -4,23 +4,36 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
 
 /**
  * 앱 다국어 지원 — 시스템 언어 자동 감지 + 사용자 설정 override.
  * Prefs.language가 "system"이면 시스템 locale을 따르고, "ko" 또는 "en"이면 해당 언어.
+ *
+ * 반응형: appLanguageState 가 Compose 에서 관찰하는 단일 소스.
+ * - null  => 아직 사용자 override 없음 → AppLocale.resolve(ctx) 로 시스템/Prefs 기반 결정
+ * - "ko"/"en"/"system" => 사용자가 설정 화면에서 선택한 값 (즉시 UI 갱신)
  */
 object AppLocale {
     const val SYSTEM = "system"
     const val KOREAN = "ko"
     const val ENGLISH = "en"
 
+    /** Compose 가 관찰하는 현재 언어 상태. null = resolve() fallback. */
+    val appLanguageState = mutableStateOf<String?>(null)
+
     fun resolve(ctx: Context): String {
         val pref = Prefs.language(ctx)
         if (pref != SYSTEM) return pref
         val sysLang = ctx.resources.configuration.locales[0].language
         return if (sysLang.startsWith("ko")) KOREAN else ENGLISH
+    }
+
+    /** 언어 변경 — Prefs 영구 저장 + Compose 상태 갱신 (UI 즉시 갱신). */
+    fun setLanguage(ctx: Context, lang: String) {
+        Prefs.setLanguage(ctx, lang)
+        appLanguageState.value = lang
     }
 }
 
@@ -183,7 +196,9 @@ val LocalAppStrings = compositionLocalOf { koreanStrings }
 @Composable
 fun AppStringsProvider(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
-    val lang = remember(ctx) { AppLocale.resolve(ctx) }
+    // appLanguageState.value 를 읽어 Compose 가 상태 변화를 관찰하도록 함.
+    // null 이면 시스템/Prefs 기반으로 결정 (초기 진입 또는 SYSTEM 모드).
+    val lang = AppLocale.appLanguageState.value ?: AppLocale.resolve(ctx)
     val strings = if (lang == AppLocale.KOREAN) koreanStrings else englishStrings
     CompositionLocalProvider(LocalAppStrings provides strings, content = content)
 }
