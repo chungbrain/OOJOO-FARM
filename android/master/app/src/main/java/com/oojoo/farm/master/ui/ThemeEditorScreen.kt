@@ -53,47 +53,47 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
         ) {
             // Live Preview Card
             OojooCard(modifier = Modifier.fillMaxWidth()) {
-                Text("미리보기", fontWeight = FontWeight.Black, fontSize = 20.sp, color = OojooTheme.GreenDark)
+                Text(S.preview, fontWeight = FontWeight.Black, fontSize = 20.sp, color = OojooTheme.GreenDark)
                 Spacer(Modifier.height(8.dp))
-                Text("아래 슬라이더를 조절하면 즉시 이 카드의 둥글기, 그림자 크기, 테두리 두께가 변합니다!", color = OojooTheme.Ink, fontSize = 14.sp)
+                Text(S.previewDesc, color = OojooTheme.Ink, fontSize = 14.sp)
                 Spacer(Modifier.height(16.dp))
-                GradientButton(text = "적용 완료", onClick = { nav.popBackStack() }, modifier = Modifier.fillMaxWidth())
+                GradientButton(text = S.applyComplete, onClick = { nav.popBackStack() }, modifier = Modifier.fillMaxWidth())
             }
 
             // Controls
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("UI 상세 설정", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
-                
+                Text(S.uiDetailSettings, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+
                 // Corner Radius Slider
                 ControlSlider(
-                    label = "모서리 둥글기 (Radius)",
+                    label = S.cornerRadiusLabel,
                     value = cornerRadius,
                     range = 0f..50f,
-                    onValueChange = { 
+                    onValueChange = {
                         cornerRadius = it
                         uiState.value = uiState.value.copy(cornerRadius = it.toInt())
                         Prefs.setCornerRadius(ctx, it.toInt())
                     }
                 )
-                
+
                 // Shadow Offset Slider
                 ControlSlider(
-                    label = "그림자 크기 (Shadow)",
+                    label = S.shadowLabel,
                     value = shadowOffset,
                     range = 0f..16f,
-                    onValueChange = { 
+                    onValueChange = {
                         shadowOffset = it
                         uiState.value = uiState.value.copy(shadowOffset = it.toInt())
                         Prefs.setShadowOffset(ctx, it.toInt())
                     }
                 )
-                
+
                 // Border Width Slider
                 ControlSlider(
-                    label = "테두리 두께 (Border)",
+                    label = S.borderWidthLabel,
                     value = borderWidth,
                     range = 0f..8f,
-                    onValueChange = { 
+                    onValueChange = {
                         borderWidth = it
                         uiState.value = uiState.value.copy(borderWidth = it.toInt())
                         Prefs.setBorderWidth(ctx, it.toInt())
@@ -143,16 +143,13 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                     }
                 }
                 Text(
-                    if (AppLocale.resolve(ctx) == AppLocale.KOREAN)
-                        "앱 재시작 후 적용됩니다"
-                    else
-                        "Takes effect after app restart",
+                    S.restartNotice,
                     fontSize = 12.sp, color = OojooTheme.Muted
                 )
 
                 // === 서버 설정 ===
                 Spacer(Modifier.height(20.dp))
-                Text(S.serverAddress, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                Text(S.serverSection, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
                 OojooField(
                     value = serverUrl,
                     onValueChange = { serverUrl = it },
@@ -160,15 +157,12 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                 )
                 Spacer(Modifier.height(8.dp))
                 GradientButton(
-                    text = if (AppLocale.resolve(ctx) == AppLocale.KOREAN) "서버 주소 적용" else "Apply server URL",
+                    text = S.serverApply,
                     onClick = {
                         val normalized = serverUrl.trim().ifBlank { Prefs.serverUrl(ctx) }
                         Prefs.setServerUrl(ctx, normalized)
                         ApiClient.setBaseUrl(normalized)
-                        serverMsg = if (AppLocale.resolve(ctx) == AppLocale.KOREAN)
-                            "✅ 적용됨: $normalized (앱 재시작 시에도 유지됩니다)"
-                        else
-                            "✅ Applied: $normalized (persists across restarts)"
+                        serverMsg = S.serverApplied + normalized + S.serverAppliedSuffix
                     },
                     modifier = Modifier.fillMaxWidth()
                 )

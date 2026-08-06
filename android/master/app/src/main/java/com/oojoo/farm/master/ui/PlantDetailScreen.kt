@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
@@ -74,32 +75,38 @@ class PlantDetailViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewModel = viewModel()) {
+    val S = LocalAppStrings.current
     LaunchedEffect(plantId) { vm.load(plantId) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("식물 상세", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text(S.plantDetail, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 val pl = vm.plant
                 if (pl != null) {
-                    val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
+                    val stageK = mapOf(
+                        "seedling" to S.growthStageSeedling,
+                        "vegetative" to S.growthStageVegetative,
+                        "flowering" to S.growthStageFlowering,
+                        "fruiting" to S.growthStageFruiting
+                    )
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(pl.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink)
-                            Text("종류: ${pl.species ?: "미상"}", color = OojooTheme.Muted, fontSize = 14.sp)
-                            Text("식재일: ${pl.planted_at ?: "미상"}", color = OojooTheme.Muted, fontSize = 13.sp)
-                            Text("단계: ${stageK[pl.stage] ?: pl.stage ?: "미상"}", color = OojooTheme.Muted, fontSize = 13.sp)
-                            Text("Farmer: ${pl.slave_id?.take(8) ?: "미연결"}", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("${S.typeLabel}: ${pl.species ?: S.unknown}", color = OojooTheme.Muted, fontSize = 14.sp)
+                            Text("${S.datePlantedLabel}: ${pl.planted_at ?: S.unknown}", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("${S.stageLabel}: ${stageK[pl.stage] ?: pl.stage ?: S.unknown}", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("${S.farmerLabel}: ${pl.slave_id?.take(8) ?: S.unconnected}", color = OojooTheme.Muted, fontSize = 13.sp)
                         }
                     }
                 } else if (vm.loading) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) }
-                } else { Text("식물을 찾을 수 없습니다") }
+                } else { Text(S.plantNotFound) }
             }
 
             item {
-                GradientButton(text = "빠른 관수 (원격 지시)", onClick = { vm.quickWater() }, enabled = vm.plant?.slave_id != null, modifier = Modifier.fillMaxWidth())
+                GradientButton(text = S.quickWater, onClick = { vm.quickWater() }, enabled = vm.plant?.slave_id != null, modifier = Modifier.fillMaxWidth())
             }
 
             item {
@@ -119,29 +126,29 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
 
             item {
                 vm.latestAnalysis?.analysis?.let { a ->
-                    Text("건강 정보 요약", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
+                    Text(S.healthInfo, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
                     Spacer(Modifier.height(4.dp))
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("종합 상태", color = OojooTheme.Muted, fontSize = 13.sp)
+                                Text(S.overallStatus, color = OojooTheme.Muted, fontSize = 13.sp)
                                 val color = if (a.healthStatus.contains("건강") || a.healthStatus.contains("양호")) OojooTheme.Teal else OojooTheme.Orange
                                 Text(a.healthStatus, fontWeight = FontWeight.Bold, color = color, fontSize = 14.sp)
                             }
                             HorizontalDivider(color = OojooTheme.Line)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("수분 필요", color = OojooTheme.Muted, fontSize = 13.sp)
-                                Text(if (a.needWater) "예 (관수 필요)" else "아니오 (적정)", fontWeight = FontWeight.Bold, color = if (a.needWater) OojooTheme.Red else OojooTheme.Ink, fontSize = 14.sp)
+                                Text(S.waterNeed, color = OojooTheme.Muted, fontSize = 13.sp)
+                                Text(if (a.needWater) S.waterNeedYes else S.waterNeedNo, fontWeight = FontWeight.Bold, color = if (a.needWater) OojooTheme.Red else OojooTheme.Ink, fontSize = 14.sp)
                             }
                             HorizontalDivider(color = OojooTheme.Line)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("해충 의심", color = OojooTheme.Muted, fontSize = 13.sp)
-                                Text(if (a.pestSuspected) "발견됨!" else "안전", fontWeight = FontWeight.Bold, color = if (a.pestSuspected) OojooTheme.Red else OojooTheme.Ink, fontSize = 14.sp)
+                                Text(S.pestSuspect, color = OojooTheme.Muted, fontSize = 13.sp)
+                                Text(if (a.pestSuspected) S.found else S.safe, fontWeight = FontWeight.Bold, color = if (a.pestSuspected) OojooTheme.Red else OojooTheme.Ink, fontSize = 14.sp)
                             }
                             a.normalShot?.let { ns ->
                                 HorizontalDivider(color = OojooTheme.Line)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("건강 점수", color = OojooTheme.Muted, fontSize = 13.sp)
+                                    Text(S.healthScore, color = OojooTheme.Muted, fontSize = 13.sp)
                                     Text("${ns.healthScore} / 100", fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 14.sp)
                                 }
                             }
@@ -150,8 +157,8 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                 }
             }
 
-            item { Text("관수 이력", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
-            if (vm.waterings.isEmpty()) { item { Text("관수 기록 없음", color = OojooTheme.Muted, fontSize = 13.sp) } }
+            item { Text(S.waterHistory, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
+            if (vm.waterings.isEmpty()) { item { Text(S.noWaterHistory, color = OojooTheme.Muted, fontSize = 13.sp) } }
             else {
                 item {
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
@@ -166,7 +173,7 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                     val height = size.height
                                     val stepX = width / (reversed.size - 1)
                                     val path = Path()
-                                    
+
                                     reversed.forEachIndexed { i, w ->
                                         val x = i * stepX
                                         val y = height - ((w.amount_ml - minVal) / (maxVal - minVal + 1f)) * height
@@ -177,12 +184,12 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                 }
                                 HorizontalDivider(color = OojooTheme.Line, modifier = Modifier.padding(vertical = 8.dp))
                             }
-                            
+
                             vm.waterings.take(5).forEach { w ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column {
                                         Text("${w.amount_ml}ml", fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
-                                        Text("${if (w.source == "auto") "자율" else "수동"} · ${w.created_at ?: ""}", color = OojooTheme.Muted, fontSize = 11.sp)
+                                        Text("${if (w.source == "auto") S.autoMode else S.manualMode} · ${w.created_at ?: ""}", color = OojooTheme.Muted, fontSize = 11.sp)
                                     }
                                     Text("×${"%.1f".format(w.weather_factor)}", color = OojooTheme.Muted, fontSize = 13.sp)
                                 }
@@ -192,8 +199,8 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                 }
             }
 
-            item { Text("최근 이벤트", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
-            if (vm.events.isEmpty()) { item { Text("이벤트 없음", color = OojooTheme.Muted, fontSize = 13.sp) } }
+            item { Text(S.recentEvents, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
+            if (vm.events.isEmpty()) { item { Text(S.noEvents, color = OojooTheme.Muted, fontSize = 13.sp) } }
             else {
                 item {
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
@@ -208,7 +215,7 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                     }
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.padding(bottom = 12.dp)) {
-                                        Text(notiLabel(e.type), fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 14.sp)
+                                        Text(notiLabel(e.type, S), fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 14.sp)
                                         Text(e.created_at ?: "", color = OojooTheme.Muted, fontSize = 11.sp)
                                     }
                                 }
@@ -220,18 +227,18 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
 
             item {
                 vm.msg?.let { Text(it, fontSize = 13.sp, color = OojooTheme.Green) }
-                OutlineButton(text = "뒤로", onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
             }
         }
     }
 }
 
-fun notiLabel(t: String): String = when (t) {
-    "harvest_ready" -> "🍅 수확 적기"
-    "pest_detected" -> "🐛 해충 감지"
-    "auto_water" -> "💧 자율 관수"
-    "manual_water" -> "💧 수동 관수"
-    "anomaly" -> "⚠️ 이상 징후"
-    "capture" -> "📷 캡처"
+fun notiLabel(t: String, S: com.oojoo.farm.master.data.AppStrings): String = when (t) {
+    "harvest_ready" -> S.notiHarvestReady
+    "pest_detected" -> S.notiPestDetected
+    "auto_water" -> S.notiAutoWater
+    "manual_water" -> S.notiManualWater
+    "anomaly" -> S.notiAnomaly
+    "capture" -> S.notiCapture
     else -> t
 }

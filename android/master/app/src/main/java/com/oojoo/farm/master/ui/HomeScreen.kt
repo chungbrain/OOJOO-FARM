@@ -70,6 +70,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.LocationHelper
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
@@ -145,15 +146,15 @@ private data class WeatherScene(
     val groundBottom: Color,
 )
 
-private fun weatherScene(weather: WeatherResponse?): WeatherScene {
+private fun weatherScene(weather: WeatherResponse?, S: com.oojoo.farm.master.data.AppStrings): WeatherScene {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val isNight = hour >= 18 || hour < 6
     val isRain = weather?.weatherCode in listOf(51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82)
     val label = when {
-        isNight && isRain -> "밤 🌙 🌧️ 비 옴"
-        isNight -> "밤 🌙 맑음"
-        isRain -> "낮 ☀️ 🌧️ 비 옴"
-        else -> "낮 ☀️ 맑음"
+        isNight && isRain -> S.weatherNightRain
+        isNight -> S.weatherNight
+        isRain -> S.weatherDayRain
+        else -> S.weatherDay
     }
     val gradient = when {
         isNight && isRain -> listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF37474F))
@@ -178,6 +179,7 @@ private fun weatherScene(weather: WeatherResponse?): WeatherScene {
 @Composable
 fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     val ctx = LocalContext.current
+    val S = LocalAppStrings.current
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { vm.refresh(requestLocation = true) }
@@ -208,13 +210,13 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     Scaffold(
         topBar = {
             CartoonAppBar(
-                title = "🏡 OOJOO FARM",
+                title = "🏡 ${S.appName}",
                 actions = {
                     IconButton(onClick = { nav.navigate("theme_editor") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "UI 커스터마이징", tint = Color.White)
+                        Icon(Icons.Default.Settings, contentDescription = S.uiCustomize, tint = Color.White)
                     }
                     IconButton(onClick = { nav.navigate("notifications") }) {
-                        Icon(Icons.Default.Notifications, contentDescription = "알림", tint = Color.White)
+                        Icon(Icons.Default.Notifications, contentDescription = S.notificationCenter, tint = Color.White)
                     }
                 }
             )
@@ -235,10 +237,11 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                 locating = vm.locating,
                 plants = vm.plants,
                 slaves = vm.slaves,
-                onClickPlant = { nav.navigate("plant_detail/${it.id}") }
+                onClickPlant = { nav.navigate("plant_detail/${it.id}") },
+                S = S
             )
             TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
-                Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                Text(S.refresh, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
             }
             vm.msg?.let {
                 Text(
@@ -261,9 +264,10 @@ private fun FarmWeatherCard(
     locating: Boolean,
     plants: List<Plant>,
     slaves: List<Slave>,
-    onClickPlant: (Plant) -> Unit
+    onClickPlant: (Plant) -> Unit,
+    S: com.oojoo.farm.master.data.AppStrings
 ) {
-    val scene = weatherScene(weather)
+    val scene = weatherScene(weather, S)
     val w = weather
     val screenH = LocalConfiguration.current.screenHeightDp.dp
     val farmHeight = (screenH * 0.55f).coerceIn(520.dp, 780.dp)
@@ -287,16 +291,16 @@ private fun FarmWeatherCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🚜 나의 농장", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = OojooTheme.Ink)
+                Text(S.myFarm, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = OojooTheme.Ink)
                 if (locating) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = OojooTheme.GreenDark)
                         Spacer(Modifier.width(6.dp))
-                        Text("위치 확인 중", fontSize = 12.sp, color = OojooTheme.Muted, fontWeight = FontWeight.Bold)
+                        Text(S.locationChecking, fontSize = 12.sp, color = OojooTheme.Muted, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Text(
-                        region.ifBlank { "위치 자동 설정" },
+                        region.ifBlank { S.locationAutoSet },
                         fontSize = 12.sp,
                         color = OojooTheme.Muted,
                         fontWeight = FontWeight.Bold,
@@ -351,8 +355,7 @@ private fun FarmWeatherCard(
                         fontWeight = FontWeight.Black
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        "📍 ${region.ifBlank { "위치 확인 중" }}",
+                    Text("📍 ${region.ifBlank { S.locationChecking }}",
                         color = Color.White.copy(alpha = 0.92f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -366,20 +369,20 @@ private fun FarmWeatherCard(
             }
 
             Column(Modifier.padding(20.dp)) {
-                Text("📋 식물 건강 상태", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = OojooTheme.Ink)
+                Text(S.plantHealth, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = OojooTheme.Ink)
                 Spacer(Modifier.height(10.dp))
                 if (plants.isEmpty()) {
-                    Text("등록된 식물이 없습니다.", color = OojooTheme.Muted, fontSize = 14.sp)
+                    Text(S.noPlants, color = OojooTheme.Muted, fontSize = 14.sp)
                 } else {
                     plants.forEach { p ->
                         val emoji = plantEmojiFor(p.species, p.stage)
                         val assignedSlave = slaves.find { it.id == p.slave_id }
                         // Farmer가 없으면 "담당 Farmer 없음", 있으면 Farmer 판단 결과 (현재는 "정보없음")
                         val healthText = if (assignedSlave == null) {
-                            "담당 Farmer 없음"
+                            S.noFarmerAssigned
                         } else {
                             // TODO: Farmer로부터 받은 분석 결과를 표시. 현재는 정보없음.
-                            "정보없음"
+                            S.noInfo
                         }
                         val healthColor = if (assignedSlave == null) OojooTheme.Muted else OojooTheme.Muted2
                         Row(

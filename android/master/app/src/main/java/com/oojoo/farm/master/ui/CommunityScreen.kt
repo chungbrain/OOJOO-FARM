@@ -25,13 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.AppStrings
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
-private fun typeLabel(t: String?) = when (t) { "share" -> "나눔"; "sell" -> "판매"; "buy" -> "구입"; else -> t ?: "" }
-private fun statusLabel(s: String?) = when (s) { "reserved" -> "예약중"; "done" -> "거래완료"; else -> "" }
+private fun typeLabel(t: String?, S: AppStrings) = when (t) { "share" -> S.share; "sell" -> S.sell; "buy" -> S.buy; else -> t ?: "" }
+private fun statusLabel(s: String?, S: AppStrings) = when (s) { "reserved" -> S.reserved; "done" -> S.tradedone; else -> "" }
 
 class CommunityViewModel : ViewModel() {
     private val api get() = ApiClient.api
@@ -53,31 +55,32 @@ class CommunityViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
+    val S = LocalAppStrings.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text("이웃 · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { nav.navigate("community_write") }) { Text("＋ 글쓰기", color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
-        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "글쓰기") } },
+        topBar = { TopAppBar(title = { Text("${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.writePost) } },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { OojooField(vm.query, { vm.query = it }, "작물/제목 검색") }
+            item { OojooField(vm.query, { vm.query = it }, S.searchCrop) }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OojooChip(vm.type == null, { vm.selectType(null) }, "전체")
-                    OojooChip(vm.type == "share", { vm.selectType("share") }, "나눔")
-                    OojooChip(vm.type == "sell", { vm.selectType("sell") }, "판매")
-                    OojooChip(vm.type == "buy", { vm.selectType("buy") }, "구입")
+                    OojooChip(vm.type == null, { vm.selectType(null) }, S.all)
+                    OojooChip(vm.type == "share", { vm.selectType("share") }, S.share)
+                    OojooChip(vm.type == "sell", { vm.selectType("sell") }, S.sell)
+                    OojooChip(vm.type == "buy", { vm.selectType("buy") }, S.buy)
                 }
             }
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
             if (vm.posts.isEmpty() && !vm.loading) {
-                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("${Session.region} 지역에 아직 글이 없어요.\n첫 글을 올려보세요!", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("${Session.region}${S.noPostsSuffix}", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
             }
             items(vm.posts) { post ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("community_post/${post.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(shape = RoundedCornerShape(50), color = if (post.type == "sell") Color(0xFFFFF3E0) else Color(0xFFE8F5E9)) {
-                                Text(typeLabel(post.type), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(typeLabel(post.type, S), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.width(8.dp))
                             Text(post.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = OojooTheme.Ink)
@@ -85,8 +88,8 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
                         }
                         Text(listOfNotNull(post.crop, post.quantity).joinToString(" · ").ifBlank { post.description ?: "" }, color = OojooTheme.Muted, fontSize = 12.sp)
                         Row {
-                            Text("${post.image ?: "🙂"} ${post.author_name ?: "이웃"} · ⭐${post.author_score} (${post.author_deals}거래)", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            statusLabel(post.status).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
+                            Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            statusLabel(post.status, S).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
                         }
                     }
                 }
@@ -102,7 +105,7 @@ class PostDetailViewModel : ViewModel() {
     var msg by mutableStateOf<String?>(null)
     fun load(id: String) { viewModelScope.launch { try { detail = api.communityPost(id) } catch (e: Exception) { msg = e.message } } }
     fun sendComment(id: String) { val b = comment.trim(); if (b.isEmpty()) return; viewModelScope.launch { try { api.communityComment(id, CommentRequest(Session.userId, b)); comment = ""; load(id) } catch (e: Exception) { msg = e.message } } }
-    fun setStatus(id: String, status: String) { viewModelScope.launch { try { api.communityStatus(id, StatusRequest(status)); load(id); msg = "상태: ${statusLabel(status).ifBlank { "판매중" }}" } catch (e: Exception) { msg = e.message } } }
+    fun setStatus(id: String, status: String) { viewModelScope.launch { try { api.communityStatus(id, StatusRequest(status)); load(id); msg = statusLabel(status, com.oojoo.farm.master.data.koreanStrings).ifBlank { com.oojoo.farm.master.data.koreanStrings.tradedone } } catch (e: Exception) { msg = e.message } } }
     fun report(id: String, targetUser: String?) { viewModelScope.launch { try { api.communityReport(ReportRequest(Session.userId, id, targetUser, "부적절")); msg = "신고 접수됨" } catch (e: Exception) { msg = e.message } } }
     fun block(targetUser: String) { viewModelScope.launch { try { api.communityBlock(BlockRequest(Session.userId, targetUser)); msg = "차단했습니다 (피드에서 숨김)" } catch (e: Exception) { msg = e.message } } }
 }
@@ -110,9 +113,10 @@ class PostDetailViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewModel = viewModel()) {
+    val S = LocalAppStrings.current
     LaunchedEffect(postId) { vm.load(postId) }
     val d = vm.detail
-    Scaffold(topBar = { TopAppBar(title = { Text("게시물", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text(S.postTitle, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         if (d == null) { Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = OojooTheme.Green) }; return@Scaffold }
         val post = d.post
         val isAuthor = post.user_id == Session.userId
@@ -120,41 +124,41 @@ fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewMo
             Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = RoundedCornerShape(50), color = if (post.type == "sell") Color(0xFFFFF3E0) else Color(0xFFE8F5E9)) { Text(typeLabel(post.type), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        Surface(shape = RoundedCornerShape(50), color = if (post.type == "sell") Color(0xFFFFF3E0) else Color(0xFFE8F5E9)) { Text(typeLabel(post.type, S), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                         Spacer(Modifier.width(8.dp))
                         Text(post.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.weight(1f), color = OojooTheme.Ink)
                     }
                     if (post.type == "sell" && (post.price ?: 0) > 0) Text(won(post.price ?: 0), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                    Text("작물: ${post.crop ?: "-"} · 수량: ${post.quantity ?: "-"}", color = OojooTheme.Muted, fontSize = 14.sp)
-                    Text("지역: ${post.region ?: "-"}", color = OojooTheme.Muted, fontSize = 13.sp)
+                    Text("${S.cropInfoLabel} ${post.crop ?: "-"} · ${S.quantityInfoLabel} ${post.quantity ?: "-"}", color = OojooTheme.Muted, fontSize = 14.sp)
+                    Text("${S.regionLabel}: ${post.region ?: "-"}", color = OojooTheme.Muted, fontSize = 13.sp)
                     post.description?.let { Text(it, color = OojooTheme.Ink, fontSize = 14.sp) }
-                    Text("${post.image ?: "🙂"} ${post.author_name ?: "이웃"} · ⭐${post.author_score} (${post.author_deals}거래) · ${statusLabel(post.status).ifBlank { "거래 가능" }}", color = OojooTheme.Muted, fontSize = 11.sp)
+                    Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · ⭐${post.author_score} (${post.author_deals}) · ${statusLabel(post.status, S).ifBlank { S.available }}", color = OojooTheme.Muted, fontSize = 11.sp)
                 }
             }
             if (isAuthor) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlineButton(text = "예약중", onClick = { vm.setStatus(postId, "reserved") }, modifier = Modifier.weight(1f))
-                    GradientButton(text = "거래완료", onClick = { vm.setStatus(postId, "done") }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.reserved, onClick = { vm.setStatus(postId, "reserved") }, modifier = Modifier.weight(1f))
+                    GradientButton(text = S.tradedone, onClick = { vm.setStatus(postId, "done") }, modifier = Modifier.weight(1f))
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlineButton(text = "신고", onClick = { vm.report(postId, post.user_id) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = "차단", onClick = { post.user_id?.let { vm.block(it) } }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.reportAction, onClick = { vm.report(postId, post.user_id) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.blockAction, onClick = { post.user_id?.let { vm.block(it) } }, modifier = Modifier.weight(1f))
                 }
             }
-            Text("댓글 (${d.comments.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
+            Text("${S.comments} (${d.comments.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
             d.comments.forEach { c ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(12.dp)) {
-                        Text(c.author_name ?: "이웃", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = OojooTheme.Ink)
+                        Text(c.author_name ?: S.neighbor, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = OojooTheme.Ink)
                         Text(c.body, color = OojooTheme.Ink, fontSize = 14.sp)
                         c.created_at?.let { Text(it, color = OojooTheme.Muted, fontSize = 11.sp) }
                     }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(vm.comment, { vm.comment = it }, label = { Text("댓글 달기") }, singleLine = true, shape = OojooTheme.FieldShape, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line), modifier = Modifier.weight(1f))
-                GradientButton(text = "등록", onClick = { vm.sendComment(postId) })
+                OutlinedTextField(vm.comment, { vm.comment = it }, label = { Text(S.addComment) }, singleLine = true, shape = OojooTheme.FieldShape, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line), modifier = Modifier.weight(1f))
+                GradientButton(text = S.submit, onClick = { vm.sendComment(postId) })
             }
             vm.msg?.let { Text(it, color = OojooTheme.Green, fontSize = 13.sp) }
         }
@@ -188,29 +192,30 @@ class WritePostViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel()) {
+    val S = LocalAppStrings.current
     val emojis = listOf("🥬", "🍅", "🌿", "🌱", "🥕", "🌶️", "🍓", "🙂")
-    Scaffold(topBar = { TopAppBar(title = { Text("글쓰기 · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("${S.writePost} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("유형", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            Text(S.typeLabelGeneric, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OojooChip(vm.type == "share", { vm.type = "share" }, "나눔")
-                OojooChip(vm.type == "sell", { vm.type = "sell" }, "판매")
-                OojooChip(vm.type == "buy", { vm.type = "buy" }, "구입")
+                OojooChip(vm.type == "share", { vm.type = "share" }, S.share)
+                OojooChip(vm.type == "sell", { vm.type = "sell" }, S.sell)
+                OojooChip(vm.type == "buy", { vm.type = "buy" }, S.buy)
             }
-            Text("제목 *", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.title, { vm.title = it }, "예: 상추 나눔해요")
-            Text("작물", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.crop, { vm.crop = it }, "예: 상추, 토마토")
-            Text("수량", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.quantity, { vm.quantity = it }, "예: 한 봉지, 1kg")
-            if (vm.type == "sell") { Text("가격(원)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted); OojooField(vm.price, { vm.price = it.filter { c -> c.isDigit() } }, "5000") }
-            Text("설명", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(vm.description, { vm.description = it }, "자세한 내용")
-            Text("대표 이모지", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            Text(S.titleField, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.title, { vm.title = it }, S.titlePh)
+            Text(S.cropLabel, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.crop, { vm.crop = it }, S.cropPh)
+            Text(S.quantity, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.quantity, { vm.quantity = it }, S.quantityPh)
+            if (vm.type == "sell") { Text(S.priceWon, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted); OojooField(vm.price, { vm.price = it.filter { c -> c.isDigit() } }, "5000") }
+            Text(S.description, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.description, { vm.description = it }, S.descriptionPh)
+            Text(S.emoji, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 emojis.forEach { e -> OojooChip(vm.image == e, { vm.image = e }, e) }
             }
-            GradientButton(text = "게시하기", onClick = { vm.submit { nav.navigateUp() } }, enabled = !vm.loading && vm.title.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            GradientButton(text = S.postButton, onClick = { vm.submit { nav.navigateUp() } }, enabled = !vm.loading && vm.title.isNotBlank(), modifier = Modifier.fillMaxWidth())
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp) }
         }
     }
