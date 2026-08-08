@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.Cart
-import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
@@ -66,22 +65,21 @@ class MarketViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
-    val S = LocalAppStrings.current
     val cartCount = Cart.count()
     Scaffold(
-        topBar = { TopAppBar(title = { Text(S.marketTitle, color = Color.White, fontWeight = FontWeight.Bold) }, actions = { BadgedBox(badge = { if (cartCount > 0) Badge { Text("$cartCount") } }) { TextButton(onClick = { nav.navigate("market_cart") }) { Text("🛒", color = Color.White, fontSize = 18.sp) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("마켓", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { BadgedBox(badge = { if (cartCount > 0) Badge { Text("$cartCount") } }) { TextButton(onClick = { nav.navigate("market_cart") }) { Text("🛒", color = Color.White, fontSize = 18.sp) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { OojooField(vm.query, { vm.query = it }, S.searchProducts) }
+            item { OojooField(vm.query, { vm.query = it }, "상품 검색 (비료, 토마토, ESP32…)") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OojooChip(vm.selected == "all", { vm.select("all") }, S.all)
+                    OojooChip(vm.selected == "all", { vm.select("all") }, "전체")
                     vm.categories.forEach { c -> OojooChip(vm.selected == c.key, { vm.select(c.key) }, "${c.label} ${c.count}") }
                 }
             }
             if (vm.selected == "all" && vm.query.isBlank() && vm.recommendations.isNotEmpty()) {
-                item { Text(S.recommendTitle, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
+                item { Text("내 식물 맞춤 추천", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(vm.recommendations) { pr ->
@@ -97,7 +95,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
                 }
             }
             if (vm.selected == "all" && vm.query.isBlank() && vm.bundles.isNotEmpty()) {
-                item { Text(S.bundleKits, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
+                item { Text("추천 번들 키트", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
                 items(vm.bundles) { b ->
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -106,13 +104,13 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
                                 Column(Modifier.weight(1f)) { Text(b.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink); Text(b.description ?: "", color = OojooTheme.Muted, fontSize = 12.sp) }
                                 Text(won(b.price), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
                             }
-                            Text("${S.contains} ${b.items.joinToString(", ") { it.name }}", color = OojooTheme.Muted, fontSize = 12.sp)
-                            OutlineButton(text = S.addBundle, onClick = { b.items.forEach { Cart.add(Product(id = it.id, name = it.name, price = it.price, image = it.image)) } }, modifier = Modifier.fillMaxWidth())
+                            Text("구성: ${b.items.joinToString(", ") { it.name }}", color = OojooTheme.Muted, fontSize = 12.sp)
+                            OutlineButton(text = "번들 담기", onClick = { b.items.forEach { Cart.add(Product(id = it.id, name = it.name, price = it.price, image = it.image)) } }, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
             }
-            item { Text(if (vm.query.isBlank()) S.products else "${S.searchResultsPrefix}${vm.query}${S.searchResultsSuffix}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
+            item { Text(if (vm.query.isBlank()) "상품" else "\"${vm.query}\" 검색결과", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
             items(vm.products.chunked(2)) { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -121,7 +119,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(pr.image ?: "🛒", fontSize = 30.sp)
                                 Text(pr.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, color = OojooTheme.Ink)
-                                Text("${S.rating} ${pr.rating} ${S.vendor} ${if (pr.affiliate_url != null) S.affiliate else S.selfHost}", color = OojooTheme.Muted, fontSize = 11.sp)
+                                Text("⭐ ${pr.rating} · ${if (pr.affiliate_url != null) "제휴" else "자체"}", color = OojooTheme.Muted, fontSize = 11.sp)
                                 Text(won(pr.price), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
                             }
                         }
@@ -129,7 +127,7 @@ fun MarketScreen(nav: NavController, vm: MarketViewModel = viewModel()) {
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            item { TextButton(onClick = { nav.navigate("market_orders") }) { Text(S.viewOrders, color = OojooTheme.Green) } }
+            item { TextButton(onClick = { nav.navigate("market_orders") }) { Text("주문 내역 보기 ›", color = OojooTheme.Green) } }
         }
     }
 }
@@ -156,23 +154,22 @@ class ProductViewModel : ViewModel() {
 fun ProductDetailScreen(nav: NavController, productId: String, vm: ProductViewModel = viewModel()) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val S = LocalAppStrings.current
     LaunchedEffect(productId) { vm.load(productId) }
-    Scaffold(topBar = { TopAppBar(title = { Text(S.productTitle, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("상품", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         val pr = vm.product
         if (pr == null) { Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = OojooTheme.Green) }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(pr.image ?: "🛒", fontSize = 64.sp)
             Text(pr.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink, modifier = Modifier.fillMaxWidth())
-            Text("${S.rating} ${pr.rating} ${S.vendor} ${pr.vendor ?: ""} ${S.vendor} ${S.stock} ${pr.stock}", color = OojooTheme.Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth())
+            Text("⭐ ${pr.rating} · ${pr.vendor ?: ""} · 재고 ${pr.stock}", color = OojooTheme.Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth())
             Text(won(pr.price), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, modifier = Modifier.fillMaxWidth())
             pr.description?.let { Text(it, color = OojooTheme.Muted, fontSize = 14.sp, modifier = Modifier.fillMaxWidth()) }
             if (pr.affiliate_url != null) {
-                GradientButton(text = S.buyAtAffiliate, onClick = { scope.launch { try { val r = ApiClient.api.marketAffiliate(pr.id, AffiliateRequest(Session.userId)); ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(r.url))) } catch (e: Exception) { vm.msg = e.message } } }, modifier = Modifier.fillMaxWidth())
-                Text(S.affiliateNotice, color = OojooTheme.Muted.copy(alpha = 0.7f), fontSize = 11.sp)
+                GradientButton(text = "제휴몰에서 구매하기 ↗", onClick = { scope.launch { try { val r = ApiClient.api.marketAffiliate(pr.id, AffiliateRequest(Session.userId)); ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(r.url))) } catch (e: Exception) { vm.msg = e.message } } }, modifier = Modifier.fillMaxWidth())
+                Text("외부 제휴 상품 (CPS/CPA)", color = OojooTheme.Muted.copy(alpha = 0.7f), fontSize = 11.sp)
             } else {
-                GradientButton(text = S.addToCart, onClick = { Cart.add(pr); vm.msg = S.addToCartDone }, modifier = Modifier.fillMaxWidth())
-                OutlineButton(text = S.directBuy, onClick = { Cart.add(pr); nav.navigate("market_cart") }, modifier = Modifier.fillMaxWidth())
+                GradientButton(text = "장바구니 담기", onClick = { Cart.add(pr); vm.msg = "장바구니에 담았습니다" }, modifier = Modifier.fillMaxWidth())
+                OutlineButton(text = "바로 구매", onClick = { Cart.add(pr); nav.navigate("market_cart") }, modifier = Modifier.fillMaxWidth())
             }
             vm.msg?.let { Text(it, color = OojooTheme.Green, fontSize = 13.sp) }
         }
@@ -183,13 +180,12 @@ fun ProductDetailScreen(nav: NavController, productId: String, vm: ProductViewMo
 @Composable
 fun CartScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
-    val S = LocalAppStrings.current
     var msg by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
-    Scaffold(topBar = { TopAppBar(title = { Text(S.cart, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("장바구니", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (Cart.lines.isEmpty()) {
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text(S.emptyCart, Modifier.padding(24.dp), color = OojooTheme.Ink) }
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("장바구니가 비어 있습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) }
             } else {
                 Cart.lines.forEach { line ->
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
@@ -204,13 +200,13 @@ fun CartScreen(nav: NavController) {
                 }
                 HorizontalDivider(color = OojooTheme.Line)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(S.total, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                    Text("합계", fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
                     Text(won(Cart.total()), fontWeight = FontWeight.ExtraBold, color = OojooTheme.Green)
                 }
-                GradientButton(text = "${S.checkout} (${won(Cart.total())})", onClick = { loading = true; msg = null; scope.launch { try { val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems())); Cart.clear(); msg = "${r.orderId.take(8)} (${won(r.total)})" } catch (e: Exception) { msg = e.message ?: "Checkout failed" }; loading = false } }, enabled = !loading, modifier = Modifier.fillMaxWidth())
+                GradientButton(text = "결제하기 (${won(Cart.total())})", onClick = { loading = true; msg = null; scope.launch { try { val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems())); Cart.clear(); msg = "결제 완료! 주문 ${r.orderId.take(8)} (${won(r.total)})" } catch (e: Exception) { msg = e.message ?: "결제 실패" }; loading = false } }, enabled = !loading, modifier = Modifier.fillMaxWidth())
             }
             msg?.let { Text(it, color = OojooTheme.Green, fontSize = 13.sp) }
-            OutlineButton(text = S.ordersNav, onClick = { nav.navigate("market_orders") }, modifier = Modifier.fillMaxWidth())
+            OutlineButton(text = "주문 내역", onClick = { nav.navigate("market_orders") }, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -226,16 +222,15 @@ class OrdersViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(nav: NavController, vm: OrdersViewModel = viewModel()) {
-    val S = LocalAppStrings.current
-    Scaffold(topBar = { TopAppBar(title = { Text(S.ordersNav, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("주문 내역", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
-            if (vm.orders.isEmpty() && !vm.loading) item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text(S.noOrders, Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+            if (vm.orders.isEmpty() && !vm.loading) item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("주문 내역이 없습니다", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
             items(vm.orders) { o ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("${S.orderPrefix}${o.id.take(8)}", fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                            Text("주문 ${o.id.take(8)}", fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
                             Text(won(o.total), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
                         }
                         Text("${o.status ?: ""} · ${o.created_at ?: ""}", color = OojooTheme.Muted, fontSize = 11.sp)

@@ -30,7 +30,6 @@ import java.util.concurrent.Executors
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
-    zoomRatio: Float = 1.0f,
     onAnalysisResult: (AnalysisResult) -> Unit = {},
     captureRequested: Boolean = false,
     onCaptureDone: () -> Unit = {}
@@ -39,11 +38,6 @@ fun CameraPreview(
     val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
     val executor = remember { Executors.newSingleThreadExecutor() }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
-
-    LaunchedEffect(zoomRatio, camera) {
-        camera?.cameraControl?.setZoomRatio(zoomRatio)
-    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -88,7 +82,7 @@ fun CameraPreview(
             // 3) Preview + ImageCapture + ImageAnalysis (VideoCapture 미지원 기기)
             try {
                 cameraProvider.unbindAll()
-                camera = cameraProvider.bindToLifecycle(
+                cameraProvider.bindToLifecycle(
                     context as androidx.lifecycle.LifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview, capture, analysis, videoCapture
@@ -96,7 +90,7 @@ fun CameraPreview(
                 CameraHolder.setCapture(videoCapture)
             } catch (e: Exception) {
                 try {
-                    camera = cameraProvider.bindToLifecycle(
+                    cameraProvider.bindToLifecycle(
                         context as androidx.lifecycle.LifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview, capture, videoCapture
@@ -104,7 +98,7 @@ fun CameraPreview(
                     CameraHolder.setCapture(videoCapture)
                 } catch (e2: Exception) {
                     try {
-                        camera = cameraProvider.bindToLifecycle(
+                        cameraProvider.bindToLifecycle(
                             context as androidx.lifecycle.LifecycleOwner,
                             CameraSelector.DEFAULT_BACK_CAMERA,
                             preview, capture, analysis
@@ -115,7 +109,6 @@ fun CameraPreview(
                     CameraHolder.setCapture(null)
                 }
             }
-            camera?.cameraControl?.setZoomRatio(zoomRatio)
         }, ContextCompat.getMainExecutor(context))
     }
 

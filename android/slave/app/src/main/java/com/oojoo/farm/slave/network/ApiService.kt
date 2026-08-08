@@ -33,15 +33,11 @@ interface ApiService {
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
 
-    @POST("api/videos/upload/{slaveId}")
     @Multipart
+    @POST("api/videos/upload/{slaveId}")
     suspend fun uploadVideo(
         @Path("slaveId") slaveId: String,
         @Part video: MultipartBody.Part,
         @Part("commandId") commandId: RequestBody?
     ): VideoUploadResponse
-
-    // 10분 세션 분석 보고
-    @POST("api/analysis/report")
-    suspend fun reportAnalysis(@Body body: AnalysisReportRequest): OkResponse
 }

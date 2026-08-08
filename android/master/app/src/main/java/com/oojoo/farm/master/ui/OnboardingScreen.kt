@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.LocationHelper
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
@@ -29,9 +28,8 @@ import kotlinx.coroutines.launch
 fun OnboardingScreen(nav: NavController) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val S = LocalAppStrings.current
     var nickname by remember { mutableStateOf("") }
-    var region by remember { mutableStateOf(S.locationChecking) }
+    var region by remember { mutableStateOf("위치 확인 중…") }
     var locationReady by remember { mutableStateOf(false) }
     var locationSource by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf(Prefs.serverUrl(ctx)) }
@@ -53,15 +51,15 @@ fun OnboardingScreen(nav: NavController) {
                     Prefs.setRegion(ctx, weather.region)
                     Session.updateRegion(ctx, weather.region)
                 } else {
-                    region = S.seoulFallback
+                    region = "서울"
                     locationSource = null
                     locationReady = true
-                    error = S.locationFallback
+                    error = "위치를 찾지 못해 기본 지역(서울)을 사용합니다"
                 }
             } catch (e: Exception) {
-                region = S.seoulFallback
+                region = "서울"
                 locationReady = true
-                error = "${S.locationWeatherFailPrefix}${e.message}"
+                error = "위치/날씨 자동 설정 실패: ${e.message}"
             }
             detecting = false
         }
@@ -86,17 +84,17 @@ fun OnboardingScreen(nav: NavController) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         TopAppBar(
-            title = { Text("🎨 ${S.appName}", color = Color.White, fontWeight = FontWeight.Black) },
+            title = { Text("🎨 OOJOO FARM", color = Color.White, fontWeight = FontWeight.Black) },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)
         )
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("🌻", fontSize = 72.sp)
                 Spacer(Modifier.height(14.dp))
-                Text(S.hello, fontWeight = FontWeight.Black, fontSize = 28.sp, color = OojooTheme.Ink)
+                Text("안녕하세요!", fontWeight = FontWeight.Black, fontSize = 28.sp, color = OojooTheme.Ink)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${S.welcomeSubtitle} 🌱",
+                    "누구나 집에서 키우는\n재미있는 스마트 농장 🌱",
                     color = OojooTheme.Muted,
                     fontSize = 13.sp,
                     lineHeight = 20.sp,
@@ -104,10 +102,10 @@ fun OnboardingScreen(nav: NavController) {
                 )
             }
             Spacer(Modifier.height(10.dp))
-            Text(S.nickname, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
-            OojooField(nickname, { nickname = it }, S.nicknamePh)
+            Text("닉네임", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
+            OojooField(nickname, { nickname = it }, "예: 농부민준")
 
-            Text(S.locationAuto, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
+            Text("재배 지역 (자동)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
             Surface(
                 shape = OojooTheme.CardShape,
                 color = OojooTheme.GreenBg,
@@ -121,34 +119,34 @@ fun OnboardingScreen(nav: NavController) {
                     if (detecting) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = OojooTheme.GreenDark)
                         Spacer(Modifier.width(10.dp))
-                        Text(S.locationDetecting, color = OojooTheme.Ink, fontWeight = FontWeight.Bold)
+                        Text("위치·날씨 자동 설정 중…", color = OojooTheme.Ink, fontWeight = FontWeight.Bold)
                     } else {
                         Text("📍", fontSize = 18.sp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
                             Text(region, color = OojooTheme.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                             val srcLabel = when (locationSource) {
-                                "gps" -> S.sourceGps
-                                "network" -> S.sourceNetwork
-                                "ip" -> S.sourceIp
-                                else -> S.sourceAuto
+                                "gps" -> "GPS"
+                                "network" -> "네트워크 위치"
+                                "ip" -> "IP 기반 위치"
+                                else -> "자동"
                             }
-                            Text("$srcLabel${S.setBySuffix}", color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("$srcLabel 으로 설정됨", color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         TextButton(onClick = { detectLocation() }) {
-                            Text(S.locationRetry, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                            Text("다시 감지", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            Text(S.serverAddress, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
+            Text("서버 주소", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted, fontWeight = FontWeight.ExtraBold)
             OojooField(serverUrl, { serverUrl = it }, "http://10.0.2.2:4000/")
             GradientButton(
-                text = S.startApp,
+                text = "🚀 시작하기!",
                 onClick = {
-                    if (!locationReady || region.isBlank() || region == S.locationChecking) {
-                        error = S.locationWaitError
+                    if (!locationReady || region.isBlank() || region == "위치 확인 중…") {
+                        error = "위치 설정을 기다려 주세요"
                         return@GradientButton
                     }
                     loading = true; error = null
@@ -166,7 +164,7 @@ fun OnboardingScreen(nav: NavController) {
                             Session.set(user.id, user.nickname ?: "", Prefs.region(ctx))
                             nav.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                         } catch (e: Exception) {
-                            error = e.message ?: S.accountFail
+                            error = e.message ?: "계정 생성 실패 (서버 주소 확인!)"
                         }
                         loading = false
                     }
@@ -178,7 +176,7 @@ fun OnboardingScreen(nav: NavController) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp, color = OojooTheme.Green)
             }
             error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-            Text(S.autoLocationNotice, color = OojooTheme.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("위치와 날씨는 자동으로 설정됩니다", color = OojooTheme.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

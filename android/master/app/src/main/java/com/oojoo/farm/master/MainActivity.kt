@@ -54,7 +54,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.oojoo.farm.master.data.AppStringsProvider
-import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
@@ -113,13 +112,12 @@ data class BottomItem(val route: String, val label: String, val icon: String)
 fun MainApp(uiState: MutableState<OojooUiState>) {
     val ctx = LocalContext.current
     val nav = rememberNavController()
-    val S = LocalAppStrings.current
     val items = listOf(
-        BottomItem("home", S.home, "🏡"),
-        BottomItem("plants", S.plants, "🌱"),
-        BottomItem("farmers", S.farmers, "🤖"),
-        BottomItem("market", S.market, "🛒"),
-        BottomItem("community", S.community, "🏘️")
+        BottomItem("home", "홈", "🏡"),
+        BottomItem("plants", "식물", "🌱"),
+        BottomItem("farmers", "Farmer", "🤖"),
+        BottomItem("market", "마켓", "🛒"),
+        BottomItem("community", "이웃", "🏘️")
     )
     val navStackEntry by nav.currentBackStackEntryAsState()
     val currentRoute = navStackEntry?.destination?.route

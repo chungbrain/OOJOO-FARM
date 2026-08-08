@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
-import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
@@ -46,7 +45,6 @@ class PlantListViewModel : ViewModel() {
     val userId get() = Session.userId
     var plants by mutableStateOf<List<Plant>>(emptyList())
     var slaves by mutableStateOf<List<Slave>>(emptyList())
-    var analyses by mutableStateOf<Map<String, com.oojoo.farm.master.model.AnalysisResponse>>(emptyMap())
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
 
@@ -54,21 +52,8 @@ class PlantListViewModel : ViewModel() {
         loading = true; msg = null
         viewModelScope.launch {
             try {
-                val newPlants = api.plants(userId).plants
-                plants = newPlants
+                plants = api.plants(userId).plants
                 slaves = try { api.slaves(userId).slaves } catch (_: Exception) { emptyList() }
-                
-                // Fetch latest analysis for each assigned plant
-                val analysisMap = mutableMapOf<String, com.oojoo.farm.master.model.AnalysisResponse>()
-                for (p in newPlants) {
-                    if (p.slave_id != null) {
-                        try {
-                            val analysis = api.latestAnalysis(p.id)
-                            analysisMap[p.id] = analysis
-                        } catch (_: Exception) {}
-                    }
-                }
-                analyses = analysisMap
             } catch (_: Exception) {}
             loading = false
         }
@@ -104,7 +89,6 @@ class PlantListViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
-    val S = LocalAppStrings.current
     // 화면 재진입(등록/삭제 후 복귀) 시 자동 새로고침
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -118,19 +102,19 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(S.myPlants, color = Color.White, fontWeight = FontWeight.Black) },
+                title = { Text("🌱 내 식물", color = Color.White, fontWeight = FontWeight.Black) },
                 actions = {
                     IconButton(onClick = { vm.refresh() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = S.refresh, tint = Color.White)
+                        Icon(Icons.Default.Refresh, contentDescription = "새로고침", tint = Color.White)
                     }
                     TextButton(onClick = { nav.navigate("plant_register") }) {
-                        Text("＋ ${S.register}", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("＋ 등록", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)
             )
         },
-        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("plant_register") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.plantRegister) } },
+        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("plant_register") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "식물 등록") } },
         containerColor = OojooTheme.Bg
     ) { p ->
         if (vm.loading && vm.plants.isEmpty()) {
@@ -154,15 +138,15 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                     ) {
                         Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🌱", fontSize = 56.sp); Spacer(Modifier.height(14.dp))
-                            Text(S.noPlantsEmpty, color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("등록된 식물이 없어요!", color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(Modifier.height(4.dp))
-                            Text("＋ ${S.register}!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("＋ 버튼으로 등록해요!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 item {
                     TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(S.refresh, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                        Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -178,7 +162,6 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                 PlantGridCard(
                     plant = plant,
                     slaves = vm.slaves,
-                    latestAnalysis = vm.analyses[plant.id],
                     onClick = { nav.navigate("plant_detail/${plant.id}") },
                     onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
                     onDelete = { vm.deletePlant(plant) }
@@ -191,7 +174,7 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                             modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                     }
                     TextButton(onClick = { vm.refresh() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(S.refresh, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+                        Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -203,18 +186,11 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
 private fun PlantGridCard(
     plant: Plant,
     slaves: List<Slave>,
-    latestAnalysis: com.oojoo.farm.master.model.AnalysisResponse?,
     onClick: () -> Unit,
     onAssignSlave: (String?) -> Unit,
     onDelete: () -> Unit
 ) {
-    val S = LocalAppStrings.current
-    val stageK = mapOf(
-        "seedling" to S.growthStageSeedling,
-        "vegetative" to S.growthStageVegetative,
-        "flowering" to S.growthStageFlowering,
-        "fruiting" to S.growthStageFruiting
-    )
+    val stageK = mapOf("seedling" to "묘목", "vegetative" to "영양생장", "flowering" to "개화", "fruiting" to "결실")
     val emoji = plantEmojiFor(plant.species, plant.stage)
     var showAssignDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -262,7 +238,7 @@ private fun PlantGridCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    plant.species ?: S.speciesUnspecified,
+                    plant.species ?: "작물 미지정",
                     color = OojooTheme.Muted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -285,43 +261,22 @@ private fun PlantGridCard(
                 )
             }
 
-            // Farmer 배정 상태 / 건강 상태 표시
+            // Farmer 배정 상태 / 버튼
             val assignedSlave = slaves.find { it.id == plant.slave_id }
             if (assignedSlave != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(
-                        shape = OojooTheme.PillShape,
-                        color = OojooTheme.Green,
-                        border = BorderStroke(1.5.dp, OojooTheme.Ink),
-                        modifier = Modifier.clickable { showAssignDialog = true }
-                    ) {
-                        Text(
-                            "🤖 ${assignedSlave.name}",
-                            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    if (latestAnalysis?.analysis != null) {
-                        Spacer(Modifier.height(4.dp))
-                        val health = latestAnalysis.analysis.healthStatus
-                        val color = if (health.contains("건강") || health.contains("양호")) OojooTheme.Teal else OojooTheme.Orange
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = color.copy(alpha = 0.2f),
-                            border = BorderStroke(1.dp, color)
-                        ) {
-                            Text(
-                                health,
-                                Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = color,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                        }
-                    }
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.Green,
+                    border = BorderStroke(1.5.dp, OojooTheme.Ink),
+                    modifier = Modifier.clickable { showAssignDialog = true }
+                ) {
+                    Text(
+                        "🤖 ${assignedSlave.name}",
+                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
             } else {
                 Surface(
@@ -331,7 +286,7 @@ private fun PlantGridCard(
                     modifier = Modifier.clickable { showAssignDialog = true }
                 ) {
                     Text(
-                        S.assignFarmer,
+                        "＋ Farmer 배정",
                         Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         color = OojooTheme.Ink,
                         fontSize = 10.sp,
@@ -358,15 +313,15 @@ private fun PlantGridCard(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(S.deletePlantTitle, fontWeight = FontWeight.Bold) },
-            text = { Text("'${plant.name}'${S.deletePlantConfirm}") },
+            title = { Text("🗑️ 식물 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("'${plant.name}'을(를) 삭제합니다.\n관련 이벤트/관수 기록도 함께 삭제됩니다.") },
             confirmButton = {
                 TextButton(onClick = { onDelete(); showDeleteDialog = false }) {
-                    Text(S.delete, color = OojooTheme.Red, fontWeight = FontWeight.Bold)
+                    Text("삭제", color = OojooTheme.Red, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text(S.cancel) }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
             }
         )
     }
@@ -379,16 +334,15 @@ private fun AssignFarmerDialog(
     onDismiss: () -> Unit,
     onAssign: (String?) -> Unit
 ) {
-    val S = LocalAppStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(S.assignFarmerTitle, fontWeight = FontWeight.Bold) },
+        title = { Text("🤖 Farmer 배정", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("${plant.name}${S.selectFarmerPrompt}", fontSize = 13.sp, color = OojooTheme.Muted)
+                Text("${plant.name}에 배정할 Farmer를 선택하세요", fontSize = 13.sp, color = OojooTheme.Muted)
                 Spacer(Modifier.height(12.dp))
                 if (slaves.isEmpty()) {
-                    Text(S.noSlaves,
+                    Text("연결된 Farmer가 없습니다.\nFarmer 페이지에서 먼저 페어링하세요.",
                         fontSize = 13.sp, color = OojooTheme.Muted)
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -410,7 +364,7 @@ private fun AssignFarmerDialog(
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(slave.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
-                                        Text(if (slave.online == 1) S.online else S.offline,
+                                        Text(if (slave.online == 1) "🟢 온라인" else "⚪ 오프라인",
                                             fontSize = 11.sp, color = OojooTheme.Muted)
                                     }
                                     if (isAssigned) Text("✓", color = OojooTheme.Green, fontWeight = FontWeight.Black)
@@ -429,7 +383,7 @@ private fun AssignFarmerDialog(
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text("❌", fontSize = 20.sp)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(S.unassign, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Red)
+                                    Text("배정 해제", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Red)
                                 }
                             }
                         }
@@ -437,6 +391,6 @@ private fun AssignFarmerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(S.close) } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("닫기") } }
     )
 }

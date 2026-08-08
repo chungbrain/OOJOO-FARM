@@ -45,7 +45,6 @@ object OojooTheme {
     val Red = Color(0xFFFF5252)
     val Blue = Color(0xFF42A5F5)
     val Sky = Color(0xFF4FC3F7)
-    val Teal = Color(0xFF00897B)
     val Purple = Color(0xFFAB47BC)
     val Pink = Color(0xFFFF80AB)
 

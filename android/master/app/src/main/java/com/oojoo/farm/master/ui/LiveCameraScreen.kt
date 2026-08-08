@@ -17,8 +17,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
-import com.oojoo.farm.master.data.AppStrings
-import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.VideoInfoResponse
@@ -190,22 +188,21 @@ class LiveCameraViewModel : ViewModel() {
 @Composable
 fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm: LiveCameraViewModel = viewModel()) {
     val ctx = LocalContext.current
-    val S = LocalAppStrings.current
     LaunchedEffect(slaveId) { vm.requestAndWatch(slaveId, slaveName, ctx) }
     val baseUrl = ApiClient.baseUrl.trimEnd('/')
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("${S.liveCameraPrefix}$slaveName${S.liveCameraSuffix}", color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("📹 $slaveName 카메라", color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(vm.status, color = OojooTheme.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             if (vm.loading) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) }
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
             vm.videoInfo?.let { v ->
                 val fullUrl = baseUrl + v.url
-                Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("🎬 3초 영상 (촬영: ${v.created_at ?: "방금"})", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
                     AndroidView(
                         factory = { context ->
@@ -217,30 +214,13 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-                vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                vm.savedMsg?.let { Text(it, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
+                    GradientButton(text = "🔄 다시 촬영", onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = "📷 사진첩", onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
                 }
-                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+                OutlineButton(text = "뒤로", onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
             }
         }
     }
-}
-
-private fun mapStatus(s: String, S: AppStrings): String = when (s) {
-    "요청 대기" -> S.statusWaiting
-    "캡처 요청 전송 중…" -> S.captureSending
-    "캡처 요청 전송됨 — SSE로 응답 대기 중" -> S.captureSentWaiting
-    "시간 초과 — Slave가 오프라인이거나 카메라 미준비일 수 있습니다" -> S.captureTimeout
-    "영상 수신 완료!" -> S.captureDone
-    "요청 실패" -> S.captureFailed
-    else -> s
-}
-
-private fun mapSavedMsg(m: String, S: AppStrings): String = when {
-    m.startsWith("기기에 저장 중") -> S.savingToDevice
-    m.startsWith("✅") -> S.saveCompleteMsg
-    m.startsWith("저장 실패") -> S.saveFailedPrefix + m.removePrefix("저장 실패: ")
-    else -> m
 }
