@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -933,9 +934,10 @@ val LocalAppStrings = compositionLocalOf { koreanStrings }
 @Composable
 fun AppStringsProvider(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
-    // appLanguageState.value 를 읽어 Compose 가 상태 변화를 관찰하도록 함.
-    // null 이면 시스템/Prefs 기반으로 결정 (초기 진입 또는 SYSTEM 모드).
-    val lang = AppLocale.appLanguageState.value ?: AppLocale.resolve(ctx)
+    val langState = AppLocale.appLanguageState
+    val lang = remember(langState.value) {
+        langState.value ?: AppLocale.resolve(ctx)
+    }
     val strings = if (lang == AppLocale.KOREAN) koreanStrings else englishStrings
     CompositionLocalProvider(LocalAppStrings provides strings, content = content)
 }
