@@ -2,6 +2,7 @@
 node_modules/
 npm-debug.log*
 *.log
+*.out
 
 # backend data (SQLite)
 backend/data/*.db
@@ -23,7 +24,7 @@ captures/
 .env
 
 # os
-.D.S_Store
+.DS_Store
 Thumbs.db
 
 # tooling / automation

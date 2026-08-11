@@ -138,7 +138,18 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 
 ```
 OOJOO-FARM/
-├── prd.md                  # Product Requirements Document (v1.1.0)
+├── README.md               # This file
+├── docs/                   # Documentation
+│   ├── prd.md              # Product Requirements Document (v1.1.0)
+│   ├── DESIGN.md           # Design / architecture notes
+│   └── builds/             # Per-build release notes
+├── dist/                   # Built APKs (distribution)
+│   ├── oojoo-farm-master-debug.apk
+│   └── oojoo-farm-farmer-debug.apk
+├── scripts/                # Helper scripts
+│   ├── start-backend.bat   # Windows backend launcher
+│   ├── run-emulator.bat    # Windows emulator launcher
+│   └── verify-locales.mjs  # i18n verification
 ├── assets/
 │   ├── logo.svg            # App logo
 │   ├── icon.svg            # App icon
@@ -146,20 +157,13 @@ OOJOO-FARM/
 ├── prototype/
 │   ├── index.html          # Interactive HTML prototype (open in browser)
 │   ├── DEMO.mp4            # Video walkthrough of all prototype screens
-│   ├── 38758.gif           # Master app UI showcase
-│   ├── 38759.gif           # Master app UI showcase
-│   └── 38760.gif           # Master app UI showcase
+│   └── 38758–38760.gif     # Master app UI showcase
 ├── backend/                # Node.js + Express + SQLite
+│   ├── run-backend.sh      # Ubuntu backend launcher
 │   └── src/
 │       ├── server.js
 │       ├── db.js
-│       └── routes/
-│           ├── pairing.js
-│           ├── plants.js
-│           ├── events.js
-│           ├── watering.js
-│           ├── commands.js
-│           └── weather.js
+│       └── routes/         # pairing, plants, events, watering, commands, weather, ...
 └── android/                # Multi-module Android project
     ├── master/             # Master app (com.oojoo.farm.master)
     │   └── app/src/main/java/com/oojoo/farm/master/
@@ -290,7 +294,7 @@ For development with auto-reload: `npm run dev`
 
 > Heuristic on-device analysis stands in for TFLite models; FCM push requires a Firebase `google-services.json`.
 
-See [`prd.md`](prd.md) for the full product requirements document.
+See [`docs/prd.md`](docs/prd.md) for the full product requirements document.
 
 ---
 
