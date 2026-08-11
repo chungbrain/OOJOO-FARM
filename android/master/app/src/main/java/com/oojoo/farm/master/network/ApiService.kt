@@ -4,6 +4,9 @@ import com.oojoo.farm.master.model.*
 import retrofit2.http.*
 
 interface ApiService {
+    @GET("health")
+    suspend fun health(): HealthResponse
+
     @POST("api/users")
     suspend fun createUser(@Body body: UserRequest): User
 

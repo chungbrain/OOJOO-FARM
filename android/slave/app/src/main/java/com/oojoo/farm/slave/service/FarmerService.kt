@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.oojoo.farm.slave.MainActivity
 import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.data.Prefs
+import com.oojoo.farm.slave.network.ApiClient
 
 /**
  * 헤드리스 자율 관리용 Foreground Service.
@@ -35,6 +36,11 @@ class FarmerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundCompat()
         acquireWakeLock()
+        if (intent?.action == ACTION_RECONNECT) {
+            FarmerEngine.stop()
+            ApiClient.setBaseUrl(Prefs.serverUrl(this))
+            ApiClient.setSessionKey(Prefs.sessionKey(this))
+        }
         if (Prefs.isPaired(this)) {
             FarmerEngine.start(applicationContext)
         }
@@ -43,6 +49,7 @@ class FarmerService : Service() {
     }
 
     override fun onDestroy() {
+        FarmerEngine.stop()
         releaseWakeLock()
         super.onDestroy()
     }
@@ -101,6 +108,7 @@ class FarmerService : Service() {
     companion object {
         private const val CHANNEL_ID = "farmer_service"
         private const val NOTIF_ID = 1001
+        private const val ACTION_RECONNECT = "com.oojoo.farm.slave.action.RECONNECT"
 
         fun start(ctx: Context) {
             val intent = Intent(ctx, FarmerService::class.java)
@@ -113,6 +121,15 @@ class FarmerService : Service() {
 
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, FarmerService::class.java))
+        }
+
+        fun reconnect(ctx: Context) {
+            val intent = Intent(ctx, FarmerService::class.java).setAction(ACTION_RECONNECT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(intent)
+            } else {
+                ctx.startService(intent)
+            }
         }
     }
 }

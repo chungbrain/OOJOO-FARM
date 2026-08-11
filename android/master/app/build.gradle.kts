@@ -12,8 +12,8 @@ android {
         applicationId = "com.oojoo.farm.master"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2026081001
-        versionName = "1.0.2026081001"
+        versionCode = 2026081002
+        versionName = "1.0.2026081002"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -12,24 +12,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppLocale
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
+import com.oojoo.farm.master.network.ApiClient
+import com.oojoo.farm.master.network.ServerEndpointValidation
+import com.oojoo.farm.master.network.validateServerEndpoint
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
     val ctx = LocalContext.current
     val S = LocalAppStrings.current
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     var cornerRadius by remember { mutableStateOf(uiState.value.cornerRadius.toFloat()) }
     var shadowOffset by remember { mutableStateOf(uiState.value.shadowOffset.toFloat()) }
     var borderWidth by remember { mutableStateOf(uiState.value.borderWidth.toFloat()) }
     var selectedLang by remember { mutableStateOf(Prefs.language(ctx)) }
+    var serverUrl by remember { mutableStateOf(Prefs.serverUrl(ctx)) }
+    var serverMessage by remember { mutableStateOf<String?>(null) }
+    var serverError by remember { mutableStateOf(false) }
+    var reconnecting by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -142,6 +153,56 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                     S.restartNotice,
                     fontSize = 12.sp, color = OojooTheme.Muted
                 )
+
+                HorizontalDivider(color = OojooTheme.Line)
+                Text(stringResource(R.string.server_settings), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                Text(stringResource(R.string.server_address_label), fontSize = 13.sp, color = OojooTheme.Muted)
+                OojooField(
+                    value = serverUrl,
+                    onValueChange = {
+                        serverUrl = it
+                        serverMessage = null
+                    },
+                    placeholder = stringResource(R.string.server_url_hint),
+                )
+                GradientButton(
+                    text = stringResource(if (reconnecting) R.string.server_reconnecting else R.string.server_reconnect_action),
+                    onClick = {
+                        when (val validation = validateServerEndpoint(serverUrl)) {
+                            is ServerEndpointValidation.Invalid -> {
+                                serverError = true
+                                serverMessage = ctx.getString(R.string.server_invalid)
+                            }
+                            is ServerEndpointValidation.Valid -> scope.launch {
+                                reconnecting = true
+                                serverError = false
+                                serverMessage = null
+                                if (ApiClient.verifyBaseUrl(validation.normalizedUrl)) {
+                                    Prefs.setServerUrl(ctx, validation.normalizedUrl)
+                                    ApiClient.setBaseUrl(validation.normalizedUrl)
+                                    serverUrl = validation.normalizedUrl
+                                    serverMessage = ctx.getString(R.string.server_reconnect_success, validation.normalizedUrl)
+                                } else {
+                                    serverError = true
+                                    serverMessage = ctx.getString(R.string.server_connection_failed)
+                                }
+                                reconnecting = false
+                            }
+                        }
+                    },
+                    enabled = !reconnecting,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                serverMessage?.let { message ->
+                    Text(
+                        message,
+                        color = if (serverError) OojooTheme.Red else OojooTheme.GreenDark,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 18.sp,
+                    )
+                }
+                Text(stringResource(R.string.server_help), color = OojooTheme.Muted, fontSize = 12.sp, lineHeight = 18.sp)
             }
         }
     }

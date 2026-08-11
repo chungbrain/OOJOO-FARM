@@ -266,4 +266,13 @@
     <string name="auto_location_notice">Location and weather are set automatically.</string>
     <string name="error_label">Error</string>
     <string name="humidity_summary">Humidity %1$s%% · Watering factor ×%2$s</string>
+    <string name="server_settings">Server connection</string>
+    <string name="server_address_label">Server address</string>
+    <string name="server_url_hint">http://10.0.2.2:4000/</string>
+    <string name="server_reconnect_action">Save and reconnect</string>
+    <string name="server_reconnecting">Checking connection…</string>
+    <string name="server_reconnect_success">Reconnected: %1$s</string>
+    <string name="server_invalid">Enter an http or https root address.</string>
+    <string name="server_connection_failed">Server health check failed. The previous address was kept.</string>
+    <string name="server_help">The app saves the address and restarts its network client only after /health succeeds.</string>
 </resources>

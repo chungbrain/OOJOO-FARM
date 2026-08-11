@@ -24,6 +24,8 @@ data class PairingVerifyResponse(val slaveId: String, val sessionKey: String, va
 data class HeartbeatRequest(val slaveId: String)
 @Serializable
 data class OkResponse(val ok: Boolean)
+@Serializable
+data class HealthResponse(val ok: Boolean)
 
 @Serializable
 data class Slave(

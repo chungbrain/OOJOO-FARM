@@ -63,4 +63,13 @@
     <string name="cancel">Cancel</string>
     <string name="not_paired">Not currently paired.</string>
     <string name="pair_master">🔗 Pair with Master</string>
+    <string name="server_settings">Server connection</string>
+    <string name="server_address_label">Master server address</string>
+    <string name="server_url_hint">http://10.0.2.2:4000/</string>
+    <string name="server_reconnect_action">Save and reconnect Farmer</string>
+    <string name="server_reconnecting">Checking connection…</string>
+    <string name="server_reconnect_success">Farmer reconnected: %1$s</string>
+    <string name="server_invalid">Enter an http or https root address.</string>
+    <string name="server_connection_failed">Server health check failed. The previous address and pairing were kept.</string>
+    <string name="server_help">The Farmer service reconnects only after /health succeeds. Existing pairing is preserved.</string>
 </resources>

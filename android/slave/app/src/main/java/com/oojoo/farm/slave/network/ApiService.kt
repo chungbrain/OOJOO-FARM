@@ -6,6 +6,9 @@ import okhttp3.RequestBody
 import retrofit2.http.*
 
 interface ApiService {
+    @GET("health")
+    suspend fun health(): HealthResponse
+
     @POST("api/pairing/verify")
     suspend fun pairVerify(@Body body: PairingVerifyRequest): PairingVerifyResponse
 

@@ -24,12 +24,21 @@ import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.data.AppLocale
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
+import com.oojoo.farm.slave.network.ApiClient
+import com.oojoo.farm.slave.network.ServerEndpointValidation
+import com.oojoo.farm.slave.network.validateServerEndpoint
 import com.oojoo.farm.slave.service.FarmerService
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(nav: NavController) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var serverUrl by remember { mutableStateOf(Prefs.serverUrl(ctx)) }
+    var serverMessage by remember { mutableStateOf<String?>(null) }
+    var serverError by remember { mutableStateOf(false) }
+    var reconnecting by remember { mutableStateOf(false) }
     var region by remember { mutableStateOf(Prefs.region(ctx)) }
     var captureInterval by remember { mutableStateOf(Prefs.captureIntervalMinutes(ctx).toString()) }
     var autoWater by remember { mutableStateOf(Prefs.autoWater(ctx)) }
@@ -45,6 +54,57 @@ fun SettingsScreen(nav: NavController) {
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.farmer_settings), color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.server_settings), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+            Text(stringResource(R.string.server_address_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(
+                value = serverUrl,
+                onValueChange = {
+                    serverUrl = it
+                    serverMessage = null
+                },
+                placeholder = stringResource(R.string.server_url_hint),
+            )
+            GradientButton(
+                text = stringResource(if (reconnecting) R.string.server_reconnecting else R.string.server_reconnect_action),
+                onClick = {
+                    when (val validation = validateServerEndpoint(serverUrl)) {
+                        is ServerEndpointValidation.Invalid -> {
+                            serverError = true
+                            serverMessage = ctx.getString(R.string.server_invalid)
+                        }
+                        is ServerEndpointValidation.Valid -> scope.launch {
+                            reconnecting = true
+                            serverError = false
+                            serverMessage = null
+                            if (ApiClient.verifyBaseUrl(validation.normalizedUrl)) {
+                                Prefs.setServerUrl(ctx, validation.normalizedUrl)
+                                ApiClient.setBaseUrl(validation.normalizedUrl)
+                                FarmerService.reconnect(ctx)
+                                serverUrl = validation.normalizedUrl
+                                serverMessage = ctx.getString(R.string.server_reconnect_success, validation.normalizedUrl)
+                            } else {
+                                serverError = true
+                                serverMessage = ctx.getString(R.string.server_connection_failed)
+                            }
+                            reconnecting = false
+                        }
+                    }
+                },
+                enabled = !reconnecting,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            serverMessage?.let { message ->
+                Text(
+                    message,
+                    color = if (serverError) OojooTheme.Red else OojooTheme.TealDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 18.sp,
+                )
+            }
+            Text(stringResource(R.string.server_help), color = OojooTheme.Muted, fontSize = 12.sp, lineHeight = 18.sp)
+            HorizontalDivider(color = OojooTheme.Line)
+
             Text(stringResource(R.string.growing_region_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(region, { region = it }, stringResource(R.string.growing_region_hint))
             Text(stringResource(R.string.capture_interval_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)

@@ -8,6 +8,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 object ApiClient {
+    @Volatile
     // 에뮬레이터에서 로컬 백엔드: http://10.0.2.2:4000/
     // 실제 우분투 서버: http://<서버IP>:4000/
     var baseUrl: String = "http://10.0.2.2:4000/"
@@ -27,8 +28,8 @@ object ApiClient {
             .build()
     }
 
-    private fun build(): Retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
+    private fun build(url: String = baseUrl): Retrofit = Retrofit.Builder()
+        .baseUrl(url)
         .client(client)
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
@@ -40,11 +41,23 @@ object ApiClient {
             cached ?: build().create(ApiService::class.java).also { cached = it }
         }
 
-    fun setBaseUrl(url: String) {
-        val normalized = if (url.endsWith("/")) url else "$url/"
+    fun setBaseUrl(url: String): Boolean {
+        val normalized = (validateServerEndpoint(url) as? ServerEndpointValidation.Valid)?.normalizedUrl
+            ?: return false
         if (normalized != baseUrl) {
             baseUrl = normalized
             cached = null // 재생성 유도
+        }
+        return true
+    }
+
+    suspend fun verifyBaseUrl(url: String): Boolean {
+        val normalized = (validateServerEndpoint(url) as? ServerEndpointValidation.Valid)?.normalizedUrl
+            ?: return false
+        return try {
+            build(normalized).create(ApiService::class.java).health().ok
+        } catch (_: Exception) {
+            false
         }
     }
 }
