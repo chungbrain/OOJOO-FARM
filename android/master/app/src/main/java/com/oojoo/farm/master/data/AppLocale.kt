@@ -1,90 +1,337 @@
 package com.oojoo.farm.master.data
 
 import android.content.Context
+import android.app.LocaleManager
+import android.os.Build
+import android.os.LocaleList
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.os.LocaleListCompat
+import com.oojoo.farm.master.R
 
 object AppLocale {
-    const val SYSTEM = "system"
     const val KOREAN = "ko"
     const val ENGLISH = "en"
 
-    val appLanguageState = mutableStateOf<String?>(null)
+    data class LanguageMigration(
+        val language: String,
+        val shouldPersist: Boolean,
+    )
 
-    fun resolve(ctx: Context): String {
-        val pref = Prefs.language(ctx)
-        if (pref != SYSTEM) return pref
-        val sysLang = ctx.resources.configuration.locales[0].language
-        return if (sysLang.startsWith("ko")) KOREAN else ENGLISH
+    fun normalizeLegacyLanguage(value: String?): String =
+        if (value == ENGLISH) ENGLISH else KOREAN
+
+    fun resolveLanguageMigration(value: String?, alreadyMigrated: Boolean): LanguageMigration =
+        LanguageMigration(
+            language = normalizeLegacyLanguage(value),
+            shouldPersist = !alreadyMigrated,
+        )
+
+    fun initialize(context: Context) {
+        apply(context, Prefs.language(context))
     }
 
-    fun setLanguage(ctx: Context, lang: String) {
-        Prefs.setLanguage(ctx, lang)
-        appLanguageState.value = lang
+    fun setLanguage(context: Context, language: String) {
+        val normalized = normalizeLegacyLanguage(language)
+        Prefs.setLanguage(context, normalized)
+        apply(context, normalized)
+    }
+
+    private fun apply(context: Context, language: String) {
+        val normalized = normalizeLegacyLanguage(language)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.getSystemService(LocaleManager::class.java).applicationLocales =
+                LocaleList.forLanguageTags(normalized)
+        } else {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(normalized))
+        }
     }
 }
 
-data class AppStrings(
-    val home: String, val plants: String, val farmers: String, val market: String, val community: String,
-    val myFarm: String, val plantHealth: String, val noPlants: String, val noFarmerAssigned: String, val noInfo: String,
-    val refresh: String, val settings: String, val uiCustomize: String, val language: String, val languageSystem: String,
-    val languageKorean: String, val languageEnglish: String, val reset: String, val register: String, val delete: String,
-    val cancel: String, val assignFarmer: String, val plantName: String, val species: String, val plantedDate: String,
-    val plantedDateOptional: String, val growthStage: String, val selectFarmer: String, val noSlaves: String, val unassign: String,
-    val neighbor: String, val writePost: String, val searchCrop: String, val all: String, val share: String,
-    val sell: String, val buy: String, val noPosts: String, val locationAuto: String, val locationDetecting: String,
-    val locationRetry: String, val serverAddress: String, val nickname: String, val growingRegion: String, val startApp: String,
-    val hello: String, val welcomeSubtitle: String, val quickWater: String
-)
+class AppStrings internal constructor(private val context: Context) {
+    val isEnglish: Boolean
+        get() = context.resources.configuration.locales[0].language == AppLocale.ENGLISH
 
-val koreanStrings = AppStrings(
-    home = "홈", plants = "식물", farmers = "Farmer", market = "마켓", community = "이웃",
-    myFarm = "🚜 나의 농장", plantHealth = "📋 식물 건강 상태", noPlants = "등록된 식물이 없습니다.",
-    noFarmerAssigned = "담당 Farmer 없음", noInfo = "정보없음", refresh = "🔄 새로고침",
-    settings = "설정", uiCustomize = "UI 커스터마이징", language = "언어", languageSystem = "시스템 설정",
-    languageKorean = "한국어", languageEnglish = "English", reset = "기본값으로 초기화",
-    register = "등록", delete = "삭제", cancel = "취소", assignFarmer = "Farmer 배정",
-    plantName = "식물 이름", species = "작물 종류", plantedDate = "식재일",
-    plantedDateOptional = "식재일 (선택)", growthStage = "생장 단계", selectFarmer = "Farmer 선택",
-    noSlaves = "연결된 Farmer가 없습니다.", unassign = "배정 해제", neighbor = "이웃",
-    writePost = "글쓰기", searchCrop = "작물/제목 검색", all = "전체", share = "나눔",
-    sell = "판매", buy = "구입", noPosts = "지역에 아직 글이 없어요.\n첫 글을 올려보세요!",
-    locationAuto = "재배 지역 (자동)", locationDetecting = "위치·날씨 자동 설정 중…",
-    locationRetry = "다시 감지", serverAddress = "서버 주소", nickname = "닉네임",
-    growingRegion = "재배 지역", startApp = "🚀 시작하기!", hello = "안녕하세요!",
-    welcomeSubtitle = "누구나 집에서 키우는\n재미있는 스마트 농장", quickWater = "💧 빠른 관수!"
-)
+    val appName: String get() = context.getString(R.string.app_name)
+    val back: String get() = context.getString(R.string.back)
+    val close: String get() = context.getString(R.string.close)
+    val online: String get() = context.getString(R.string.online)
+    val offline: String get() = context.getString(R.string.offline)
+    val done: String get() = context.getString(R.string.done)
+    val applyComplete: String get() = context.getString(R.string.apply_complete)
+    val submit: String get() = context.getString(R.string.submit)
+    val save: String get() = context.getString(R.string.save)
+    val home: String get() = context.getString(R.string.home)
+    val plants: String get() = context.getString(R.string.plants)
+    val farmers: String get() = context.getString(R.string.farmers)
+    val market: String get() = context.getString(R.string.market)
+    val community: String get() = context.getString(R.string.community)
+    val myFarm: String get() = context.getString(R.string.my_farm)
+    val plantHealth: String get() = context.getString(R.string.plant_health)
+    val noPlants: String get() = context.getString(R.string.no_plants)
+    val noPlantsEmpty: String get() = context.getString(R.string.no_plants_empty)
+    val noFarmerAssigned: String get() = context.getString(R.string.no_farmer_assigned)
+    val noInfo: String get() = context.getString(R.string.no_info)
+    val refresh: String get() = context.getString(R.string.refresh)
+    val locationChecking: String get() = context.getString(R.string.location_checking)
+    val locationAutoSet: String get() = context.getString(R.string.location_auto_set)
+    val weatherNightRain: String get() = context.getString(R.string.weather_night_rain)
+    val weatherNight: String get() = context.getString(R.string.weather_night)
+    val weatherDayRain: String get() = context.getString(R.string.weather_day_rain)
+    val weatherDay: String get() = context.getString(R.string.weather_day)
+    val settings: String get() = context.getString(R.string.settings)
+    val uiCustomize: String get() = context.getString(R.string.ui_customize)
+    val language: String get() = context.getString(R.string.language)
+    val languageSystem: String get() = context.getString(R.string.language_system)
+    val languageKorean: String get() = context.getString(R.string.language_korean)
+    val languageEnglish: String get() = context.getString(R.string.language_english)
+    val reset: String get() = context.getString(R.string.reset)
+    val preview: String get() = context.getString(R.string.preview)
+    val previewDesc: String get() = context.getString(R.string.preview_desc)
+    val uiDetailSettings: String get() = context.getString(R.string.ui_detail_settings)
+    val cornerRadiusLabel: String get() = context.getString(R.string.corner_radius_label)
+    val shadowLabel: String get() = context.getString(R.string.shadow_label)
+    val borderWidthLabel: String get() = context.getString(R.string.border_width_label)
+    val serverAddress: String get() = context.getString(R.string.server_address)
+    val serverSection: String get() = context.getString(R.string.server_section)
+    val serverApply: String get() = context.getString(R.string.server_apply)
+    val serverApplied: String get() = context.getString(R.string.server_applied)
+    val serverAppliedSuffix: String get() = context.getString(R.string.server_applied_suffix)
+    val restartNotice: String get() = context.getString(R.string.restart_notice)
+    val myPlants: String get() = context.getString(R.string.my_plants)
+    val register: String get() = context.getString(R.string.register)
+    val delete: String get() = context.getString(R.string.delete)
+    val cancel: String get() = context.getString(R.string.cancel)
+    val plantRegister: String get() = context.getString(R.string.plant_register)
+    val registerSuccess: String get() = context.getString(R.string.register_success)
+    val selectedCrop: String get() = context.getString(R.string.selected_crop)
+    val cropInputPrompt: String get() = context.getString(R.string.crop_input_prompt)
+    val plantName: String get() = context.getString(R.string.plant_name)
+    val plantNameRequired: String get() = context.getString(R.string.plant_name_required)
+    val plantNamePh: String get() = context.getString(R.string.plant_name_ph)
+    val species: String get() = context.getString(R.string.species)
+    val speciesPh: String get() = context.getString(R.string.species_ph)
+    val speciesUnspecified: String get() = context.getString(R.string.species_unspecified)
+    val plantedDate: String get() = context.getString(R.string.planted_date)
+    val plantedDateOptional: String get() = context.getString(R.string.planted_date_optional)
+    val plantedDatePh: String get() = context.getString(R.string.planted_date_ph)
+    val growthStage: String get() = context.getString(R.string.growth_stage)
+    val growthStageSeedling: String get() = context.getString(R.string.growth_stage_seedling)
+    val growthStageVegetative: String get() = context.getString(R.string.growth_stage_vegetative)
+    val growthStageFlowering: String get() = context.getString(R.string.growth_stage_flowering)
+    val growthStageFruiting: String get() = context.getString(R.string.growth_stage_fruiting)
+    val selectFarmer: String get() = context.getString(R.string.select_farmer)
+    val selectLater: String get() = context.getString(R.string.select_later)
+    val selectNone: String get() = context.getString(R.string.select_none)
+    val farmerOnlineBadge: String get() = context.getString(R.string.farmer_online_badge)
+    val farmerOfflineBadge: String get() = context.getString(R.string.farmer_offline_badge)
+    val assignFarmer: String get() = context.getString(R.string.assign_farmer)
+    val assignFarmerTitle: String get() = context.getString(R.string.assign_farmer_title)
+    val selectFarmerPrompt: String get() = context.getString(R.string.select_farmer_prompt)
+    val noSlaves: String get() = context.getString(R.string.no_slaves)
+    val unassign: String get() = context.getString(R.string.unassign)
+    val deletePlantTitle: String get() = context.getString(R.string.delete_plant_title)
+    val deletePlantConfirm: String get() = context.getString(R.string.delete_plant_confirm)
+    val plantDetail: String get() = context.getString(R.string.plant_detail)
+    val plantNotFound: String get() = context.getString(R.string.plant_not_found)
+    val typeLabel: String get() = context.getString(R.string.type_label)
+    val datePlantedLabel: String get() = context.getString(R.string.date_planted_label)
+    val stageLabel: String get() = context.getString(R.string.stage_label)
+    val farmerLabel: String get() = context.getString(R.string.farmer_label)
+    val unknown: String get() = context.getString(R.string.unknown)
+    val unconnected: String get() = context.getString(R.string.unconnected)
+    val quickWater: String get() = context.getString(R.string.quick_water)
+    val healthInfo: String get() = context.getString(R.string.health_info)
+    val overallStatus: String get() = context.getString(R.string.overall_status)
+    val waterNeed: String get() = context.getString(R.string.water_need)
+    val waterNeedYes: String get() = context.getString(R.string.water_need_yes)
+    val waterNeedNo: String get() = context.getString(R.string.water_need_no)
+    val pestSuspect: String get() = context.getString(R.string.pest_suspect)
+    val found: String get() = context.getString(R.string.found)
+    val safe: String get() = context.getString(R.string.safe)
+    val healthScore: String get() = context.getString(R.string.health_score)
+    val waterHistory: String get() = context.getString(R.string.water_history)
+    val noWaterHistory: String get() = context.getString(R.string.no_water_history)
+    val autoMode: String get() = context.getString(R.string.auto_mode)
+    val manualMode: String get() = context.getString(R.string.manual_mode)
+    val recentEvents: String get() = context.getString(R.string.recent_events)
+    val noEvents: String get() = context.getString(R.string.no_events)
+    val notiHarvestReady: String get() = context.getString(R.string.noti_harvest_ready)
+    val notiPestDetected: String get() = context.getString(R.string.noti_pest_detected)
+    val notiAutoWater: String get() = context.getString(R.string.noti_auto_water)
+    val notiManualWater: String get() = context.getString(R.string.noti_manual_water)
+    val notiAnomaly: String get() = context.getString(R.string.noti_anomaly)
+    val notiCapture: String get() = context.getString(R.string.noti_capture)
+    val farmerManage: String get() = context.getString(R.string.farmer_manage)
+    val gallery: String get() = context.getString(R.string.gallery)
+    val subscription: String get() = context.getString(R.string.subscription)
+    val connectFarmer: String get() = context.getString(R.string.connect_farmer)
+    val pairingTitle: String get() = context.getString(R.string.pairing_title)
+    val pairingDesc: String get() = context.getString(R.string.pairing_desc)
+    val accountLabel: String get() = context.getString(R.string.account_label)
+    val generatePairCode: String get() = context.getString(R.string.generate_pair_code)
+    val pairingCode: String get() = context.getString(R.string.pairing_code)
+    val validLabel: String get() = context.getString(R.string.valid_label)
+    val pairingInstructions: String get() = context.getString(R.string.pairing_instructions)
+    val noFarmersEmpty: String get() = context.getString(R.string.no_farmers_empty)
+    val pairingTip: String get() = context.getString(R.string.pairing_tip)
+    val lastComm: String get() = context.getString(R.string.last_comm)
+    val pause: String get() = context.getString(R.string.pause)
+    val resumeAction: String get() = context.getString(R.string.resume_action)
+    val fanControl: String get() = context.getString(R.string.fan_control)
+    val laserControl: String get() = context.getString(R.string.laser_control)
+    val viewCamera: String get() = context.getString(R.string.view_camera)
+    val reportBtn: String get() = context.getString(R.string.report_btn)
+    val deleteFarmerTitle: String get() = context.getString(R.string.delete_farmer_title)
+    val deleteFarmerConfirm: String get() = context.getString(R.string.delete_farmer_confirm)
+    val notificationCenter: String get() = context.getString(R.string.notification_center)
+    val noNotifications: String get() = context.getString(R.string.no_notifications)
+    val marketTitle: String get() = context.getString(R.string.market_title)
+    val searchProducts: String get() = context.getString(R.string.search_products)
+    val recommendTitle: String get() = context.getString(R.string.recommend_title)
+    val bundleKits: String get() = context.getString(R.string.bundle_kits)
+    val contains: String get() = context.getString(R.string.contains)
+    val addBundle: String get() = context.getString(R.string.add_bundle)
+    val products: String get() = context.getString(R.string.products)
+    val searchResultsPrefix: String get() = context.getString(R.string.search_results_prefix)
+    val searchResultsSuffix: String get() = context.getString(R.string.search_results_suffix)
+    val affiliate: String get() = context.getString(R.string.affiliate)
+    val selfHost: String get() = context.getString(R.string.self_host)
+    val viewOrders: String get() = context.getString(R.string.view_orders)
+    val productTitle: String get() = context.getString(R.string.product_title)
+    val stock: String get() = context.getString(R.string.stock)
+    val buyAtAffiliate: String get() = context.getString(R.string.buy_at_affiliate)
+    val affiliateNotice: String get() = context.getString(R.string.affiliate_notice)
+    val addToCart: String get() = context.getString(R.string.add_to_cart)
+    val addToCartDone: String get() = context.getString(R.string.add_to_cart_done)
+    val directBuy: String get() = context.getString(R.string.direct_buy)
+    val cart: String get() = context.getString(R.string.cart)
+    val emptyCart: String get() = context.getString(R.string.empty_cart)
+    val total: String get() = context.getString(R.string.total)
+    val checkout: String get() = context.getString(R.string.checkout)
+    val ordersNav: String get() = context.getString(R.string.orders_nav)
+    val noOrders: String get() = context.getString(R.string.no_orders)
+    val orderPrefix: String get() = context.getString(R.string.order_prefix)
+    val rating: String get() = context.getString(R.string.rating)
+    val vendor: String get() = context.getString(R.string.vendor)
+    val neighbor: String get() = context.getString(R.string.neighbor)
+    val writePost: String get() = context.getString(R.string.write_post)
+    val searchCrop: String get() = context.getString(R.string.search_crop)
+    val all: String get() = context.getString(R.string.all)
+    val share: String get() = context.getString(R.string.share)
+    val sell: String get() = context.getString(R.string.sell)
+    val buy: String get() = context.getString(R.string.buy)
+    val noPosts: String get() = context.getString(R.string.no_posts)
+    val noPostsPrefix: String get() = context.getString(R.string.no_posts_prefix)
+    val noPostsSuffix: String get() = context.getString(R.string.no_posts_suffix)
+    val postTitle: String get() = context.getString(R.string.post_title)
+    val typeLabelGeneric: String get() = context.getString(R.string.type_label_generic)
+    val titleField: String get() = context.getString(R.string.title_field)
+    val titlePh: String get() = context.getString(R.string.title_ph)
+    val cropLabel: String get() = context.getString(R.string.crop_label)
+    val cropPh: String get() = context.getString(R.string.crop_ph)
+    val quantity: String get() = context.getString(R.string.quantity)
+    val quantityPh: String get() = context.getString(R.string.quantity_ph)
+    val priceWon: String get() = context.getString(R.string.price_won)
+    val description: String get() = context.getString(R.string.description)
+    val descriptionPh: String get() = context.getString(R.string.description_ph)
+    val emoji: String get() = context.getString(R.string.emoji)
+    val postButton: String get() = context.getString(R.string.post_button)
+    val regionLabel: String get() = context.getString(R.string.region_label)
+    val reserved: String get() = context.getString(R.string.reserved)
+    val tradedone: String get() = context.getString(R.string.tradedone)
+    val available: String get() = context.getString(R.string.available)
+    val reportAction: String get() = context.getString(R.string.report_action)
+    val blockAction: String get() = context.getString(R.string.block_action)
+    val comments: String get() = context.getString(R.string.comments)
+    val addComment: String get() = context.getString(R.string.add_comment)
+    val cropInfoLabel: String get() = context.getString(R.string.crop_info_label)
+    val quantityInfoLabel: String get() = context.getString(R.string.quantity_info_label)
+    val farmerReportTitle: String get() = context.getString(R.string.farmer_report_title)
+    val waterSummary: String get() = context.getString(R.string.water_summary)
+    val totalWaterCount: String get() = context.getString(R.string.total_water_count)
+    val totalWaterAmount: String get() = context.getString(R.string.total_water_amount)
+    val autoVsManual: String get() = context.getString(R.string.auto_vs_manual)
+    val lastWater: String get() = context.getString(R.string.last_water)
+    val eventSummary: String get() = context.getString(R.string.event_summary)
+    val harvestReadyReport: String get() = context.getString(R.string.harvest_ready_report)
+    val pestDetectedReport: String get() = context.getString(R.string.pest_detected_report)
+    val anomaliesReport: String get() = context.getString(R.string.anomalies_report)
+    val timesUnit: String get() = context.getString(R.string.times_unit)
+    val reportNotice: String get() = context.getString(R.string.report_notice)
+    val subscriptionPlan: String get() = context.getString(R.string.subscription_plan)
+    val currentPlanPrefix: String get() = context.getString(R.string.current_plan_prefix)
+    val free: String get() = context.getString(R.string.free)
+    val perMonth: String get() = context.getString(R.string.per_month)
+    val unlimited: String get() = context.getString(R.string.unlimited)
+    val farmerRegistrationPrefix: String get() = context.getString(R.string.farmer_registration_prefix)
+    val farmerRegistrationUnit: String get() = context.getString(R.string.farmer_registration_unit)
+    val detailedReport: String get() = context.getString(R.string.detailed_report)
+    val priorityCs: String get() = context.getString(R.string.priority_cs)
+    val provided: String get() = context.getString(R.string.provided)
+    val notProvided: String get() = context.getString(R.string.not_provided)
+    val inUse: String get() = context.getString(R.string.in_use)
+    val freeConvert: String get() = context.getString(R.string.free_convert)
+    val subscribe: String get() = context.getString(R.string.subscribe)
+    val paymentDemoNotice: String get() = context.getString(R.string.payment_demo_notice)
+    val backToList: String get() = context.getString(R.string.back_to_list)
+    val emptyGallery: String get() = context.getString(R.string.empty_gallery)
+    val galleryTip: String get() = context.getString(R.string.gallery_tip)
+    val savedVideosPrefix: String get() = context.getString(R.string.saved_videos_prefix)
+    val savedVideosSuffix: String get() = context.getString(R.string.saved_videos_suffix)
+    val video3sec: String get() = context.getString(R.string.video3sec)
+    val liveCameraPrefix: String get() = context.getString(R.string.live_camera_prefix)
+    val liveCameraSuffix: String get() = context.getString(R.string.live_camera_suffix)
+    val statusWaiting: String get() = context.getString(R.string.status_waiting)
+    val captureSending: String get() = context.getString(R.string.capture_sending)
+    val captureSentWaiting: String get() = context.getString(R.string.capture_sent_waiting)
+    val captureTimeout: String get() = context.getString(R.string.capture_timeout)
+    val captureDone: String get() = context.getString(R.string.capture_done)
+    val captureFailed: String get() = context.getString(R.string.capture_failed)
+    val savingToDevice: String get() = context.getString(R.string.saving_to_device)
+    val saveCompleteMsg: String get() = context.getString(R.string.save_complete_msg)
+    val saveFailedPrefix: String get() = context.getString(R.string.save_failed_prefix)
+    val videoCapturedPrefix: String get() = context.getString(R.string.video_captured_prefix)
+    val videoCapturedSuffix: String get() = context.getString(R.string.video_captured_suffix)
+    val justNow: String get() = context.getString(R.string.just_now)
+    val recapture: String get() = context.getString(R.string.recapture)
+    val startApp: String get() = context.getString(R.string.start_app)
+    val hello: String get() = context.getString(R.string.hello)
+    val welcomeSubtitle: String get() = context.getString(R.string.welcome_subtitle)
+    val nickname: String get() = context.getString(R.string.nickname)
+    val nicknamePh: String get() = context.getString(R.string.nickname_ph)
+    val locationAuto: String get() = context.getString(R.string.location_auto)
+    val locationDetecting: String get() = context.getString(R.string.location_detecting)
+    val locationRetry: String get() = context.getString(R.string.location_retry)
+    val seoulFallback: String get() = context.getString(R.string.seoul_fallback)
+    val sourceGps: String get() = context.getString(R.string.source_gps)
+    val sourceNetwork: String get() = context.getString(R.string.source_network)
+    val sourceIp: String get() = context.getString(R.string.source_ip)
+    val sourceAuto: String get() = context.getString(R.string.source_auto)
+    val setByPrefix: String get() = context.getString(R.string.set_by_prefix)
+    val setBySuffix: String get() = context.getString(R.string.set_by_suffix)
+    val growingRegion: String get() = context.getString(R.string.growing_region)
+    val locationWaitError: String get() = context.getString(R.string.location_wait_error)
+    val locationFallback: String get() = context.getString(R.string.location_fallback)
+    val locationWeatherFailPrefix: String get() = context.getString(R.string.location_weather_fail_prefix)
+    val accountFail: String get() = context.getString(R.string.account_fail)
+    val autoLocationNotice: String get() = context.getString(R.string.auto_location_notice)
+    val errorLabel: String get() = context.getString(R.string.error_label)
+}
 
-val englishStrings = AppStrings(
-    home = "Home", plants = "Plants", farmers = "Farmer", market = "Market", community = "Neighbors",
-    myFarm = "🚜 My Farm", plantHealth = "📋 Plant Health Status", noPlants = "No plants registered.",
-    noFarmerAssigned = "No Farmer assigned", noInfo = "No info", refresh = "🔄 Refresh",
-    settings = "Settings", uiCustomize = "UI Customize", language = "Language", languageSystem = "System",
-    languageKorean = "한국어", languageEnglish = "English", reset = "Reset to defaults",
-    register = "Register", delete = "Delete", cancel = "Cancel", assignFarmer = "Assign Farmer",
-    plantName = "Plant name", species = "Crop type", plantedDate = "Planted date",
-    plantedDateOptional = "Planted date (optional)", growthStage = "Growth stage", selectFarmer = "Select Farmer",
-    noSlaves = "No paired Farmers.", unassign = "Unassign", neighbor = "Neighbors",
-    writePost = "Write", searchCrop = "Search crop/title", all = "All", share = "Share",
-    sell = "Sell", buy = "Buy", noPosts = "No posts yet.\nBe the first to post!",
-    locationAuto = "Growing region (auto)", locationDetecting = "Detecting location & weather…",
-    locationRetry = "Retry", serverAddress = "Server address", nickname = "Nickname",
-    growingRegion = "Growing region", startApp = "🚀 Get Started!", hello = "Hello!",
-    welcomeSubtitle = "Grow your own smart farm\nat home", quickWater = "💧 Quick Water!"
-)
-
-val LocalAppStrings = compositionLocalOf { koreanStrings }
+val LocalAppStrings = staticCompositionLocalOf<AppStrings> {
+    error("AppStringsProvider is missing")
+}
 
 @Composable
 fun AppStringsProvider(content: @Composable () -> Unit) {
-    val ctx = LocalContext.current
-    val lang = remember(AppLocale.appLanguageState.value) {
-        AppLocale.appLanguageState.value ?: AppLocale.resolve(ctx)
-    }
-    val strings = if (lang == AppLocale.KOREAN) koreanStrings else englishStrings
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val strings = remember(context, configuration) { AppStrings(context) }
     CompositionLocalProvider(LocalAppStrings provides strings, content = content)
 }

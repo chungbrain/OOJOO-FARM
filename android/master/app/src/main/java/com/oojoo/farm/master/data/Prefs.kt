@@ -76,8 +76,30 @@ object Prefs {
 
     // ---------- 언어 설정 ----------
     private const val K_LANGUAGE = "language"
-    fun language(ctx: Context): String = sp(ctx).getString(K_LANGUAGE, "system") ?: "system"
+    private const val K_LANGUAGE_MIGRATED = "languageMigratedToExplicitLocale"
+
+    fun language(ctx: Context): String {
+        val prefs = sp(ctx)
+        val migration = AppLocale.resolveLanguageMigration(
+            value = prefs.getString(K_LANGUAGE, null),
+            alreadyMigrated = prefs.getBoolean(K_LANGUAGE_MIGRATED, false),
+        )
+        if (migration.shouldPersist) {
+            prefs.edit()
+                .putString(K_LANGUAGE, migration.language)
+                .putBoolean(K_LANGUAGE_MIGRATED, true)
+                .commit()
+        }
+        return migration.language
+    }
+
+    fun isLanguageMigrated(ctx: Context): Boolean =
+        sp(ctx).getBoolean(K_LANGUAGE_MIGRATED, false)
+
     fun setLanguage(ctx: Context, lang: String) {
-        sp(ctx).edit().putString(K_LANGUAGE, lang).apply()
+        sp(ctx).edit()
+            .putString(K_LANGUAGE, AppLocale.normalizeLegacyLanguage(lang))
+            .putBoolean(K_LANGUAGE_MIGRATED, true)
+            .apply()
     }
 }

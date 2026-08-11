@@ -14,6 +14,8 @@ object Prefs {
     private const val K_AUTO_WATER = "autoWater"
     private const val K_HEADLESS = "headless"
     private const val K_QUEUE = "offlineQueue"
+    private const val K_LANGUAGE = "language"
+    private const val K_LANGUAGE_MIGRATED = "languageMigratedToExplicitLocale"
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -78,5 +80,30 @@ object Prefs {
 
     fun setAutoWater(ctx: Context, on: Boolean) {
         sp(ctx).edit().putBoolean(K_AUTO_WATER, on).apply()
+    }
+
+    fun language(ctx: Context): String {
+        val prefs = sp(ctx)
+        val migration = AppLocale.resolveLanguageMigration(
+            value = prefs.getString(K_LANGUAGE, null),
+            alreadyMigrated = prefs.getBoolean(K_LANGUAGE_MIGRATED, false),
+        )
+        if (migration.shouldPersist) {
+            prefs.edit()
+                .putString(K_LANGUAGE, migration.language)
+                .putBoolean(K_LANGUAGE_MIGRATED, true)
+                .commit()
+        }
+        return migration.language
+    }
+
+    fun isLanguageMigrated(ctx: Context): Boolean =
+        sp(ctx).getBoolean(K_LANGUAGE_MIGRATED, false)
+
+    fun setLanguage(ctx: Context, language: String) {
+        sp(ctx).edit()
+            .putString(K_LANGUAGE, AppLocale.normalizeLegacyLanguage(language))
+            .putBoolean(K_LANGUAGE_MIGRATED, true)
+            .apply()
     }
 }

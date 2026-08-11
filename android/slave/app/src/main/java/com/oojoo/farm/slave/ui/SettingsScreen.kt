@@ -15,10 +15,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.slave.R
+import com.oojoo.farm.slave.data.AppLocale
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.service.FarmerService
@@ -30,31 +33,53 @@ fun SettingsScreen(nav: NavController) {
     var region by remember { mutableStateOf(Prefs.region(ctx)) }
     var captureInterval by remember { mutableStateOf(Prefs.captureIntervalMinutes(ctx).toString()) }
     var autoWater by remember { mutableStateOf(Prefs.autoWater(ctx)) }
+    var selectedLanguage by remember { mutableStateOf(Prefs.language(ctx)) }
     var hwMsg by remember { mutableStateOf<String?>(null) }
+    val bleConnectingText = stringResource(R.string.ble_connecting)
+    val bluetoothPermissionText = stringResource(R.string.bluetooth_permission)
 
     val blePermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.all { it }) { Hardware.useBle(ctx); hwMsg = "ESP32 BLE 스캔/연결 시도 중…" }
-        else hwMsg = "블루투스 권한이 필요합니다"
+        if (granted.values.all { it }) { Hardware.useBle(ctx); hwMsg = bleConnectingText }
+        else hwMsg = bluetoothPermissionText
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Farmer 설정", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.farmer_settings), color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Teal)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("재배 지역 (날씨 조회용)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(region, { region = it }, "지역 (예: Seoul, Busan)")
-            Text("캡처 주기 (분)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OojooField(captureInterval, { captureInterval = it.filter { c -> c.isDigit() } }, "분 (1~360)")
+            Text(stringResource(R.string.growing_region_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(region, { region = it }, stringResource(R.string.growing_region_hint))
+            Text(stringResource(R.string.capture_interval_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(captureInterval, { captureInterval = it.filter { c -> c.isDigit() } }, stringResource(R.string.capture_interval_hint))
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("자율 관수", Modifier.weight(1f), color = OojooTheme.Ink)
+                Text(stringResource(R.string.auto_watering), Modifier.weight(1f), color = OojooTheme.Ink)
                 Switch(checked = autoWater, onCheckedChange = { autoWater = it }, colors = SwitchDefaults.colors(checkedThumbColor = OojooTheme.Teal, checkedTrackColor = OojooTheme.TealLight))
             }
             HorizontalDivider(color = OojooTheme.Line)
-            Text("하드웨어 (ESP32)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
-            OutlineButton(text = "급수/Fan/Laser 하드웨어 BLE 연결", onClick = {
+            Text(stringResource(R.string.language), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+            listOf(
+                AppLocale.KOREAN to stringResource(R.string.language_korean),
+                AppLocale.ENGLISH to stringResource(R.string.language_english)
+            ).forEach { (code, label) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = selectedLanguage == code,
+                        onClick = {
+                            selectedLanguage = code
+                            AppLocale.setLanguage(ctx, code)
+                        },
+                        colors = RadioButtonDefaults.colors(selectedColor = OojooTheme.Teal)
+                    )
+                    Text(label, color = OojooTheme.Ink)
+                }
+            }
+            Text(stringResource(R.string.language_applied), color = OojooTheme.Muted, fontSize = 12.sp)
+            HorizontalDivider(color = OojooTheme.Line)
+            Text(stringResource(R.string.hardware_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OutlineButton(text = stringResource(R.string.ble_connect), onClick = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) blePermLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT))
                 else blePermLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
             }, modifier = Modifier.fillMaxWidth())
             hwMsg?.let { Text(it, color = OojooTheme.Muted, fontSize = 13.sp) }
-            GradientButton(text = "저장", onClick = {
+            GradientButton(text = stringResource(R.string.save), onClick = {
                 Prefs.setRegion(ctx, region.trim())
                 Prefs.setCaptureIntervalMinutes(ctx, captureInterval.toIntOrNull() ?: 60)
                 Prefs.setAutoWater(ctx, autoWater)
@@ -64,40 +89,40 @@ fun SettingsScreen(nav: NavController) {
             HorizontalDivider(color = OojooTheme.Line)
 
             // 재페어링 섹션
-            Text("마스터 연결", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+            Text(stringResource(R.string.master_connection), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
             val slaveId = Prefs.slaveId(ctx)
             if (slaveId != null) {
-                Text("현재 연결된 Slave: ${slaveId.take(8)}…", color = OojooTheme.Muted, fontSize = 13.sp)
-                Text("다른 마스터로 다시 페어링하려면 아래 버튼을 누르세요. 기존 연결이 해제됩니다.",
+                Text(stringResource(R.string.current_slave, slaveId.take(8)), color = OojooTheme.Muted, fontSize = 13.sp)
+                Text(stringResource(R.string.re_pairing_desc),
                     color = OojooTheme.Muted, fontSize = 12.sp, lineHeight = 18.sp)
                 var showReconfirm by remember { mutableStateOf(false) }
                 GradientButton(
-                    text = "🔄 다시 페어링하기",
+                    text = stringResource(R.string.re_pair),
                     onClick = { showReconfirm = true },
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (showReconfirm) {
                     AlertDialog(
                         onDismissRequest = { showReconfirm = false },
-                        title = { Text("재페어링", fontWeight = FontWeight.Bold) },
-                        text = { Text("기존 마스터 연결을 해제하고 새로운 페어링 코드를 입력합니다.\n자율 관리 서비스도 중지됩니다.") },
+                        title = { Text(stringResource(R.string.repairing_title), fontWeight = FontWeight.Bold) },
+                        text = { Text(stringResource(R.string.repairing_message)) },
                         confirmButton = {
                             TextButton(onClick = {
                                 FarmerService.stop(ctx)
                                 Prefs.clearSession(ctx)
                                 showReconfirm = false
                                 nav.navigate("pairing") { popUpTo("dashboard") { inclusive = true } }
-                            }) { Text("재페어링", color = OojooTheme.Red, fontWeight = FontWeight.Bold) }
+                            }) { Text(stringResource(R.string.repairing_title), color = OojooTheme.Red, fontWeight = FontWeight.Bold) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showReconfirm = false }) { Text("취소") }
+                            TextButton(onClick = { showReconfirm = false }) { Text(stringResource(R.string.cancel)) }
                         }
                     )
                 }
             } else {
-                Text("현재 페어링되어 있지 않습니다.", color = OojooTheme.Muted, fontSize = 13.sp)
+                Text(stringResource(R.string.not_paired), color = OojooTheme.Muted, fontSize = 13.sp)
                 GradientButton(
-                    text = "🔗 마스터 페어링하기",
+                    text = stringResource(R.string.pair_master),
                     onClick = { nav.navigate("pairing") },
                     modifier = Modifier.fillMaxWidth()
                 )

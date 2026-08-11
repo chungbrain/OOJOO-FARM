@@ -16,10 +16,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.model.PairingVerifyRequest
 import com.oojoo.farm.slave.network.ApiClient
@@ -37,7 +39,7 @@ class PairingViewModel : ViewModel() {
 
     fun applyServer(ctx: Context) { Prefs.setServerUrl(ctx, serverUrl); ApiClient.setBaseUrl(serverUrl) }
     fun verify(ctx: Context, onDone: () -> Unit) {
-        if (code.trim().length < 6) { error = "6자리 코드를 입력하세요"; return }
+        if (code.trim().length < 6) { error = ctx.getString(R.string.pairing_invalid_code); return }
         loading = true; error = null
         viewModelScope.launch {
             try {
@@ -45,7 +47,7 @@ class PairingViewModel : ViewModel() {
                 Prefs.saveSession(ctx, r.slaveId, r.sessionKey, r.userId)
                 ApiClient.setSessionKey(r.sessionKey)
                 onDone()
-            } catch (e: Exception) { error = e.message ?: "오류" }
+            } catch (e: Exception) { error = e.message ?: ctx.getString(R.string.error_generic) }
             loading = false
         }
     }
@@ -59,7 +61,7 @@ fun PairingScreen(nav: NavController, vm: PairingViewModel = viewModel()) {
     val alreadyPaired = Prefs.isPaired(ctx)
     Column(Modifier.fillMaxSize().background(OojooTheme.Bg)) {
         TopAppBar(
-            title = { Text("마스터 연결", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.connect_master), color = Color.White, fontWeight = FontWeight.Bold) },
             navigationIcon = {
                 if (alreadyPaired) {
                     TextButton(onClick = { nav.navigate("dashboard") { popUpTo("pairing") { inclusive = true } } }) {
@@ -77,17 +79,17 @@ fun PairingScreen(nav: NavController, vm: PairingViewModel = viewModel()) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("ℹ️ 이미 페어링되어 있습니다", fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 13.sp)
-                        Text("새로운 코드를 입력하면 기존 연결이 교체됩니다.", color = OojooTheme.Muted, fontSize = 12.sp)
+                        Text(stringResource(R.string.already_paired_title), fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 13.sp)
+                        Text(stringResource(R.string.already_paired_desc), color = OojooTheme.Muted, fontSize = 12.sp)
                     }
                 }
             }
-            Text("마스터 앱에서 받은 페어링 코드 입력", color = OojooTheme.Ink, fontSize = 14.sp)
-            Text("페어링 코드 (6자리)", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            Text(stringResource(R.string.pairing_prompt), color = OojooTheme.Ink, fontSize = 14.sp)
+            Text(stringResource(R.string.pairing_code_label), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OutlinedTextField(value = vm.code, onValueChange = { vm.code = it.uppercase() }, placeholder = { Text("ABC123", color = OojooTheme.Muted, fontWeight = FontWeight.Bold) }, singleLine = true, shape = OojooTheme.FieldShape, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Teal, unfocusedBorderColor = OojooTheme.Line, focusedContainerColor = OojooTheme.Card, unfocusedContainerColor = OojooTheme.Card), textStyle = androidx.compose.ui.text.TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, letterSpacing = 8.sp), modifier = Modifier.fillMaxWidth())
-            Text("서버 주소", style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            Text(stringResource(R.string.server_address), style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(vm.serverUrl, { vm.serverUrl = it }, "http://192.168.35.64:4000/")
-            GradientButton(text = if (alreadyPaired) "재연결" else "연결", onClick = { vm.applyServer(ctx); vm.verify(ctx) { nav.navigate("dashboard") { popUpTo("pairing") { inclusive = true } } } }, enabled = !vm.loading, modifier = Modifier.fillMaxWidth())
+            GradientButton(text = if (alreadyPaired) stringResource(R.string.reconnect) else stringResource(R.string.connect), onClick = { vm.applyServer(ctx); vm.verify(ctx) { nav.navigate("dashboard") { popUpTo("pairing") { inclusive = true } } } }, enabled = !vm.loading, modifier = Modifier.fillMaxWidth())
             if (vm.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Teal) }
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp) }
         }

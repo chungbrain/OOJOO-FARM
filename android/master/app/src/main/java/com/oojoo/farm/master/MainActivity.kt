@@ -1,9 +1,9 @@
 package com.oojoo.farm.master
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
@@ -54,6 +54,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.oojoo.farm.master.data.AppStringsProvider
+import com.oojoo.farm.master.data.AppLocale
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
@@ -82,8 +84,9 @@ import com.oojoo.farm.master.ui.GalleryScreen
 import com.oojoo.farm.master.ui.ReportScreen
 import com.oojoo.farm.master.ui.SubscriptionScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppLocale.initialize(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ApiClient.setBaseUrl(Prefs.serverUrl(this))
@@ -112,12 +115,13 @@ data class BottomItem(val route: String, val label: String, val icon: String)
 fun MainApp(uiState: MutableState<OojooUiState>) {
     val ctx = LocalContext.current
     val nav = rememberNavController()
+    val S = LocalAppStrings.current
     val items = listOf(
-        BottomItem("home", "홈", "🏡"),
-        BottomItem("plants", "식물", "🌱"),
-        BottomItem("farmers", "Farmer", "🤖"),
-        BottomItem("market", "마켓", "🛒"),
-        BottomItem("community", "이웃", "🏘️")
+        BottomItem("home", S.home, "🏡"),
+        BottomItem("plants", S.plants, "🌱"),
+        BottomItem("farmers", S.farmers, "🤖"),
+        BottomItem("market", S.market, "🛒"),
+        BottomItem("community", S.community, "🏘️")
     )
     val navStackEntry by nav.currentBackStackEntryAsState()
     val currentRoute = navStackEntry?.destination?.route

@@ -4,15 +4,16 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.oojoo.farm.slave.data.AppLocale
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.service.FarmerService
@@ -21,12 +22,13 @@ import com.oojoo.farm.slave.ui.OojooSlaveTheme
 import com.oojoo.farm.slave.ui.PairingScreen
 import com.oojoo.farm.slave.ui.SettingsScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppLocale.initialize(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ApiClient.setBaseUrl(Prefs.serverUrl(this))

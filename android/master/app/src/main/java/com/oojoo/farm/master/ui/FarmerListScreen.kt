@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.Slave
@@ -46,9 +47,10 @@ class FarmerListViewModel : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) {
+    val S = LocalAppStrings.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text("🤖 Farmer 관리", color = Color.White, fontWeight = FontWeight.Black) }, actions = { Row { TextButton(onClick = { nav.navigate("gallery") }) { Text("📷 사진첩", color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("subscription") }) { Text("⭐ 구독", color = Color.White, fontWeight = FontWeight.Bold) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
-        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("pairing") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "Farmer 연결") } },
+        topBar = { TopAppBar(title = { Text(S.farmerManage, color = Color.White, fontWeight = FontWeight.Black) }, actions = { Row { TextButton(onClick = { nav.navigate("gallery") }) { Text(S.gallery, color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("subscription") }) { Text(S.subscription, color = Color.White, fontWeight = FontWeight.Bold) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("pairing") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.connectFarmer) } },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -58,9 +60,9 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🤖", fontSize = 56.sp); Spacer(Modifier.height(14.dp))
-                            Text("연결된 Farmer가 없어요!", color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(S.noFarmersEmpty, color = OojooTheme.Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(Modifier.height(4.dp))
-                            Text("＋ 버튼으로 페어링해요!", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(S.pairingTip, color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -73,41 +75,41 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(s.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 15.sp)
-                                val dot = if (s.online == 1) "🟢 온라인" else "⚪ 오프라인"
+                                val dot = if (s.online == 1) S.online else S.offline
                                 val bat = s.battery?.let { " · 🔋$it%" } ?: ""
                                 Text("$dot$bat", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                s.last_seen?.let { Text("마지막 통신: $it", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                                s.last_seen?.let { Text("${S.lastComm}: $it", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                             }
                             Box(Modifier.size(12.dp).clip(RoundedCornerShape(50)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(50)).background(if (s.online == 1) OojooTheme.Green else Color.Gray))
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlineButton(text = "⏸ 정지", onClick = { vm.pauseSlave(s.id) }, modifier = Modifier.weight(1f))
-                            OutlineButton(text = "▶ 재개", onClick = { vm.resumeSlave(s.id) }, modifier = Modifier.weight(1f))
+                            OutlineButton(text = S.pause, onClick = { vm.pauseSlave(s.id) }, modifier = Modifier.weight(1f))
+                            OutlineButton(text = S.resumeAction, onClick = { vm.resumeSlave(s.id) }, modifier = Modifier.weight(1f))
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlineButton(text = "🌀 Fan", onClick = { vm.pestFan(s.id) }, modifier = Modifier.weight(1f))
-                            OutlineButton(text = "🔦 Laser", onClick = { vm.pestLaser(s.id) }, modifier = Modifier.weight(1f))
+                            OutlineButton(text = S.fanControl, onClick = { vm.pestFan(s.id) }, modifier = Modifier.weight(1f))
+                            OutlineButton(text = S.laserControl, onClick = { vm.pestLaser(s.id) }, modifier = Modifier.weight(1f))
                         }
-                        GradientButton(text = "📹 카메라 보기 (3초)", onClick = {
+                        GradientButton(text = S.viewCamera, onClick = {
                             val encoded = android.net.Uri.encode(s.name)
                             nav.navigate("live_camera/${s.id}/$encoded")
                         }, modifier = Modifier.fillMaxWidth())
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text("📊 리포트", color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text(S.reportBtn, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
                             var showUnpairDialog by remember { mutableStateOf(false) }
-                            TextButton(onClick = { showUnpairDialog = true }) { Text("🗑️ 삭제", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            TextButton(onClick = { showUnpairDialog = true }) { Text("🗑️ ${S.delete}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
                             if (showUnpairDialog) {
                                 AlertDialog(
                                     onDismissRequest = { showUnpairDialog = false },
-                                    title = { Text("🗑️ Farmer 삭제", fontWeight = FontWeight.Bold) },
-                                    text = { Text("'${s.name}'을(를) 삭제합니다.\n페어링이 해제되고 목록에서 사라집니다.") },
+                                    title = { Text(S.deleteFarmerTitle, fontWeight = FontWeight.Bold) },
+                                    text = { Text("'${s.name}'${S.deleteFarmerConfirm}") },
                                     confirmButton = {
                                         TextButton(onClick = { vm.unpair(s.id); showUnpairDialog = false }) {
-                                            Text("삭제", color = OojooTheme.Red, fontWeight = FontWeight.Bold)
+                                            Text(S.delete, color = OojooTheme.Red, fontWeight = FontWeight.Bold)
                                         }
                                     },
                                     dismissButton = {
-                                        TextButton(onClick = { showUnpairDialog = false }) { Text("취소") }
+                                        TextButton(onClick = { showUnpairDialog = false }) { Text(S.cancel) }
                                     }
                                 )
                             }
@@ -115,8 +117,8 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                     }
                 }
             }
-            item { vm.msg?.let { Text(it, fontSize = 13.sp, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
-            item { TextButton(onClick = { vm.refresh() }) { Text("🔄 새로고침", color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
+            item { vm.msg?.let { Text(localizeMasterMessage(it, S), fontSize = 13.sp, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
+            item { TextButton(onClick = { vm.refresh() }) { Text(S.refresh, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
         }
     }
 }

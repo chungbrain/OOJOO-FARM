@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
+import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import org.json.JSONArray
 import android.net.Uri
@@ -32,6 +33,7 @@ data class GalleryItem(val path: String, val slaveName: String, val createdAt: S
 @Composable
 fun GalleryScreen(nav: NavController) {
     val ctx = LocalContext.current
+    val S = LocalAppStrings.current
     val items = remember {
         val arr = JSONArray(Prefs.galleryItems(ctx))
         (0 until arr.length()).map { i ->
@@ -42,7 +44,7 @@ fun GalleryScreen(nav: NavController) {
     var selectedPath by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("📷 사진첩", color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text(S.gallery, color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
         Column(Modifier.fillMaxSize().padding(p)) {
@@ -60,7 +62,7 @@ fun GalleryScreen(nav: NavController) {
                     )
                 }
                 Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = "목록으로", onClick = { selectedPath = null }, modifier = Modifier.weight(1f))
+                    GradientButton(text = S.backToList, onClick = { selectedPath = null }, modifier = Modifier.weight(1f))
                 }
             }
 
@@ -68,12 +70,12 @@ fun GalleryScreen(nav: NavController) {
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("📹", fontSize = 56.sp)
                     Spacer(Modifier.height(14.dp))
-                    Text("저장된 영상이 없어요!", color = OojooTheme.Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(S.emptyGallery, color = OojooTheme.Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(Modifier.height(4.dp))
-                    Text("Farmer 카메라로 촬영하면 여기에 저장됩니다.", color = OojooTheme.Muted2, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(S.galleryTip, color = OojooTheme.Muted2, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             } else if (selectedPath == null) {
-                Text("🎬 저장된 영상 (${items.size}개)", Modifier.padding(20.dp), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = OojooTheme.Ink)
+                Text("${S.savedVideosPrefix}${items.size}${S.savedVideosSuffix}", Modifier.padding(20.dp), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = OojooTheme.Ink)
                 LazyColumn(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(items) { item ->
                         Card(
@@ -97,7 +99,7 @@ fun GalleryScreen(nav: NavController) {
                                 Column(Modifier.weight(1f)) {
                                     Text(item.slaveName, fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 15.sp)
                                     Text(item.createdAt, color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text("📹 3초 영상", color = OojooTheme.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(S.video3sec, color = OojooTheme.Muted2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Text("▶", fontSize = 24.sp, color = OojooTheme.Green)
                             }
