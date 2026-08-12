@@ -275,4 +275,25 @@
     <string name="server_invalid">Enter an http or https root address.</string>
     <string name="server_connection_failed">Server health check failed. The previous address was kept.</string>
     <string name="server_help">The app saves the address and restarts its network client only after /health succeeds.</string>
+
+    <!-- Auth (login / signup) -->
+    <string name="auth_title_signup">🌱 Sign up</string>
+    <string name="auth_title_login">🔑 Log in</string>
+    <string name="auth_tab_signup">Sign up</string>
+    <string name="auth_tab_login">Log in</string>
+    <string name="auth_email">Email (ID)</string>
+    <string name="auth_email_ph">you@example.com</string>
+    <string name="auth_pw">Password</string>
+    <string name="auth_pw_ph">4+ characters</string>
+    <string name="auth_pw_confirm">Confirm password</string>
+    <string name="auth_pw_mismatch">Passwords do not match</string>
+    <string name="auth_submit_signup">Sign up and start</string>
+    <string name="auth_submit_login">Log in</string>
+    <string name="auth_fail_email_used">Email already registered</string>
+    <string name="auth_fail_invalid_email">Please enter a valid email</string>
+    <string name="auth_fail_short_pw">Password must be at least 4 characters</string>
+    <string name="auth_fail_invalid_creds">Invalid email or password</string>
+    <string name="auth_fail_server">Server error — check the server URL</string>
+    <string name="auth_logout">Log out</string>
+    <string name="auth_logged_in_as">Logged in as: %1$s</string>
 </resources>

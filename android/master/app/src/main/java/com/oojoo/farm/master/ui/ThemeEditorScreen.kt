@@ -21,6 +21,7 @@ import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppLocale
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
 import com.oojoo.farm.master.network.ServerEndpointValidation
 import com.oojoo.farm.master.network.validateServerEndpoint
@@ -202,7 +203,31 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                         lineHeight = 18.sp,
                     )
                 }
-                Text(stringResource(R.string.server_help), color = OojooTheme.Muted, fontSize = 12.sp, lineHeight = 18.sp)
+Text(stringResource(R.string.server_help), color = OojooTheme.Muted, fontSize = 12.sp, lineHeight = 18.sp)
+
+                // === 계정 / 로그아웃 ===
+                Spacer(Modifier.height(20.dp))
+                HorizontalDivider(color = OojooTheme.Line)
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.account_label), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                val currentEmail = Prefs.email(ctx)
+                if (!currentEmail.isNullOrBlank()) {
+                    Text(
+                        stringResource(R.string.auth_logged_in_as, currentEmail),
+                        fontSize = 13.sp, color = OojooTheme.Muted, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlineButton(
+                        text = stringResource(R.string.auth_logout),
+                        onClick = {
+                            Prefs.clearAccount(ctx)
+                            Session.clear()
+                            nav.navigate("auth") { popUpTo(0) { inclusive = true } }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = OojooTheme.Red
+                    )
+                }
             }
         }
     }

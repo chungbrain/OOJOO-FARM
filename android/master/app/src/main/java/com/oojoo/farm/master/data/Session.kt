@@ -9,11 +9,13 @@ import android.content.Context
  */
 object Session {
     @Volatile var userId: String = ""
+    @Volatile var email: String = ""
     @Volatile var nickname: String = ""
     @Volatile var region: String = "Seoul"
 
     fun load(ctx: Context) {
         userId = Prefs.userId(ctx) ?: ""
+        email = Prefs.email(ctx) ?: ""
         nickname = Prefs.nickname(ctx) ?: ""
         region = Prefs.region(ctx)
     }
@@ -22,6 +24,21 @@ object Session {
         this.userId = userId
         this.nickname = nickname
         this.region = region
+    }
+
+    /** 로그인/회원가입 직후 — email 포함. */
+    fun setAuth(userId: String, email: String?, nickname: String?, region: String?) {
+        this.userId = userId
+        this.email = email ?: ""
+        this.nickname = nickname ?: ""
+        this.region = region ?: "Seoul"
+    }
+
+    fun clear() {
+        userId = ""
+        email = ""
+        nickname = ""
+        region = "Seoul"
     }
 
     fun updateRegion(ctx: Context, region: String) {

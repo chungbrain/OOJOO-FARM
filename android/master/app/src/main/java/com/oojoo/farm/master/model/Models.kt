@@ -7,9 +7,25 @@ data class UserRequest(val id: String? = null, val nickname: String? = null, val
 @Serializable
 data class User(
     val id: String,
+    val email: String? = null,
     val nickname: String? = null,
     val region: String? = null,
+    val plan: String? = null,
     val created_at: String? = null
+)
+
+@Serializable
+data class RegisterRequest(
+    val email: String,
+    val password: String,
+    val nickname: String? = null,
+    val region: String? = null
+)
+
+@Serializable
+data class LoginRequest(
+    val email: String,
+    val password: String
 )
 
 @Serializable

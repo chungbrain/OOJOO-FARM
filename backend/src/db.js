@@ -232,6 +232,9 @@ function ensureColumn(table, column, ddl) {
 }
 ensureColumn('slaves', 'battery', 'battery INTEGER');
 ensureColumn('users', 'plan', "plan TEXT DEFAULT 'free'");
+ensureColumn('users', 'email', 'email TEXT');
+ensureColumn('users', 'password_hash', 'password_hash TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 // 마켓 시드 (products 비어 있을 때만)
 seedMarket(db);

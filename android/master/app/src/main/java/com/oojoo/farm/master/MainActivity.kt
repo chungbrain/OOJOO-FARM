@@ -59,6 +59,7 @@ import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
+import com.oojoo.farm.master.ui.AuthScreen
 import com.oojoo.farm.master.ui.OojooMasterTheme
 import com.oojoo.farm.master.ui.OojooTheme
 import com.oojoo.farm.master.ui.LocalOojooUi
@@ -126,7 +127,9 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
     val navStackEntry by nav.currentBackStackEntryAsState()
     val currentRoute = navStackEntry?.destination?.route
     val showBottomBar = currentRoute in items.map { it.route }
-    val startRoute = if (Prefs.isOnboarded(ctx)) "home" else "onboarding"
+    // 인증 우선 — userId 가 없으면 auth 화면, 있으면 홈.
+    // (이전에 만든 익명 계정은 그대로 유지 — Prefs.userId 가 있으면 인증 통과.)
+    val startRoute = if (Prefs.isOnboarded(ctx)) "home" else "auth"
 
     // Transparent floating tabs — no beige/cream dock panel behind the menu
     Box(Modifier.fillMaxSize().background(OojooTheme.Bg)) {
@@ -137,6 +140,7 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
                 .fillMaxSize()
                 .padding(bottom = if (showBottomBar) 76.dp else 0.dp)
         ) {
+            composable("auth") { AuthScreen(nav) }
             composable("onboarding") { OnboardingScreen(nav) }
             composable("home") { HomeScreen(nav) }
             composable("plants") { PlantListScreen(nav) }

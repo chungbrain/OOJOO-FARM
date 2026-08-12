@@ -5,6 +5,7 @@ import android.content.Context
 object Prefs {
     private const val FILE = "master_prefs"
     private const val K_USER = "userId"
+    private const val K_EMAIL = "email"
     private const val K_NICK = "nickname"
     private const val K_REGION = "region"
     private const val K_SERVER = "serverUrl"
@@ -13,6 +14,7 @@ object Prefs {
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     fun userId(ctx: Context): String? = sp(ctx).getString(K_USER, null)
+    fun email(ctx: Context): String? = sp(ctx).getString(K_EMAIL, null)
     fun nickname(ctx: Context): String? = sp(ctx).getString(K_NICK, null)
     fun region(ctx: Context): String = sp(ctx).getString(K_REGION, "Seoul") ?: "Seoul"
 
@@ -27,6 +29,7 @@ object Prefs {
     fun serverUrl(ctx: Context): String =
         sp(ctx).getString(K_SERVER, null) ?: defaultServerUrl(ctx)
 
+    /** 인증 완료: userId + email + nickname + region 모두 저장. */
     fun isOnboarded(ctx: Context) = !userId(ctx).isNullOrBlank()
 
     fun saveAccount(ctx: Context, userId: String, nickname: String?, region: String) {
@@ -34,6 +37,24 @@ object Prefs {
             .putString(K_USER, userId)
             .putString(K_NICK, nickname)
             .putString(K_REGION, region)
+            .apply()
+    }
+
+    /** 이메일/패스워드 인증으로 들어온 계정 저장 — email 까지 영구 저장. */
+    fun saveAuthAccount(ctx: Context, userId: String, email: String?, nickname: String?, region: String?) {
+        sp(ctx).edit()
+            .putString(K_USER, userId)
+            .putString(K_EMAIL, email)
+            .putString(K_NICK, nickname)
+            .putString(K_REGION, region ?: "Seoul")
+            .apply()
+    }
+
+    fun clearAccount(ctx: Context) {
+        sp(ctx).edit()
+            .remove(K_USER)
+            .remove(K_EMAIL)
+            .remove(K_NICK)
             .apply()
     }
 

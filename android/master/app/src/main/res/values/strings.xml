@@ -275,4 +275,25 @@
     <string name="server_invalid">http 또는 https 루트 주소를 입력하세요.</string>
     <string name="server_connection_failed">서버 상태 확인에 실패했습니다. 기존 주소를 유지합니다.</string>
     <string name="server_help">/health 응답이 정상일 때만 저장하고 네트워크 연결을 다시 시작합니다.</string>
+
+    <!-- Auth (login / signup) -->
+    <string name="auth_title_signup">🌱 회원가입</string>
+    <string name="auth_title_login">🔑 로그인</string>
+    <string name="auth_tab_signup">회원가입</string>
+    <string name="auth_tab_login">로그인</string>
+    <string name="auth_email">이메일 (ID)</string>
+    <string name="auth_email_ph">you@example.com</string>
+    <string name="auth_pw">비밀번호</string>
+    <string name="auth_pw_ph">4자 이상</string>
+    <string name="auth_pw_confirm">비밀번호 확인</string>
+    <string name="auth_pw_mismatch">비밀번호가 일치하지 않습니다</string>
+    <string name="auth_submit_signup">회원가입하고 시작</string>
+    <string name="auth_submit_login">로그인</string>
+    <string name="auth_fail_email_used">이미 가입된 이메일입니다</string>
+    <string name="auth_fail_invalid_email">올바른 이메일을 입력하세요</string>
+    <string name="auth_fail_short_pw">비밀번호는 4자 이상이어야 합니다</string>
+    <string name="auth_fail_invalid_creds">이메일 또는 비밀번호가 올바르지 않습니다</string>
+    <string name="auth_fail_server">서버 오류 — 서버 주소를 확인하세요</string>
+    <string name="auth_logout">로그아웃</string>
+    <string name="auth_logged_in_as">로그인됨: %1$s</string>
 </resources>
