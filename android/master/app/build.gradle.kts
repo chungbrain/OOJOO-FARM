@@ -13,8 +13,8 @@ android {
         minSdk = 26
         targetSdk = 34
 // Android versionCode is a 32-bit Int (max 2147483647). Build label 20260819001 is in versionName.
-        versionCode = 2026081906
-        versionName = "1.0.2026081906"
+        versionCode = 2026081907
+        versionName = "1.0.2026081907"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
