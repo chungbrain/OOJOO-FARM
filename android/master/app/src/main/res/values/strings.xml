@@ -296,4 +296,42 @@
     <string name="auth_fail_server">서버 오류 — 서버 주소를 확인하세요</string>
     <string name="auth_logout">로그아웃</string>
     <string name="auth_logged_in_as">로그인됨: %1$s</string>
+
+    <!-- Family / household share -->
+    <string name="family_title">가족 · 친구</string>
+    <string name="family_short">가족</string>
+    <string name="family_open">가족 · 친구 초대</string>
+    <string name="family_desc">초대한 가족과 친구는 Farmer와 식물을 함께 보고 조작할 수 있습니다.</string>
+    <string name="family_role_owner">주인 (초대 가능)</string>
+    <string name="family_role_member">멤버 (공동 소유)</string>
+    <string name="family_invite_title">가족 · 친구 초대</string>
+    <string name="family_invite_hint">초대 코드를 만들어 공유하세요. 이메일은 선택입니다.</string>
+    <string name="family_invite_email_ph">친구 이메일 (선택)</string>
+    <string name="family_invite_action">초대 코드 만들기</string>
+    <string name="family_invite_code_label">초대 코드</string>
+    <string name="family_copy_code">코드 복사</string>
+    <string name="family_copied">초대 코드를 복사했습니다</string>
+    <string name="family_revoke">취소</string>
+    <string name="family_join_title">초대 코드로 참여</string>
+    <string name="family_join_hint">가족이 보낸 6자리 코드를 입력하세요.</string>
+    <string name="family_join_code_ph">초대 코드</string>
+    <string name="family_join_action">참여하기</string>
+    <string name="family_leave">이 농장에서 나가기</string>
+    <string name="family_remove">내보내기</string>
+    <string name="family_shared">공유</string>
+    <string name="family_shared_with">공유 · %1$s</string>
+
+    <!-- Growth album / short clip -->
+    <string name="growth_album_title">성장 사진첩</string>
+    <string name="growth_album_hint">Farmer가 하루에 한 장, 또는 변화가 있을 때 사진을 쌓습니다.</string>
+    <string name="growth_album_empty">아직 누적된 사진이 없어요. Farmer 대시보드를 켜 두면 자동으로 쌓입니다.</string>
+    <string name="growth_clip_action">숏클립만들기</string>
+    <string name="growth_clip_making">숏클립 만드는 중…</string>
+    <string name="growth_clip_waiting">Farmer가 사진과 BGM으로 성장 스토리를 만들고 있어요</string>
+    <string name="growth_clip_done">성장 숏클립이 준비되었습니다</string>
+    <string name="growth_clip_failed">숏클립을 만들지 못했습니다. 사진이 더 필요하거나 Farmer 카메라가 꺼져 있을 수 있어요.</string>
+    <string name="growth_clip_timeout">시간이 초과되었습니다. Farmer가 켜져 있는지 확인해 주세요.</string>
+    <string name="growth_clip_need_photos">누적된 사진이 있어야 숏클립을 만들 수 있어요.</string>
+    <string name="growth_clip_no_farmer">담당 Farmer가 없습니다.</string>
+    <string name="growth_clip_ready_label">성장 스토리</string>
 </resources>

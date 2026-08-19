@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
@@ -269,6 +271,17 @@ private fun PlantGridCard(
                     maxLines = 1,
                     textAlign = TextAlign.Center
                 )
+                if (plant.shared == 1) {
+                    val owner = plant.owner_name?.ifBlank { null } ?: plant.owner_email
+                    Text(
+                        if (owner.isNullOrBlank()) stringResource(R.string.family_shared) else stringResource(R.string.family_shared_with, owner),
+                        color = OojooTheme.GreenDark,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             Surface(

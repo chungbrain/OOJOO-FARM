@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
+import { householdMemberIds, inSql } from '../lib/household.js';
 const r = Router();
 
 // 마스터: 페어링 코드 생성 (6자리 무작위, 10분 유효)
@@ -36,10 +37,22 @@ r.post('/verify', (req, res) => {
   res.json({ slaveId, sessionKey, userId: p.user_id, name: slaveName });
 });
 
-// 마스터: 사용자의 슬레이브 목록 (배터리/온라인/마지막 접속 포함)
+// 마스터: 사용자의 슬레이브 목록 — 가구(가족/친구) 공유 Farmer 포함
 r.get('/:userId', (req, res) => {
-  const rows = db.prepare('SELECT id, name, online, last_seen, battery FROM slaves WHERE user_id=?').all(req.params.userId);
-  res.json({ slaves: rows });
+  const ids = householdMemberIds(req.params.userId);
+  const rows = db.prepare(`
+    SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.user_id AS owner_id,
+           u.nickname AS owner_name, u.email AS owner_email
+    FROM slaves s
+    LEFT JOIN users u ON u.id = s.user_id
+    WHERE s.user_id IN (${inSql(ids)})
+  `).all(...ids);
+  res.json({
+    slaves: rows.map((s) => ({
+      ...s,
+      shared: s.owner_id && s.owner_id !== req.params.userId ? 1 : 0,
+    })),
+  });
 });
 
 // 슬레이브: 하트비트 (온라인 상태 + 배터리 갱신) — 세션키 인증

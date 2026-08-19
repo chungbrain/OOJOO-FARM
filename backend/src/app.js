@@ -14,9 +14,11 @@ import report from './routes/report.js';
 import subscription from './routes/subscription.js';
 import weather from './routes/weather.js';
 import videos from './routes/videos.js';
+import photos from './routes/photos.js';
 import analysis from './routes/analysis.js';
 import admin from './routes/admin.js';
 import crash from './routes/crash.js';
+import household from './routes/household.js';
 import './db.js';
 
 const app = express();
@@ -70,9 +72,11 @@ app.use('/api/report', report);
 app.use('/api/subscription', subscription);
 app.use('/api/weather', weather);
 app.use('/api/videos', videos);
+app.use('/api/photos', photos);
 app.use('/api/analysis', analysis);
 app.use('/api/admin', admin);
 app.use('/api/crash', crash);
+app.use('/api/household', household);
 
 // 알 수 없는 경로
 app.use((req, res) => {

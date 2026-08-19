@@ -210,6 +210,11 @@ Text(stringResource(R.string.server_help), color = OojooTheme.Muted, fontSize = 
                 HorizontalDivider(color = OojooTheme.Line)
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(R.string.account_label), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                OutlineButton(
+                    text = stringResource(R.string.family_open),
+                    onClick = { nav.navigate("family") },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 val currentEmail = Prefs.email(ctx)
                 if (!currentEmail.isNullOrBlank()) {
                     Text(

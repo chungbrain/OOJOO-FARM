@@ -161,3 +161,60 @@ test('알림 센터: 사용자 슬레이브 이벤트 집계', async () => {
   assert.ok(notis.notifications.some((n) => n.type === 'harvest_ready'));
   assert.ok(notis.notifications[0].slave_name);
 });
+
+test('가구 초대: 가족/친구가 Farmer·식물을 공동 소유', async () => {
+  const owner = await (await post('/api/users', { nickname: '주인', region: 'Seoul' })).json();
+  const friend = await (await post('/api/users', { nickname: '친구', region: 'Busan' })).json();
+
+  const codeResp = await (await post('/api/pairing/code', { userId: owner.id })).json();
+  const verify = await (await post('/api/pairing/verify', { code: codeResp.code })).json();
+  await post('/api/plants', { userId: owner.id, slaveId: verify.slaveId, name: '공유토마토' });
+
+  const invite = await (await post('/api/household/invite', { userId: owner.id })).json();
+  assert.ok(invite.code);
+
+  const accept = await post('/api/household/accept', { userId: friend.id, code: invite.code });
+  assert.equal(accept.status, 200);
+
+  const friendFarmers = await (await get(`/api/pairing/${friend.id}`)).json();
+  assert.equal(friendFarmers.slaves.length, 1);
+  assert.equal(friendFarmers.slaves[0].id, verify.slaveId);
+  assert.equal(friendFarmers.slaves[0].shared, 1);
+
+  const friendPlants = await (await get(`/api/plants/${friend.id}`)).json();
+  assert.equal(friendPlants.plants.length, 1);
+  assert.equal(friendPlants.plants[0].name, '공유토마토');
+  assert.equal(friendPlants.plants[0].shared, 1);
+
+  const hh = await (await get(`/api/household/${friend.id}`)).json();
+  assert.equal(hh.role, 'member');
+  assert.equal(hh.members.length, 2);
+});
+
+test('성장 사진첩: Farmer 업로드 후 식물별 조회', async () => {
+  const u = await (await post('/api/users', { nickname: '앨범', region: 'Seoul' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+  const plant = await (await post('/api/plants', { userId: u.id, slaveId: verify.slaveId, name: '방울토마토' })).json();
+
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wAAAAD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPwB//9k=',
+    'base64'
+  );
+  const fd = new FormData();
+  fd.append('photo', new Blob([jpeg], { type: 'image/jpeg' }), 'day1.jpg');
+  fd.append('plantId', plant.plantId);
+  fd.append('takenAt', '2026-08-19 07:00');
+  fd.append('location', 'Seoul');
+  const up = await fetch(`${base}/api/photos/upload/${verify.slaveId}`, {
+    method: 'POST',
+    headers: { 'x-session-key': verify.sessionKey },
+    body: fd,
+  });
+  assert.equal(up.status, 200);
+
+  const album = await (await get(`/api/photos/plant/${plant.plantId}`)).json();
+  assert.equal(album.photos.length, 1);
+  assert.equal(album.photos[0].location, 'Seoul');
+  assert.ok(album.photos[0].url.startsWith('/api/photos/file/'));
+});

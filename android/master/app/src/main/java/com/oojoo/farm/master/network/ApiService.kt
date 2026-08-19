@@ -161,10 +161,44 @@ interface ApiService {
     @GET("api/videos/by-command/{commandId}")
     suspend fun videoByCommand(@Path("commandId") commandId: String): VideoInfoResponse
 
+    @GET("api/videos/plant/{plantId}")
+    suspend fun plantVideos(
+        @Path("plantId") plantId: String,
+        @Query("kind") kind: String? = null
+    ): VideosResponse
+
+    @GET("api/photos/plant/{plantId}")
+    suspend fun plantPhotos(@Path("plantId") plantId: String): PlantPhotosResponse
+
     // ---------- Farmer 분석 결과 ----------
     @GET("api/analysis/latest/{plantId}")
     suspend fun latestAnalysis(@Path("plantId") plantId: String): AnalysisResponse
 
     @GET("api/analysis/history/{plantId}")
     suspend fun analysisHistory(@Path("plantId") plantId: String): AnalysisHistoryResponse
+
+    // ---------- 가족 / 친구 가구 공유 ----------
+    @GET("api/household/{userId}")
+    suspend fun household(@Path("userId") userId: String): HouseholdResponse
+
+    @POST("api/household/invite")
+    suspend fun householdInvite(@Body body: HouseholdInviteRequest): HouseholdInviteResponse
+
+    @POST("api/household/accept")
+    suspend fun householdAccept(@Body body: HouseholdAcceptRequest): HouseholdResponse
+
+    @POST("api/household/leave")
+    suspend fun householdLeave(@Body body: HouseholdLeaveRequest): OkResponse
+
+    @DELETE("api/household/member/{memberId}")
+    suspend fun householdRemoveMember(
+        @Path("memberId") memberId: String,
+        @Query("userId") userId: String
+    ): HouseholdResponse
+
+    @DELETE("api/household/invite/{code}")
+    suspend fun householdRevokeInvite(
+        @Path("code") code: String,
+        @Query("userId") userId: String
+    ): HouseholdResponse
 }

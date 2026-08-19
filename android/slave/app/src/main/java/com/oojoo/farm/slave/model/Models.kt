@@ -85,5 +85,33 @@ data class WeatherResponse(
 @Serializable
 data class VideoUploadResponse(
     val videoId: String,
-    val url: String
+    val url: String,
+    val kind: String? = null
+)
+
+@Serializable
+data class PhotoUploadResponse(
+    val photoId: String,
+    val url: String? = null
+)
+
+@Serializable
+data class PlantPhoto(
+    val id: String,
+    val slave_id: String? = null,
+    val plant_id: String? = null,
+    val url: String,
+    val taken_at: String? = null,
+    val location: String? = null,
+    val created_at: String? = null
+)
+
+@Serializable
+data class PlantPhotosResponse(val photos: List<PlantPhoto> = emptyList())
+
+@Serializable
+data class ClipFailedRequest(
+    val commandId: String? = null,
+    val plantId: String? = null,
+    val error: String? = null
 )

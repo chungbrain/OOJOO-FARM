@@ -236,6 +236,38 @@ ensureColumn('users', 'email', 'email TEXT');
 ensureColumn('users', 'password_hash', 'password_hash TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS households (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  name TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(owner_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS household_members (
+  household_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT DEFAULT 'member',
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY(household_id, user_id),
+  FOREIGN KEY(household_id) REFERENCES households(id),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS household_invites (
+  code TEXT PRIMARY KEY,
+  household_id TEXT NOT NULL,
+  invited_email TEXT,
+  invited_by TEXT,
+  status TEXT DEFAULT 'pending',
+  expires_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(household_id) REFERENCES households(id)
+);
+CREATE INDEX IF NOT EXISTS idx_hmembers_user ON household_members(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_hinvites_hh ON household_invites(household_id, status);
+`);
+
 // 마켓 시드 (products 비어 있을 때만)
 seedMarket(db);
 

@@ -18,9 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oojoo.farm.master.R
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
@@ -49,7 +51,7 @@ class FarmerListViewModel : ViewModel() {
 fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) {
     val S = LocalAppStrings.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text(S.farmerManage, color = Color.White, fontWeight = FontWeight.Black) }, actions = { Row { TextButton(onClick = { nav.navigate("gallery") }) { Text(S.gallery, color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("subscription") }) { Text(S.subscription, color = Color.White, fontWeight = FontWeight.Bold) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text(S.farmerManage, color = Color.White, fontWeight = FontWeight.Black) }, actions = { Row { TextButton(onClick = { nav.navigate("family") }) { Text(stringResource(R.string.family_short), color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("gallery") }) { Text(S.gallery, color = Color.White, fontWeight = FontWeight.Bold) }; TextButton(onClick = { nav.navigate("subscription") }) { Text(S.subscription, color = Color.White, fontWeight = FontWeight.Bold) } } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("pairing") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.connectFarmer) } },
         containerColor = OojooTheme.Bg
     ) { p ->
@@ -75,6 +77,10 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(s.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 15.sp)
+                                if (s.shared == 1) {
+                                    val owner = s.owner_name?.ifBlank { null } ?: s.owner_email ?: stringResource(R.string.family_shared)
+                                    Text("👥 $owner", color = OojooTheme.GreenDark, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                                }
                                 val dot = if (s.online == 1) S.online else S.offline
                                 val bat = s.battery?.let { " · 🔋$it%" } ?: ""
                                 Text("$dot$bat", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)

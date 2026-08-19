@@ -42,6 +42,7 @@ fun CameraPreview(
     DisposableEffect(Unit) {
         onDispose {
             executor.shutdown()
+            CameraHolder.setImageCapture(null)
             CameraHolder.setCapture(null)
             val providerFuture = ProcessCameraProvider.getInstance(context)
             providerFuture.addListener({
@@ -76,6 +77,7 @@ fun CameraPreview(
             val videoCapture = VideoCapture.withOutput(recorder)
 
             imageCapture = capture
+            CameraHolder.setImageCapture(capture)
             // use case 바인딩 우선순위:
             // 1) Preview + ImageCapture + ImageAnalysis + VideoCapture (전부)
             // 2) Preview + ImageCapture + VideoCapture (ImageAnalysis 제외 — 영상 캡처 우선)

@@ -49,7 +49,11 @@ data class Slave(
     val name: String,
     val online: Int,
     val last_seen: String? = null,
-    val battery: Int? = null
+    val battery: Int? = null,
+    val owner_id: String? = null,
+    val owner_name: String? = null,
+    val owner_email: String? = null,
+    val shared: Int = 0
 )
 @Serializable
 data class SlavesResponse(val slaves: List<Slave>)
@@ -101,7 +105,10 @@ data class Plant(
     val name: String,
     val species: String? = null,
     val planted_at: String? = null,
-    val stage: String? = null
+    val stage: String? = null,
+    val owner_name: String? = null,
+    val owner_email: String? = null,
+    val shared: Int = 0
 )
 
 @Serializable
@@ -376,11 +383,29 @@ data class VideoInfoResponse(
     val videoId: String,
     val slaveId: String,
     val commandId: String? = null,
+    val plantId: String? = null,
+    val kind: String? = null,
+    val photo_count: Int? = null,
     val url: String,
     val mime: String? = null,
     val size: Int = 0,
     val created_at: String? = null
 )
+@Serializable
+data class VideosResponse(val videos: List<VideoInfoResponse> = emptyList())
+
+@Serializable
+data class PlantPhoto(
+    val id: String,
+    val slave_id: String? = null,
+    val plant_id: String? = null,
+    val url: String,
+    val taken_at: String? = null,
+    val location: String? = null,
+    val created_at: String? = null
+)
+@Serializable
+data class PlantPhotosResponse(val photos: List<PlantPhoto> = emptyList())
 
 // ---------- Farmer 분석 결과 ----------
 @Serializable
@@ -425,3 +450,44 @@ data class ZoomShotData(
 )
 @Serializable
 data class AnalysisHistoryResponse(val analyses: List<AnalysisResponse> = emptyList())
+
+// ---------- 가족 / 친구 가구 공유 ----------
+@Serializable
+data class HouseholdInfo(val id: String, val name: String? = null, val ownerId: String? = null)
+@Serializable
+data class HouseholdMember(
+    val userId: String,
+    val role: String,
+    val status: String? = null,
+    val email: String? = null,
+    val nickname: String? = null,
+    val joinedAt: String? = null
+)
+@Serializable
+data class HouseholdInvite(
+    val code: String,
+    val invited_email: String? = null,
+    val status: String? = null,
+    val expires_at: String? = null,
+    val created_at: String? = null
+)
+@Serializable
+data class HouseholdResponse(
+    val household: HouseholdInfo,
+    val role: String,
+    val members: List<HouseholdMember> = emptyList(),
+    val invites: List<HouseholdInvite> = emptyList()
+)
+@Serializable
+data class HouseholdInviteRequest(val userId: String, val email: String? = null)
+@Serializable
+data class HouseholdInviteResponse(
+    val code: String,
+    val expiresAt: String? = null,
+    val householdId: String? = null,
+    val invitedEmail: String? = null
+)
+@Serializable
+data class HouseholdAcceptRequest(val userId: String, val code: String)
+@Serializable
+data class HouseholdLeaveRequest(val userId: String)

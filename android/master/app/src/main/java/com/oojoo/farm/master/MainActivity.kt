@@ -64,6 +64,7 @@ import com.oojoo.farm.master.ui.OojooMasterTheme
 import com.oojoo.farm.master.ui.OojooTheme
 import com.oojoo.farm.master.ui.LocalOojooUi
 import com.oojoo.farm.master.ui.OojooUiState
+import com.oojoo.farm.master.ui.FamilyScreen
 import com.oojoo.farm.master.ui.ThemeEditorScreen
 import com.oojoo.farm.master.ui.FarmerListScreen
 import com.oojoo.farm.master.ui.CartScreen
@@ -169,6 +170,7 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
             composable("gallery") { GalleryScreen(nav) }
             composable("subscription") { SubscriptionScreen(nav) }
             composable("theme_editor") { ThemeEditorScreen(nav, uiState) }
+            composable("family") { FamilyScreen(nav) }
         }
 
         if (showBottomBar) {

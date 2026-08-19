@@ -41,6 +41,25 @@ interface ApiService {
     suspend fun uploadVideo(
         @Path("slaveId") slaveId: String,
         @Part video: MultipartBody.Part,
-        @Part("commandId") commandId: RequestBody?
+        @Part("commandId") commandId: RequestBody? = null,
+        @Part("plantId") plantId: RequestBody? = null,
+        @Part("kind") kind: RequestBody? = null,
+        @Part("photoCount") photoCount: RequestBody? = null
     ): VideoUploadResponse
+
+    @Multipart
+    @POST("api/photos/upload/{slaveId}")
+    suspend fun uploadPhoto(
+        @Path("slaveId") slaveId: String,
+        @Part photo: MultipartBody.Part,
+        @Part("plantId") plantId: RequestBody,
+        @Part("takenAt") takenAt: RequestBody,
+        @Part("location") location: RequestBody
+    ): PhotoUploadResponse
+
+    @GET("api/photos/plant/{plantId}")
+    suspend fun plantPhotos(@Path("plantId") plantId: String): PlantPhotosResponse
+
+    @POST("api/videos/clip-failed/{slaveId}")
+    suspend fun clipFailed(@Path("slaveId") slaveId: String, @Body body: ClipFailedRequest): OkResponse
 }

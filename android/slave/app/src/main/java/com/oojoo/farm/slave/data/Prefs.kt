@@ -16,6 +16,8 @@ object Prefs {
     private const val K_QUEUE = "offlineQueue"
     private const val K_LANGUAGE = "language"
     private const val K_LANGUAGE_MIGRATED = "languageMigratedToExplicitLocale"
+    private const val K_LAST_PHOTO_AT = "lastPhotoAt"
+    private const val K_LAST_PHOTO_GREEN = "lastPhotoGreenness"
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -105,5 +107,15 @@ object Prefs {
             .putString(K_LANGUAGE, AppLocale.normalizeLegacyLanguage(language))
             .putBoolean(K_LANGUAGE_MIGRATED, true)
             .apply()
+    }
+
+    fun lastPhotoAt(ctx: Context): Long = sp(ctx).getLong(K_LAST_PHOTO_AT, 0L)
+    fun setLastPhotoAt(ctx: Context, at: Long) {
+        sp(ctx).edit().putLong(K_LAST_PHOTO_AT, at).apply()
+    }
+
+    fun lastPhotoGreenness(ctx: Context): Float = sp(ctx).getFloat(K_LAST_PHOTO_GREEN, -1f)
+    fun setLastPhotoGreenness(ctx: Context, value: Float) {
+        sp(ctx).edit().putFloat(K_LAST_PHOTO_GREEN, value).apply()
     }
 }

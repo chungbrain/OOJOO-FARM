@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
+import { householdMemberIds, inSql } from '../lib/household.js';
 const r = Router();
 
 // 슬레이브에 할당된 식물 목록 (/:userId 보다 먼저 매칭되어야 함)
@@ -16,10 +17,21 @@ r.get('/plant/:id', (req, res) => {
   res.json(p);
 });
 
-// 사용자의 식물 목록
+// 사용자의 식물 목록 — 가구(가족/친구) 공유 식물 포함
 r.get('/:userId', (req, res) => {
-  const rows = db.prepare('SELECT * FROM plants WHERE user_id=?').all(req.params.userId);
-  res.json({ plants: rows });
+  const ids = householdMemberIds(req.params.userId);
+  const rows = db.prepare(`
+    SELECT p.*, u.nickname AS owner_name, u.email AS owner_email
+    FROM plants p
+    LEFT JOIN users u ON u.id = p.user_id
+    WHERE p.user_id IN (${inSql(ids)})
+  `).all(...ids);
+  res.json({
+    plants: rows.map((p) => ({
+      ...p,
+      shared: p.user_id && p.user_id !== req.params.userId ? 1 : 0,
+    })),
+  });
 });
 
 // 식물 등록 (마스터가 슬레이브에 연결)

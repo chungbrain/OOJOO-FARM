@@ -296,4 +296,42 @@
     <string name="auth_fail_server">Server error — check the server URL</string>
     <string name="auth_logout">Log out</string>
     <string name="auth_logged_in_as">Logged in as: %1$s</string>
+
+    <!-- Family / household share -->
+    <string name="family_title">Family &amp; friends</string>
+    <string name="family_short">Family</string>
+    <string name="family_open">Invite family &amp; friends</string>
+    <string name="family_desc">Invited family and friends can view and control Farmers and plants together.</string>
+    <string name="family_role_owner">Owner (can invite)</string>
+    <string name="family_role_member">Member (shared control)</string>
+    <string name="family_invite_title">Invite family &amp; friends</string>
+    <string name="family_invite_hint">Create an invite code to share. Email is optional.</string>
+    <string name="family_invite_email_ph">Friend email (optional)</string>
+    <string name="family_invite_action">Create invite code</string>
+    <string name="family_invite_code_label">Invite code</string>
+    <string name="family_copy_code">Copy code</string>
+    <string name="family_copied">Invite code copied</string>
+    <string name="family_revoke">Revoke</string>
+    <string name="family_join_title">Join with a code</string>
+    <string name="family_join_hint">Enter the 6-character code your family sent.</string>
+    <string name="family_join_code_ph">Invite code</string>
+    <string name="family_join_action">Join</string>
+    <string name="family_leave">Leave this farm</string>
+    <string name="family_remove">Remove</string>
+    <string name="family_shared">Shared</string>
+    <string name="family_shared_with">Shared · %1$s</string>
+
+    <!-- Growth album / short clip -->
+    <string name="growth_album_title">Growth album</string>
+    <string name="growth_album_hint">Farmer saves one photo a day, or when the plant changes.</string>
+    <string name="growth_album_empty">No photos yet. Keep the Farmer dashboard open to start collecting them.</string>
+    <string name="growth_clip_action">Make short clip</string>
+    <string name="growth_clip_making">Making short clip…</string>
+    <string name="growth_clip_waiting">Farmer is building a growth story with photos and BGM</string>
+    <string name="growth_clip_done">Growth clip is ready</string>
+    <string name="growth_clip_failed">Could not make the clip. You may need more photos, or Farmer camera is off.</string>
+    <string name="growth_clip_timeout">Timed out. Check that Farmer is on.</string>
+    <string name="growth_clip_need_photos">You need accumulated photos to make a short clip.</string>
+    <string name="growth_clip_no_farmer">No Farmer is assigned.</string>
+    <string name="growth_clip_ready_label">Growth story</string>
 </resources>

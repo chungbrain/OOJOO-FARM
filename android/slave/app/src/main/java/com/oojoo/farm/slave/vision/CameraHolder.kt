@@ -2,9 +2,9 @@ package com.oojoo.farm.slave.vision
 
 import android.content.Context
 import android.util.Log
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.video.FileOutputOptions
-import androidx.camera.video.Quality
-import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
@@ -26,6 +26,10 @@ object CameraHolder {
         private set
 
     @Volatile
+    var imageCapture: ImageCapture? = null
+        private set
+
+    @Volatile
     var ready: Boolean = false
         private set
 
@@ -34,8 +38,50 @@ object CameraHolder {
 
     fun setCapture(capture: VideoCapture<Recorder>?) {
         videoCapture = capture
-        ready = capture != null
+        ready = capture != null || imageCapture != null
         Log.i(TAG, if (capture != null) "VideoCapture ready" else "VideoCapture cleared")
+    }
+
+    fun setImageCapture(capture: ImageCapture?) {
+        imageCapture = capture
+        ready = videoCapture != null || capture != null
+        Log.i(TAG, if (capture != null) "ImageCapture ready" else "ImageCapture cleared")
+    }
+
+    fun isRecording(): Boolean = recording != null
+
+    /**
+     * 정지 사진을 JPEG 파일로 저장한다. 실패 시 null.
+     */
+    fun captureStill(context: Context, onDone: (File?) -> Unit) {
+        val capture = imageCapture
+        if (capture == null) {
+            Log.w(TAG, "ImageCapture not ready")
+            onDone(null)
+            return
+        }
+        if (recording != null) {
+            Log.w(TAG, "skip still — recording")
+            onDone(null)
+            return
+        }
+        val outFile = File(context.cacheDir, "still_${System.currentTimeMillis()}.jpg")
+        val opts = ImageCapture.OutputFileOptions.Builder(outFile).build()
+        try {
+            capture.takePicture(opts, executor, object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    Log.i(TAG, "still saved: ${outFile.absolutePath} (${outFile.length()}B)")
+                    onDone(outFile)
+                }
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e(TAG, "still capture error", exception)
+                    onDone(null)
+                }
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "captureStill failed", e)
+            onDone(null)
+        }
     }
 
     /**
