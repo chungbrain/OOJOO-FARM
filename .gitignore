@@ -8,6 +8,7 @@ npm-debug.log*
 backend/data/*.db
 backend/data/*.db-*
 backend/data/videos/*.mp4
+backend/data/photos/*
 backend/out.log
 backend/err.log
 
@@ -26,6 +27,10 @@ captures/
 # os
 .DS_Store
 Thumbs.db
+
+# python
+**/__pycache__/
+*.pyc
 
 # tooling / automation
 .tools/
