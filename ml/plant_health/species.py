@@ -1,6 +1,154 @@
-"""Species palettes and condition labels for on-device plant health CNNs."""
+"""Species palettes, labels, and licensed web-search queries for eval."""
 
 LABELS = ["healthy", "water_low", "water_high", "light_low", "pest", "heat"]
+
+# Weak labels for internet test images. Queries target visible symptoms,
+# not a specific pot. Used only for evaluation, never for training.
+WEB_QUERIES = {
+    "cherry_tomato": {
+        "healthy": ["cherry tomato plant leaves", "healthy tomato plant pot"],
+        "water_low": ["wilted tomato plant drought", "tomato plant dry wilted leaves"],
+        "water_high": ["overwatered tomato yellow leaves", "tomato plant root rot yellow"],
+        "light_low": ["tomato plant low light indoor", "leggy tomato seedling etiolated"],
+        "pest": ["tomato plant aphids", "tomato leaves insect holes"],
+        "heat": ["tomato sunscald leaves", "tomato heat stress leaf burn"],
+    },
+    "basil": {
+        "healthy": ["healthy basil plant leaves", "basil herb pot green"],
+        "water_low": ["wilted basil plant dry", "basil drooping leaves drought"],
+        "water_high": ["overwatered basil yellow leaves", "basil yellowing overwatering"],
+        "light_low": ["basil plant low light indoor", "leggy basil stretching"],
+        "pest": ["basil aphids leaves", "basil leaves holes pests"],
+        "heat": ["basil leaf scorch sun", "basil heat stressed leaves"],
+    },
+    "cactus": {
+        "healthy": ["healthy cactus potted", "green cactus plant pot"],
+        "water_low": ["shriveled cactus underwatered", "wrinkled cactus drought"],
+        "water_high": ["overwatered cactus mushy", "cactus rot from overwatering"],
+        "light_low": ["cactus etiolated low light", "stretched cactus indoor"],
+        "pest": ["cactus mealybugs", "cactus scale insects"],
+        "heat": ["cactus sunburn yellow", "cactus sun scorch"],
+    },
+    "herb": {
+        "healthy": ["rosemary plant healthy", "potted herb rosemary green"],
+        "water_low": ["wilted rosemary dry", "dried rosemary plant drought"],
+        "water_high": ["overwatered rosemary yellow", "rosemary root rot"],
+        "light_low": ["rosemary low light indoor", "leggy rosemary plant"],
+        "pest": ["rosemary aphids", "herb plant spider mites"],
+        "heat": ["rosemary leaf burn sun", "herb heat stress"],
+    },
+    "strawberry": {
+        "healthy": ["healthy strawberry plant leaves", "strawberry plant pot green"],
+        "water_low": ["wilted strawberry plant dry", "strawberry drought wilt"],
+        "water_high": ["overwatered strawberry yellow leaves", "strawberry plant yellowing"],
+        "light_low": ["strawberry plant low light", "indoor strawberry pale leaves"],
+        "pest": ["strawberry plant aphids", "strawberry leaves insect damage"],
+        "heat": ["strawberry leaf scorch", "strawberry heat stress leaves"],
+    },
+    "pepper": {
+        "healthy": ["healthy chili pepper plant", "green pepper plant leaves"],
+        "water_low": ["wilted pepper plant drought", "chili plant drooping dry"],
+        "water_high": ["overwatered pepper yellow leaves", "chili plant overwatering"],
+        "light_low": ["pepper plant low light", "leggy chili seedling"],
+        "pest": ["pepper plant aphids", "chili leaves pest holes"],
+        "heat": ["pepper sunscald leaves", "chili heat stress leaf burn"],
+    },
+    "pumpkin": {
+        "healthy": ["healthy pumpkin plant leaves", "pumpkin vine green leaves"],
+        "water_low": ["wilted pumpkin plant drought", "pumpkin leaves wilting dry"],
+        "water_high": ["overwatered pumpkin yellow leaves", "pumpkin plant yellowing"],
+        "light_low": ["pumpkin seedling low light", "leggy pumpkin plant"],
+        "pest": ["pumpkin plant aphids", "pumpkin leaves insect holes"],
+        "heat": ["pumpkin leaf scorch sun", "pumpkin heat wilt leaves"],
+    },
+    "zucchini": {
+        "healthy": ["healthy zucchini plant leaves", "zucchini squash plant green"],
+        "water_low": ["wilted zucchini plant drought", "zucchini leaves wilting"],
+        "water_high": ["overwatered zucchini yellow leaves", "zucchini plant yellowing"],
+        "light_low": ["zucchini seedling low light", "leggy zucchini plant"],
+        "pest": ["zucchini plant aphids", "zucchini leaves pest damage"],
+        "heat": ["zucchini leaf scorch", "zucchini sunburn leaves"],
+    },
+}
+
+# Extra short queries for volume. Weak labels, used for train+held-out split.
+MORE_QUERIES = {
+    "cherry_tomato": {
+        "healthy": ["tomato plant", "cherry tomato"],
+        "water_low": ["wilted tomato", "tomato drought"],
+        "water_high": ["yellow tomato leaf", "tomato chlorosis"],
+        "light_low": ["tomato seedling", "indoor tomato"],
+        "pest": ["tomato aphids", "tomato blight leaf"],
+        "heat": ["tomato sunscald", "tomato leaf burn"],
+    },
+    "basil": {
+        "healthy": ["basil plant", "ocimum basilicum"],
+        "water_low": ["wilted basil", "drooping basil"],
+        "water_high": ["yellow basil", "basil yellow leaf"],
+        "light_low": ["indoor basil", "basil seedling"],
+        "pest": ["basil aphids", "basil insect"],
+        "heat": ["basil sun", "basil scorch"],
+    },
+    "cactus": {
+        "healthy": ["cactus pot", "barrel cactus"],
+        "water_low": ["shriveled cactus", "wrinkled cactus"],
+        "water_high": ["cactus rot", "mushy cactus"],
+        "light_low": ["etiolated cactus", "indoor cactus"],
+        "pest": ["cactus mealybug", "cactus scale"],
+        "heat": ["cactus sunburn", "cactus scorch"],
+    },
+    "herb": {
+        "healthy": ["rosemary plant", "rosmarinus"],
+        "water_low": ["dry rosemary", "wilted rosemary"],
+        "water_high": ["yellow rosemary", "rosemary yellow"],
+        "light_low": ["indoor rosemary", "rosemary seedling"],
+        "pest": ["rosemary aphid", "herb mites"],
+        "heat": ["rosemary sun", "rosemary burn"],
+    },
+    "strawberry": {
+        "healthy": ["strawberry plant", "fragaria plant"],
+        "water_low": ["wilted strawberry", "dry strawberry plant"],
+        "water_high": ["yellow strawberry leaf", "strawberry yellowing"],
+        "light_low": ["indoor strawberry", "strawberry seedling"],
+        "pest": ["strawberry aphid", "strawberry insect"],
+        "heat": ["strawberry scorch", "strawberry sun"],
+    },
+    "pepper": {
+        "healthy": ["chili plant", "capsicum plant"],
+        "water_low": ["wilted pepper", "wilted chili"],
+        "water_high": ["yellow pepper leaf", "chili yellow leaf"],
+        "light_low": ["pepper seedling", "indoor chili"],
+        "pest": ["pepper aphid", "chili aphid"],
+        "heat": ["pepper sunscald", "chili sunscald"],
+    },
+    "pumpkin": {
+        "healthy": ["pumpkin vine", "pumpkin plant"],
+        "water_low": ["wilted pumpkin", "pumpkin wilt"],
+        "water_high": ["yellow pumpkin leaf", "pumpkin yellowing"],
+        "light_low": ["pumpkin seedling", "indoor pumpkin"],
+        "pest": ["pumpkin aphid", "pumpkin insect"],
+        "heat": ["pumpkin scorch", "pumpkin sunburn"],
+    },
+    "zucchini": {
+        "healthy": ["zucchini plant", "courgette plant"],
+        "water_low": ["wilted zucchini", "zucchini wilt"],
+        "water_high": ["yellow zucchini leaf", "zucchini yellowing"],
+        "light_low": ["zucchini seedling", "indoor zucchini"],
+        "pest": ["zucchini insect", "zucchini aphid"],
+        "heat": ["zucchini sunscald", "zucchini scorch"],
+    },
+}
+
+INAT_TAXA = {
+    "cherry_tomato": "Solanum lycopersicum",
+    "basil": "Ocimum basilicum",
+    "cactus": "Cactaceae",
+    "herb": "Salvia rosmarinus",
+    "strawberry": "Fragaria ananassa",
+    "pepper": "Capsicum annuum",
+    "pumpkin": "Cucurbita pepo",
+    "zucchini": "Cucurbita pepo",
+}
 
 SPECIES = {
     "cherry_tomato": {

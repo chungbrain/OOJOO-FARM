@@ -1,0 +1,1648 @@
+{
+  "note": "Query text is a weak label. CC photos from Openverse/Wikimedia/iNaturalist.",
+  "split": "test",
+  "n": 90,
+  "acc": 0.15555555555555556,
+  "species": {
+    "cherry_tomato": {
+      "korean": "\ubc29\uc6b8\ud1a0\ub9c8\ud1a0",
+      "n": 11,
+      "acc": 0.18181818181818182,
+      "per_label": {
+        "healthy": {
+          "n": 1,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "heat": {
+          "n": 2,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ]
+      ]
+    },
+    "basil": {
+      "korean": "\ubc14\uc9c8",
+      "n": 11,
+      "acc": 0.18181818181818182,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 1,
+          "acc": 1.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 2,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "cactus": {
+      "korean": "\uc120\uc778\uc7a5",
+      "n": 11,
+      "acc": 0.09090909090909091,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 1,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "herb": {
+      "korean": "\ud5c8\ube0c",
+      "n": 12,
+      "acc": 0.16666666666666666,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 1.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 2,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    "strawberry": {
+      "korean": "\ub538\uae30",
+      "n": 12,
+      "acc": 0.16666666666666666,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 1.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 2,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "pepper": {
+      "korean": "\uace0\ucd94",
+      "n": 10,
+      "acc": 0.2,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 1.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 0,
+          "acc": null
+        }
+      },
+      "confusion": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "pumpkin": {
+      "korean": "\ud638\ubc15",
+      "n": 12,
+      "acc": 0.16666666666666666,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.5
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 2,
+          "acc": 0.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "zucchini": {
+      "korean": "\uc560\ud638\ubc15",
+      "n": 11,
+      "acc": 0.09090909090909091,
+      "per_label": {
+        "healthy": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "water_high": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "light_low": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "pest": {
+          "n": 2,
+          "acc": 0.0
+        },
+        "heat": {
+          "n": 1,
+          "acc": 1.0
+        }
+      },
+      "confusion": [
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      ]
+    }
+  },
+  "predictions": [
+    {
+      "file": "cherry_tomato__pest__0_1.jpg",
+      "species": "cherry_tomato",
+      "query_label": "pest",
+      "pred": "heat",
+      "conf": 0.6506,
+      "ok": false,
+      "query": "tomato plant aphids",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "basil__healthy__1_2.jpg",
+      "species": "basil",
+      "query_label": "healthy",
+      "pred": "water_low",
+      "conf": 0.8782,
+      "ok": false,
+      "query": "basil herb pot green",
+      "source": "openverse",
+      "license": "cc0"
+    },
+    {
+      "file": "cactus__pest__0_0.jpg",
+      "species": "cactus",
+      "query_label": "pest",
+      "pred": "healthy",
+      "conf": 0.5104,
+      "ok": false,
+      "query": "cactus mealybugs",
+      "source": "wikimedia",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "file": "cactus__pest__1_3.jpg",
+      "species": "cactus",
+      "query_label": "pest",
+      "pred": "healthy",
+      "conf": 0.5704,
+      "ok": false,
+      "query": "cactus scale insects",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "herb__pest__0_0.jpg",
+      "species": "herb",
+      "query_label": "pest",
+      "pred": "heat",
+      "conf": 0.4322,
+      "ok": false,
+      "query": "rosemary aphids",
+      "source": "wikimedia",
+      "license": "CC BY 4.0"
+    },
+    {
+      "file": "strawberry__healthy__0_0.jpg",
+      "species": "strawberry",
+      "query_label": "healthy",
+      "pred": "water_low",
+      "conf": 0.9546,
+      "ok": false,
+      "query": "healthy strawberry plant leaves",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "pumpkin__water_high__1_2.jpg",
+      "species": "pumpkin",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.597,
+      "ok": false,
+      "query": "pumpkin plant yellowing",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "basil__healthy__fill_51.jpg",
+      "species": "basil",
+      "query_label": "healthy",
+      "pred": "water_high",
+      "conf": 0.7617,
+      "ok": false,
+      "query": "commons:Ocimum basilicum 002.JPG",
+      "source": "wikimedia-curated",
+      "license": "CC BY-SA 3.0"
+    },
+    {
+      "file": "cherry_tomato__pest__fill_59.jpg",
+      "species": "cherry_tomato",
+      "query_label": "pest",
+      "pred": "pest",
+      "conf": 0.611,
+      "ok": true,
+      "query": "tomato blight leaf",
+      "source": "wikimedia-search",
+      "license": "CC0"
+    },
+    {
+      "file": "basil__water_low__fill_62.jpg",
+      "species": "basil",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.4722,
+      "ok": true,
+      "query": "wilted basil",
+      "source": "wikimedia-search",
+      "license": "Public domain"
+    },
+    {
+      "file": "basil__water_high__fill_65.png",
+      "species": "basil",
+      "query_label": "water_high",
+      "pred": "water_high",
+      "conf": 0.9968,
+      "ok": true,
+      "query": "yellow basil leaf",
+      "source": "wikimedia-search",
+      "license": "CC0"
+    },
+    {
+      "file": "basil__light_low__fill_68.jpg",
+      "species": "basil",
+      "query_label": "light_low",
+      "pred": "heat",
+      "conf": 0.6134,
+      "ok": false,
+      "query": "basil indoor",
+      "source": "wikimedia-search",
+      "license": "CC BY 3.0"
+    },
+    {
+      "file": "basil__pest__fill_69.jpg",
+      "species": "basil",
+      "query_label": "pest",
+      "pred": "water_low",
+      "conf": 0.3762,
+      "ok": false,
+      "query": "basil insect",
+      "source": "wikimedia-search",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "file": "basil__heat__fill_70.jpg",
+      "species": "basil",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.7404,
+      "ok": false,
+      "query": "basil sun",
+      "source": "wikimedia-search",
+      "license": "Public domain"
+    },
+    {
+      "file": "cactus__water_low__fill_72.jpg",
+      "species": "cactus",
+      "query_label": "water_low",
+      "pred": "healthy",
+      "conf": 0.6599,
+      "ok": false,
+      "query": "shriveled cactus",
+      "source": "wikimedia-search",
+      "license": "No restrictions"
+    },
+    {
+      "file": "cactus__water_high__fill_75.jpg",
+      "species": "cactus",
+      "query_label": "water_high",
+      "pred": "healthy",
+      "conf": 0.5736,
+      "ok": false,
+      "query": "cactus rot",
+      "source": "wikimedia-search",
+      "license": "CC BY 3.0"
+    },
+    {
+      "file": "cactus__light_low__fill_76.jpg",
+      "species": "cactus",
+      "query_label": "light_low",
+      "pred": "healthy",
+      "conf": 0.5385,
+      "ok": false,
+      "query": "etiolated cactus",
+      "source": "wikimedia-search",
+      "license": "CC BY 2.0"
+    },
+    {
+      "file": "herb__water_low__fill_81.jpg",
+      "species": "herb",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.4568,
+      "ok": true,
+      "query": "dry rosemary",
+      "source": "wikimedia-search",
+      "license": "CC BY-SA 3.0"
+    },
+    {
+      "file": "herb__water_high__fill_83.jpg",
+      "species": "herb",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.4784,
+      "ok": false,
+      "query": "yellow rosemary",
+      "source": "wikimedia-search",
+      "license": "CC BY 2.0"
+    },
+    {
+      "file": "strawberry__water_low__fill_90.jpg",
+      "species": "strawberry",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.9874,
+      "ok": true,
+      "query": "wilted strawberry",
+      "source": "wikimedia-search",
+      "license": "No restrictions"
+    },
+    {
+      "file": "strawberry__light_low__fill_93.jpg",
+      "species": "strawberry",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.9648,
+      "ok": false,
+      "query": "indoor strawberry",
+      "source": "wikimedia-search",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "file": "cherry_tomato__healthy__more_103.jpg",
+      "species": "cherry_tomato",
+      "query_label": "healthy",
+      "pred": "pest",
+      "conf": 0.5327,
+      "ok": false,
+      "query": "inat:Solanum lycopersicum",
+      "source": "inaturalist",
+      "license": "cc-by-nc"
+    },
+    {
+      "file": "herb__healthy__more_113.jpg",
+      "species": "herb",
+      "query_label": "healthy",
+      "pred": "heat",
+      "conf": 0.6115,
+      "ok": false,
+      "query": "inat:Salvia rosmarinus",
+      "source": "inaturalist",
+      "license": "cc-by-nc"
+    },
+    {
+      "file": "herb__healthy__more_114.jpg",
+      "species": "herb",
+      "query_label": "healthy",
+      "pred": "heat",
+      "conf": 0.5946,
+      "ok": false,
+      "query": "inat:Salvia rosmarinus",
+      "source": "inaturalist",
+      "license": "cc-by-nc"
+    },
+    {
+      "file": "pepper__healthy__more_117.jpg",
+      "species": "pepper",
+      "query_label": "healthy",
+      "pred": "pest",
+      "conf": 0.4174,
+      "ok": false,
+      "query": "inat:Capsicum annuum",
+      "source": "inaturalist",
+      "license": "cc-by-nc"
+    },
+    {
+      "file": "pepper__healthy__more_120.jpg",
+      "species": "pepper",
+      "query_label": "healthy",
+      "pred": "heat",
+      "conf": 0.3751,
+      "ok": false,
+      "query": "inat:Capsicum annuum",
+      "source": "inaturalist",
+      "license": "cc-by-nc"
+    },
+    {
+      "file": "cherry_tomato__water_low__more_128.jpg",
+      "species": "cherry_tomato",
+      "query_label": "water_low",
+      "pred": "light_low",
+      "conf": 0.5272,
+      "ok": false,
+      "query": "wilted tomato",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "cherry_tomato__water_low__more_134.jpg",
+      "species": "cherry_tomato",
+      "query_label": "water_low",
+      "pred": "pest",
+      "conf": 0.5667,
+      "ok": false,
+      "query": "wilted tomato",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "cherry_tomato__water_high__more_141.jpg",
+      "species": "cherry_tomato",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.7376,
+      "ok": false,
+      "query": "yellow tomato leaf",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "cherry_tomato__water_high__more_143.jpg",
+      "species": "cherry_tomato",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.8823,
+      "ok": false,
+      "query": "yellow tomato leaf",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "cherry_tomato__light_low__more_147.jpg",
+      "species": "cherry_tomato",
+      "query_label": "light_low",
+      "pred": "pest",
+      "conf": 0.7382,
+      "ok": false,
+      "query": "tomato seedling",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "cherry_tomato__light_low__more_148.jpg",
+      "species": "cherry_tomato",
+      "query_label": "light_low",
+      "pred": "light_low",
+      "conf": 0.6568,
+      "ok": true,
+      "query": "tomato seedling",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "cherry_tomato__heat__more_162.jpg",
+      "species": "cherry_tomato",
+      "query_label": "heat",
+      "pred": "light_low",
+      "conf": 0.7574,
+      "ok": false,
+      "query": "tomato leaf burn",
+      "source": "wikimedia",
+      "license": "No restrictions"
+    },
+    {
+      "file": "cherry_tomato__heat__more_163.jpg",
+      "species": "cherry_tomato",
+      "query_label": "heat",
+      "pred": "pest",
+      "conf": 0.789,
+      "ok": false,
+      "query": "tomato leaf burn",
+      "source": "wikimedia",
+      "license": "CC BY 2.0"
+    },
+    {
+      "file": "basil__water_high__more_168.jpg",
+      "species": "basil",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.5486,
+      "ok": false,
+      "query": "yellow basil",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "basil__light_low__more_174.jpg",
+      "species": "basil",
+      "query_label": "light_low",
+      "pred": "water_high",
+      "conf": 0.9673,
+      "ok": false,
+      "query": "indoor basil",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "basil__pest__more_182.jpg",
+      "species": "basil",
+      "query_label": "pest",
+      "pred": "water_high",
+      "conf": 0.9291,
+      "ok": false,
+      "query": "basil aphids",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "basil__heat__more_192.jpg",
+      "species": "basil",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.7603,
+      "ok": false,
+      "query": "basil sun",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "cactus__healthy__more_195.jpg",
+      "species": "cactus",
+      "query_label": "healthy",
+      "pred": "heat",
+      "conf": 0.4236,
+      "ok": false,
+      "query": "cactus pot",
+      "source": "openverse",
+      "license": "by-nd"
+    },
+    {
+      "file": "cactus__healthy__more_197.jpg",
+      "species": "cactus",
+      "query_label": "healthy",
+      "pred": "healthy",
+      "conf": 0.5522,
+      "ok": true,
+      "query": "cactus pot",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "cactus__water_low__more_202.jpg",
+      "species": "cactus",
+      "query_label": "water_low",
+      "pred": "healthy",
+      "conf": 0.7518,
+      "ok": false,
+      "query": "shriveled cactus",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "cactus__water_high__more_216.jpg",
+      "species": "cactus",
+      "query_label": "water_high",
+      "pred": "healthy",
+      "conf": 0.4128,
+      "ok": false,
+      "query": "cactus rot",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "cactus__light_low__more_221.jpg",
+      "species": "cactus",
+      "query_label": "light_low",
+      "pred": "heat",
+      "conf": 0.4212,
+      "ok": false,
+      "query": "indoor cactus",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "cactus__heat__more_237.jpg",
+      "species": "cactus",
+      "query_label": "heat",
+      "pred": "healthy",
+      "conf": 0.6674,
+      "ok": false,
+      "query": "cactus sunburn",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "herb__water_low__more_244.jpg",
+      "species": "herb",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.3559,
+      "ok": true,
+      "query": "dry rosemary",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "herb__water_high__more_248.jpg",
+      "species": "herb",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.4839,
+      "ok": false,
+      "query": "yellow rosemary",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "herb__light_low__more_253.jpg",
+      "species": "herb",
+      "query_label": "light_low",
+      "pred": "heat",
+      "conf": 0.5924,
+      "ok": false,
+      "query": "indoor rosemary",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "herb__light_low__more_256.jpg",
+      "species": "herb",
+      "query_label": "light_low",
+      "pred": "pest",
+      "conf": 0.4669,
+      "ok": false,
+      "query": "indoor rosemary",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "herb__pest__more_265.jpg",
+      "species": "herb",
+      "query_label": "pest",
+      "pred": "water_low",
+      "conf": 0.4691,
+      "ok": false,
+      "query": "herb mites",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "herb__heat__more_270.jpg",
+      "species": "herb",
+      "query_label": "heat",
+      "pred": "water_high",
+      "conf": 0.8417,
+      "ok": false,
+      "query": "rosemary sun",
+      "source": "wikimedia",
+      "license": "CC BY 3.0"
+    },
+    {
+      "file": "herb__heat__more_272.jpg",
+      "species": "herb",
+      "query_label": "heat",
+      "pred": "pest",
+      "conf": 0.3673,
+      "ok": false,
+      "query": "rosemary sun",
+      "source": "wikimedia",
+      "license": "CC BY-SA 2.0"
+    },
+    {
+      "file": "strawberry__healthy__more_283.jpg",
+      "species": "strawberry",
+      "query_label": "healthy",
+      "pred": "water_low",
+      "conf": 0.8853,
+      "ok": false,
+      "query": "strawberry plant",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "strawberry__water_low__more_291.jpg",
+      "species": "strawberry",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.5648,
+      "ok": true,
+      "query": "wilted strawberry",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "strawberry__water_high__more_294.jpg",
+      "species": "strawberry",
+      "query_label": "water_high",
+      "pred": "water_low",
+      "conf": 0.8042,
+      "ok": false,
+      "query": "yellow strawberry leaf",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "strawberry__water_high__more_296.jpg",
+      "species": "strawberry",
+      "query_label": "water_high",
+      "pred": "water_low",
+      "conf": 0.4011,
+      "ok": false,
+      "query": "yellow strawberry leaf",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "strawberry__light_low__more_299.jpg",
+      "species": "strawberry",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.9727,
+      "ok": false,
+      "query": "indoor strawberry",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "strawberry__pest__more_308.jpg",
+      "species": "strawberry",
+      "query_label": "pest",
+      "pred": "heat",
+      "conf": 0.9634,
+      "ok": false,
+      "query": "strawberry aphid",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "strawberry__pest__more_310.jpg",
+      "species": "strawberry",
+      "query_label": "pest",
+      "pred": "healthy",
+      "conf": 0.9118,
+      "ok": false,
+      "query": "strawberry aphid",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "strawberry__heat__more_313.jpg",
+      "species": "strawberry",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.954,
+      "ok": false,
+      "query": "strawberry scorch",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "strawberry__heat__more_320.jpg",
+      "species": "strawberry",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.9685,
+      "ok": false,
+      "query": "strawberry sun",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "pepper__water_low__more_322.jpg",
+      "species": "pepper",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.6537,
+      "ok": true,
+      "query": "wilted pepper",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "pepper__water_low__more_327.jpg",
+      "species": "pepper",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.641,
+      "ok": true,
+      "query": "wilted pepper",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pepper__water_high__more_330.jpg",
+      "species": "pepper",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.3264,
+      "ok": false,
+      "query": "yellow pepper leaf",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "pepper__water_high__more_333.jpg",
+      "species": "pepper",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.3679,
+      "ok": false,
+      "query": "chili yellow leaf",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pepper__light_low__more_337.jpg",
+      "species": "pepper",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.7045,
+      "ok": false,
+      "query": "pepper seedling",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "pepper__light_low__more_338.jpg",
+      "species": "pepper",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.6359,
+      "ok": false,
+      "query": "pepper seedling",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "pepper__pest__more_352.jpg",
+      "species": "pepper",
+      "query_label": "pest",
+      "pred": "water_low",
+      "conf": 0.4822,
+      "ok": false,
+      "query": "pepper aphid",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "pepper__pest__more_353.jpg",
+      "species": "pepper",
+      "query_label": "pest",
+      "pred": "water_low",
+      "conf": 0.7015,
+      "ok": false,
+      "query": "pepper aphid",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "pumpkin__healthy__more_354.jpg",
+      "species": "pumpkin",
+      "query_label": "healthy",
+      "pred": "water_low",
+      "conf": 0.8594,
+      "ok": false,
+      "query": "pumpkin vine",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__healthy__more_357.jpg",
+      "species": "pumpkin",
+      "query_label": "healthy",
+      "pred": "heat",
+      "conf": 0.3731,
+      "ok": false,
+      "query": "pumpkin vine",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__water_low__more_361.jpg",
+      "species": "pumpkin",
+      "query_label": "water_low",
+      "pred": "heat",
+      "conf": 0.7065,
+      "ok": false,
+      "query": "wilted pumpkin",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__water_low__more_366.jpg",
+      "species": "pumpkin",
+      "query_label": "water_low",
+      "pred": "water_low",
+      "conf": 0.658,
+      "ok": true,
+      "query": "wilted pumpkin",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__water_high__more_373.jpg",
+      "species": "pumpkin",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.7299,
+      "ok": false,
+      "query": "yellow pumpkin leaf",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__light_low__more_376.jpg",
+      "species": "pumpkin",
+      "query_label": "light_low",
+      "pred": "light_low",
+      "conf": 0.3865,
+      "ok": true,
+      "query": "pumpkin seedling",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "pumpkin__light_low__more_377.jpg",
+      "species": "pumpkin",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.5686,
+      "ok": false,
+      "query": "pumpkin seedling",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__pest__more_388.jpg",
+      "species": "pumpkin",
+      "query_label": "pest",
+      "pred": "heat",
+      "conf": 0.4837,
+      "ok": false,
+      "query": "pumpkin aphid",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "pumpkin__pest__more_394.jpg",
+      "species": "pumpkin",
+      "query_label": "pest",
+      "pred": "heat",
+      "conf": 0.6797,
+      "ok": false,
+      "query": "pumpkin insect",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "pumpkin__heat__more_395.jpg",
+      "species": "pumpkin",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.693,
+      "ok": false,
+      "query": "pumpkin scorch",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "pumpkin__heat__more_397.jpg",
+      "species": "pumpkin",
+      "query_label": "heat",
+      "pred": "water_low",
+      "conf": 0.5779,
+      "ok": false,
+      "query": "pumpkin scorch",
+      "source": "openverse",
+      "license": "by"
+    },
+    {
+      "file": "zucchini__healthy__more_405.jpg",
+      "species": "zucchini",
+      "query_label": "healthy",
+      "pred": "water_high",
+      "conf": 0.537,
+      "ok": false,
+      "query": "zucchini plant",
+      "source": "openverse",
+      "license": "by-sa"
+    },
+    {
+      "file": "zucchini__healthy__more_407.jpg",
+      "species": "zucchini",
+      "query_label": "healthy",
+      "pred": "pest",
+      "conf": 0.4415,
+      "ok": false,
+      "query": "zucchini plant",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "zucchini__water_low__more_413.jpg",
+      "species": "zucchini",
+      "query_label": "water_low",
+      "pred": "heat",
+      "conf": 0.702,
+      "ok": false,
+      "query": "wilted zucchini",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "zucchini__water_low__more_422.jpg",
+      "species": "zucchini",
+      "query_label": "water_low",
+      "pred": "heat",
+      "conf": 0.6396,
+      "ok": false,
+      "query": "wilted zucchini",
+      "source": "openverse",
+      "license": "by-nc-sa"
+    },
+    {
+      "file": "zucchini__water_high__more_423.jpg",
+      "species": "zucchini",
+      "query_label": "water_high",
+      "pred": "heat",
+      "conf": 0.9059,
+      "ok": false,
+      "query": "yellow zucchini leaf",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "zucchini__water_high__more_427.jpg",
+      "species": "zucchini",
+      "query_label": "water_high",
+      "pred": "pest",
+      "conf": 0.5634,
+      "ok": false,
+      "query": "yellow zucchini leaf",
+      "source": "openverse",
+      "license": "cc0"
+    },
+    {
+      "file": "zucchini__light_low__more_432.jpg",
+      "species": "zucchini",
+      "query_label": "light_low",
+      "pred": "pest",
+      "conf": 0.343,
+      "ok": false,
+      "query": "zucchini seedling",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "zucchini__light_low__more_435.jpg",
+      "species": "zucchini",
+      "query_label": "light_low",
+      "pred": "water_low",
+      "conf": 0.5464,
+      "ok": false,
+      "query": "zucchini seedling",
+      "source": "openverse",
+      "license": "by-nc"
+    },
+    {
+      "file": "zucchini__pest__more_447.jpg",
+      "species": "zucchini",
+      "query_label": "pest",
+      "pred": "water_high",
+      "conf": 0.4176,
+      "ok": false,
+      "query": "zucchini insect",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "zucchini__pest__more_449.jpg",
+      "species": "zucchini",
+      "query_label": "pest",
+      "pred": "water_high",
+      "conf": 0.606,
+      "ok": false,
+      "query": "zucchini insect",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    },
+    {
+      "file": "zucchini__heat__more_450.jpg",
+      "species": "zucchini",
+      "query_label": "heat",
+      "pred": "heat",
+      "conf": 0.5552,
+      "ok": true,
+      "query": "zucchini scorch",
+      "source": "openverse",
+      "license": "by-nc-nd"
+    }
+  ]
+}

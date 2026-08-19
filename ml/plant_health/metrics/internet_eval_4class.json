@@ -1,0 +1,134 @@
+{
+  "before": {
+    "n": 62,
+    "ok": 12,
+    "acc": 0.1935483870967742,
+    "pred_pest_or_heat": 29,
+    "species": {
+      "cherry_tomato": {
+        "korean": "\ubc29\uc6b8\ud1a0\ub9c8\ud1a0",
+        "n": 7,
+        "acc": 0.14285714285714285
+      },
+      "basil": {
+        "korean": "\ubc14\uc9c8",
+        "n": 7,
+        "acc": 0.2857142857142857
+      },
+      "cactus": {
+        "korean": "\uc120\uc778\uc7a5",
+        "n": 8,
+        "acc": 0.125
+      },
+      "herb": {
+        "korean": "\ud5c8\ube0c",
+        "n": 8,
+        "acc": 0.25
+      },
+      "strawberry": {
+        "korean": "\ub538\uae30",
+        "n": 8,
+        "acc": 0.25
+      },
+      "pepper": {
+        "korean": "\uace0\ucd94",
+        "n": 8,
+        "acc": 0.25
+      },
+      "pumpkin": {
+        "korean": "\ud638\ubc15",
+        "n": 8,
+        "acc": 0.25
+      },
+      "zucchini": {
+        "korean": "\uc560\ud638\ubc15",
+        "n": 8,
+        "acc": 0.0
+      }
+    },
+    "labels": {
+      "healthy": {
+        "n": 15,
+        "acc": 0.06666666666666667
+      },
+      "water_low": {
+        "n": 15,
+        "acc": 0.5333333333333333
+      },
+      "water_high": {
+        "n": 16,
+        "acc": 0.0625
+      },
+      "light_low": {
+        "n": 16,
+        "acc": 0.125
+      }
+    }
+  },
+  "after": {
+    "n": 62,
+    "ok": 20,
+    "acc": 0.3225806451612903,
+    "pred_pest_or_heat": 11,
+    "species": {
+      "cherry_tomato": {
+        "korean": "\ubc29\uc6b8\ud1a0\ub9c8\ud1a0",
+        "n": 7,
+        "acc": 0.14285714285714285
+      },
+      "basil": {
+        "korean": "\ubc14\uc9c8",
+        "n": 7,
+        "acc": 0.5714285714285714
+      },
+      "cactus": {
+        "korean": "\uc120\uc778\uc7a5",
+        "n": 8,
+        "acc": 0.25
+      },
+      "herb": {
+        "korean": "\ud5c8\ube0c",
+        "n": 8,
+        "acc": 0.125
+      },
+      "strawberry": {
+        "korean": "\ub538\uae30",
+        "n": 8,
+        "acc": 0.25
+      },
+      "pepper": {
+        "korean": "\uace0\ucd94",
+        "n": 8,
+        "acc": 0.625
+      },
+      "pumpkin": {
+        "korean": "\ud638\ubc15",
+        "n": 8,
+        "acc": 0.375
+      },
+      "zucchini": {
+        "korean": "\uc560\ud638\ubc15",
+        "n": 8,
+        "acc": 0.25
+      }
+    },
+    "labels": {
+      "healthy": {
+        "n": 15,
+        "acc": 0.3333333333333333
+      },
+      "water_low": {
+        "n": 15,
+        "acc": 0.2
+      },
+      "water_high": {
+        "n": 16,
+        "acc": 0.3125
+      },
+      "light_low": {
+        "n": 16,
+        "acc": 0.4375
+      }
+    }
+  }
+}
