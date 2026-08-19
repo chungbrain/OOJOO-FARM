@@ -143,7 +143,7 @@ OOJOO-FARM/
 │   ├── prd.md              # Product Requirements Document (v1.1.0)
 │   ├── DESIGN.md           # Design / architecture notes
 │   └── builds/             # Per-build release notes
-├── dist/                   # Built APKs (distribution)
+├── (parent)/dist/          # Built APKs live next to this repo
 │   ├── oojoo-farm-master-debug.apk
 │   └── oojoo-farm-farmer-debug.apk
 ├── scripts/                # Helper scripts

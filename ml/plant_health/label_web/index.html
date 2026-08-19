@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>식물 건강 라벨링</title>
+  <style>
+    :root {
+      --bg: #122018;
+      --panel: #1c2c22;
+      --line: #2d4536;
+      --text: #e8f3ea;
+      --muted: #9bb5a3;
+      --ok: #3dba7a;
+      --warn: #e0b34a;
+      --bad: #e06a5c;
+      --accent: #6fbf73;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      background: var(--bg); color: var(--text);
+    }
+    header {
+      padding: 14px 20px; border-bottom: 1px solid var(--line);
+      display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    }
+    header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+    .stat { color: var(--muted); font-size: 13px; }
+    .stat b { color: var(--text); }
+    main { display: grid; grid-template-columns: 1fr 340px; min-height: calc(100vh - 56px); }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+    .stage { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .photo {
+      background: #0c1510; border: 1px solid var(--line); border-radius: 12px;
+      min-height: 360px; display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .photo img { max-width: 100%; max-height: 62vh; object-fit: contain; }
+    .meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button, select {
+      background: #24382c; color: var(--text); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #2b6b40; border-color: #3d8a55; }
+    button.danger { background: #5a2b28; border-color: #8a4540; }
+    button.good { background: #245a38; }
+    button.active { outline: 2px solid var(--accent); }
+    .side { border-left: 1px solid var(--line); padding: 16px; background: var(--panel); }
+    h2 { font-size: 14px; margin: 0 0 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 3px 4px; text-align: center; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; }
+    td.low { color: var(--warn); }
+    td.ok { color: var(--ok); }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+    .empty { color: var(--muted); padding: 40px; text-align: center; }
+    .busy { opacity: .6; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>식물 건강 라벨링</h1>
+    <div class="stat" id="stats">불러오는 중…</div>
+    <div class="row">
+      <select id="filter">
+        <option value="unlabeled">미라벨만</option>
+        <option value="all">전체</option>
+        <option value="labeled">라벨 완료만</option>
+      </select>
+      <button id="prev">이전</button>
+      <button id="next">다음</button>
+    </div>
+  </header>
+  <main>
+    <section class="stage" id="stage">
+      <div class="photo" id="photo"><div class="empty">이미지가 없습니다</div></div>
+      <div class="meta" id="meta"></div>
+      <div class="row" id="speciesBtns"></div>
+      <div class="row" id="labelBtns"></div>
+      <div class="row">
+        <button class="primary" id="confirm">이 라벨로 저장 (Enter)</button>
+        <button class="danger" id="drop">이 사진 삭제 (Del)</button>
+      </div>
+    </section>
+    <aside class="side">
+      <h2>확정 수량 / 목표 <span id="targetLabel"></span></h2>
+      <div style="overflow:auto; max-height: 280px;">
+        <table id="grid"></table>
+      </div>
+      <div class="hint">노란 칸은 확정 라벨이 목표보다 적습니다. 검색 라벨은 제안일 뿐이고, 저장하지 않은 사진은 미라벨입니다.</div>
+      <h2 style="margin-top:18px;">웹에서 더 가져오기</h2>
+      <div class="row">
+        <select id="fetchSpecies"></select>
+        <select id="fetchLabel"></select>
+        <select id="fetchCount">
+          <option value="4">4장</option>
+          <option value="6" selected>6장</option>
+          <option value="10">10장</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="primary" id="fetchOne">선택 클래스 수집</button>
+        <button id="fetchGaps">부족한 칸 수집</button>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <button class="danger" id="purge">미라벨 전부 삭제</button>
+      </div>
+      <div class="hint" id="log"></div>
+      <div class="hint">키: 1–6 클래스, Enter 저장, Delete 삭제, ← → 이동</div>
+    </aside>
+  </main>
+  <script>
+    let meta = { species: [], labels: [], target: 12 };
+    let items = [];
+    let stats = {};
+    let idx = 0;
+    let pickSpecies = "";
+    let pickLabel = "";
+
+    const $ = (id) => document.getElementById(id);
+    const log = (m) => { $("log").textContent = m; };
+
+    async function jget(url) {
+      const r = await fetch(url);
+      return r.json();
+    }
+    async function jpost(url, body) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      });
+      return r.json();
+    }
+
+    function filtered() {
+      const f = $("filter").value;
+      return items.filter((it) => {
+        if (f === "unlabeled") return !it.reviewed;
+        if (f === "labeled") return it.reviewed;
+        return true;
+      });
+    }
+
+    function current() {
+      const list = filtered();
+      if (!list.length) return null;
+      if (idx >= list.length) idx = list.length - 1;
+      if (idx < 0) idx = 0;
+      return list[idx];
+    }
+
+    function renderStats() {
+      const s = stats || {};
+      $("stats").innerHTML =
+        `전체 <b>${s.total || 0}</b> · 확정 <b>${s.reviewed || 0}</b> · 미라벨 <b>${s.unlabeled || 0}</b>` +
+        (filtered().length ? ` · 보는 중 ${idx + 1}/${filtered().length}` : "");
+      $("targetLabel").textContent = `(${s.target || meta.target})`;
+      const labs = meta.labels;
+      const specs = meta.species;
+      let html = "<tr><th></th>" + labs.map((l) => `<th>${l.ko}</th>`).join("") + "</tr>";
+      for (const sp of specs) {
+        html += `<tr><th>${sp.ko}</th>`;
+        for (const l of labs) {
+          const n = (((s.confirmed || {})[sp.id] || {})[l.id]) || 0;
+          const cls = n >= (s.target || 12) ? "ok" : "low";
+          html += `<td class="${cls}">${n}</td>`;
+        }
+        html += "</tr>";
+      }
+      $("grid").innerHTML = html;
+    }
+
+    function renderItem() {
+      const it = current();
+      const photo = $("photo");
+      if (!it) {
+        photo.innerHTML = '<div class="empty">이 필터에 이미지가 없습니다. 웹에서 더 가져오거나 필터를 바꾸세요.</div>';
+        $("meta").textContent = "";
+        return;
+      }
+      pickSpecies = it.species;
+      pickLabel = it.human_label || it.label;
+      photo.innerHTML = `<img src="/images/${encodeURIComponent(it.file)}?t=${Date.now()}" alt="${it.file}" />`;
+      $("meta").innerHTML =
+        `<b>${it.file}</b><br>제안: ${labelKo(it.label)} · 출처 ${it.source || "-"} · 라이선스 ${it.license || "-"}` +
+        (it.query ? `<br>검색어: ${it.query}` : "") +
+        (it.reviewed ? "<br>상태: 확정됨" : "<br>상태: 미라벨 (저장하지 않으면 삭제 대상)");
+      paintChoices();
+    }
+
+    function labelKo(id) {
+      return (meta.labels.find((l) => l.id === id) || {}).ko || id;
+    }
+
+    function paintChoices() {
+      $("speciesBtns").innerHTML = meta.species.map((s) =>
+        `<button class="${s.id === pickSpecies ? "active good" : ""}" data-sp="${s.id}">${s.ko}</button>`
+      ).join("");
+      $("labelBtns").innerHTML = meta.labels.map((l, i) =>
+        `<button class="${l.id === pickLabel ? "active primary" : ""}" data-lab="${l.id}">${i + 1}. ${l.ko}</button>`
+      ).join("");
+      $("speciesBtns").querySelectorAll("button").forEach((b) => {
+        b.onclick = () => { pickSpecies = b.dataset.sp; paintChoices(); };
+      });
+      $("labelBtns").querySelectorAll("button").forEach((b) => {
+        b.onclick = () => { pickLabel = b.dataset.lab; paintChoices(); };
+      });
+    }
+
+    async function reload(keepFile) {
+      const q = await jget("/api/queue");
+      items = q.items || [];
+      stats = q.stats || {};
+      if (keepFile) {
+        const list = filtered();
+        const i = list.findIndex((x) => x.file === keepFile);
+        idx = i >= 0 ? i : 0;
+      }
+      renderStats();
+      renderItem();
+    }
+
+    async function save() {
+      const it = current();
+      if (!it) return;
+      await jpost("/api/label", { file: it.file, species: pickSpecies, label: pickLabel });
+      log(`저장: ${it.file} → ${labelKo(pickLabel)}`);
+      const list = filtered();
+      const was = list.findIndex((x) => x.file === it.file);
+      await reload();
+      if ($("filter").value === "unlabeled") idx = Math.min(was, Math.max(0, filtered().length - 1));
+      else idx = was + 1;
+      renderStats();
+      renderItem();
+    }
+
+    async function dropOne() {
+      const it = current();
+      if (!it) return;
+      await jpost("/api/delete", { file: it.file });
+      log(`삭제: ${it.file}`);
+      await reload();
+    }
+
+    $("confirm").onclick = save;
+    $("drop").onclick = dropOne;
+    $("prev").onclick = () => { idx--; renderStats(); renderItem(); };
+    $("next").onclick = () => { idx++; renderStats(); renderItem(); };
+    $("filter").onchange = () => { idx = 0; renderStats(); renderItem(); };
+
+    $("purge").onclick = async () => {
+      if (!confirm("저장하지 않은 미라벨 사진을 디스크에서 모두 삭제할까요?")) return;
+      document.body.classList.add("busy");
+      const r = await jpost("/api/delete-unlabeled", {});
+      document.body.classList.remove("busy");
+      log(`미라벨 ${r.removed}장 삭제`);
+      idx = 0;
+      await reload();
+    };
+
+    $("fetchOne").onclick = async () => {
+      document.body.classList.add("busy");
+      log("수집 중…");
+      const r = await jpost("/api/fetch", {
+        species: $("fetchSpecies").value,
+        label: $("fetchLabel").value,
+        count: Number($("fetchCount").value),
+      });
+      document.body.classList.remove("busy");
+      log(`새로 ${r.added || 0}장 받음. 미라벨부터 다시 확인하세요.`);
+      $("filter").value = "unlabeled";
+      idx = 0;
+      await reload();
+    };
+
+    $("fetchGaps").onclick = async () => {
+      document.body.classList.add("busy");
+      log("부족한 칸을 웹에서 채우는 중…");
+      const r = await jpost("/api/fetch-gaps", { max_cells: 6, per_cell: 4 });
+      document.body.classList.remove("busy");
+      const n = (r.fetched || []).reduce((a, x) => a + (x.added || 0), 0);
+      log(`부족한 칸에서 ${n}장 추가. 새 사진은 미라벨입니다.`);
+      $("filter").value = "unlabeled";
+      idx = 0;
+      await reload();
+    };
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "SELECT") return;
+      if (e.key === "Enter") { e.preventDefault(); save(); }
+      else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); dropOne(); }
+      else if (e.key === "ArrowRight") { idx++; renderStats(); renderItem(); }
+      else if (e.key === "ArrowLeft") { idx--; renderStats(); renderItem(); }
+      else if (e.key >= "1" && e.key <= "6") {
+        const lab = meta.labels[Number(e.key) - 1];
+        if (lab) { pickLabel = lab.id; paintChoices(); }
+      }
+    });
+
+    (async function init() {
+      meta = await jget("/api/meta");
+      $("fetchSpecies").innerHTML = meta.species.map((s) => `<option value="${s.id}">${s.ko}</option>`).join("");
+      $("fetchLabel").innerHTML = meta.labels.map((l) => `<option value="${l.id}">${l.ko}</option>`).join("");
+      await reload();
+    })();
+  </script>
+</body>
+</html>
