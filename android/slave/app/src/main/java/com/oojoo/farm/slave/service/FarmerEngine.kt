@@ -6,8 +6,11 @@ import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.model.*
 import com.oojoo.farm.slave.network.ApiClient
+import com.oojoo.farm.slave.album.PlantAlbum
 import com.oojoo.farm.slave.vision.AnalysisResult
 import com.oojoo.farm.slave.vision.CameraHolder
+import com.oojoo.farm.slave.vision.GrowthClipRenderer
+import com.oojoo.farm.slave.vision.PlantHealthNet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +58,7 @@ object FarmerEngine {
 
     private val _plant = MutableStateFlow<Plant?>(null)
     val plant: StateFlow<Plant?> = _plant.asStateFlow()
+    private val _plants = MutableStateFlow<List<Plant>>(emptyList())
 
     private val _autoOn = MutableStateFlow(true)
     val autoOn: StateFlow<Boolean> = _autoOn.asStateFlow()
@@ -149,7 +153,7 @@ object FarmerEngine {
             val id = cmd.getString("id")
             val action = cmd.getString("action")
             val amountMl = cmd.optInt("amount_ml", 300)
-            val plantId = cmd.optString("plant_id", null)
+            val plantId = cmd.optString("plant_id").takeIf { it.isNotBlank() && it != "null" }
             when (action) {
                 "water" -> {
                     addLog("[${now()}] 마스터 지시(SSE): 관수 ${amountMl}ml")
@@ -184,12 +188,18 @@ object FarmerEngine {
                     captureAndUploadVideo(id)
                     ApiClient.api.commandDone(id)
                 }
+                "generate_growth_clip" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 성장 숏클립 생성")
+                    generateAndUploadClip(id, plantId)
+                    ApiClient.api.commandDone(id)
+                }
             }
         } catch (_: Exception) {}
     }
 
     fun start(context: Context) {
         appCtx = context.applicationContext
+        PlantHealthNet.init(appCtx)
         ApiClient.setBaseUrl(Prefs.serverUrl(appCtx))
         ApiClient.setSessionKey(Prefs.sessionKey(appCtx))
         _autoOn.value = Prefs.autoWater(appCtx)
@@ -209,6 +219,7 @@ object FarmerEngine {
                     flushQueue() // 재연결 시 오프라인 누적 이벤트 동기화
                 } catch (_: Exception) { _online.value = false }
                 if (_autoOn.value) tick()
+                maybeCaptureGrowthPhoto()
                 delay(30_000L)
             }
         })
@@ -262,8 +273,14 @@ object FarmerEngine {
         scope.launch {
             try {
                 val resp = ApiClient.api.slavePlants(slaveId())
+                _plants.value = resp.plants
                 _plant.value = resp.plants.firstOrNull()
-                _plant.value?.let { addLog("[${now()}] 식물 연결: ${it.name}") }
+                val chosen = _plant.value
+                PlantHealthNet.setSpecies(chosen?.species ?: chosen?.name)
+                chosen?.let {
+                    val mid = PlantHealthNet.speciesId
+                    addLog("[${now()}] 식물 연결: ${it.name} (${resp.plants.size}그루) 모델:${mid ?: "heuristic"}")
+                }
             } catch (e: Exception) {
                 addLog("[${now()}] 식물 조회 실패: ${e.message}")
             }
@@ -382,6 +399,11 @@ object FarmerEngine {
                         captureAndUploadVideo(cmd.id)
                         ApiClient.api.commandDone(cmd.id)
                     }
+                    "generate_growth_clip" -> {
+                        addLog("[${now()}] 마스터 요청: 성장 숏클립 생성")
+                        generateAndUploadClip(cmd.id, cmd.plant_id)
+                        ApiClient.api.commandDone(cmd.id)
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -415,6 +437,127 @@ object FarmerEngine {
                 pid
             )
         }
+    }
+
+    private var lastPhotoAttempt = 0L
+
+    private suspend fun maybeCaptureGrowthPhoto() {
+        if (!CameraHolder.ready || CameraHolder.isRecording()) return
+        val plants = _plants.value.ifEmpty { listOfNotNull(_plant.value) }
+        if (plants.isEmpty()) return
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastPhotoAttempt < 60_000L) return
+        val last = Prefs.lastPhotoAt(appCtx)
+        val analysis = _lastAnalysis.value
+        val lastG = Prefs.lastPhotoGreenness(appCtx)
+        val changed = analysis != null && lastG >= 0f && kotlin.math.abs(analysis.greenness - lastG) >= 0.12
+        val dueDaily = last == 0L || nowMs - last >= 20L * 60 * 60 * 1000
+        val dueChange = changed && nowMs - last >= 4L * 60 * 60 * 1000
+        if (!dueDaily && !dueChange) return
+        lastPhotoAttempt = nowMs
+        captureAndArchivePhoto(plants)
+    }
+
+    private suspend fun captureAndArchivePhoto(plants: List<Plant>) {
+        if (!CameraHolder.ready) {
+            addLog("[${now()}] 성장 사진 건너뜀: 카메라 미준비")
+            return
+        }
+        val file = suspendCancellableCoroutine<File?> { cont ->
+            CameraHolder.captureStill(appCtx) { f -> if (cont.isActive) cont.resume(f) }
+        }
+        if (file == null || !file.exists()) {
+            addLog("[${now()}] 성장 사진 촬영 실패")
+            return
+        }
+        val takenAt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+        val location = Prefs.region(appCtx)
+        try {
+            for (p in plants) {
+                PlantAlbum.add(appCtx, p.id, file, takenAt, location)
+                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
+                ApiClient.api.uploadPhoto(
+                    slaveId(),
+                    part,
+                    p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    location.toRequestBody("text/plain".toMediaTypeOrNull())
+                )
+            }
+            Prefs.setLastPhotoAt(appCtx, System.currentTimeMillis())
+            _lastAnalysis.value?.let { Prefs.setLastPhotoGreenness(appCtx, it.greenness.toFloat()) }
+            addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${file.length() / 1024}KB)")
+        } catch (e: Exception) {
+            addLog("[${now()}] 성장 사진 업로드 실패: ${e.message}")
+        } finally {
+            file.delete()
+        }
+    }
+
+    private suspend fun generateAndUploadClip(commandId: String, plantIdHint: String?) {
+        val plant = _plants.value.firstOrNull { it.id == plantIdHint } ?: _plant.value
+        val plantId = plant?.id ?: plantIdHint
+        if (plantId.isNullOrBlank()) {
+            reportClipFailed(commandId, null, "plant not assigned")
+            return
+        }
+        try {
+            val photos = ensureAlbum(plantId)
+            if (photos.isEmpty()) {
+                reportClipFailed(commandId, plantId, "no photos yet")
+                addLog("[${now()}] 숏클립 실패: 누적 사진 없음")
+                return
+            }
+            addLog("[${now()}] 숏클립 렌더 시작 (사진 ${photos.size}장 + BGM)")
+            val out = File(appCtx.cacheDir, "growth_${System.currentTimeMillis()}.mp4")
+            val rendered = withContext(Dispatchers.Default) {
+                GrowthClipRenderer.render(photos, plant?.name ?: "식물", out)
+            }
+            val reqFile = rendered.file.asRequestBody("video/mp4".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("video", rendered.file.name, reqFile)
+            ApiClient.api.uploadVideo(
+                slaveId(),
+                part,
+                commandId.toRequestBody("text/plain".toMediaTypeOrNull()),
+                plantId.toRequestBody("text/plain".toMediaTypeOrNull()),
+                "growth".toRequestBody("text/plain".toMediaTypeOrNull()),
+                rendered.photoCount.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            )
+            addLog("[${now()}] 숏클립 업로드 완료 (${rendered.file.length() / 1024}KB)")
+            rendered.file.delete()
+        } catch (e: Exception) {
+            addLog("[${now()}] 숏클립 실패: ${e.message}")
+            reportClipFailed(commandId, plantId, e.message ?: "render failed")
+        }
+    }
+
+    private suspend fun ensureAlbum(plantId: String): List<com.oojoo.farm.slave.album.AlbumEntry> {
+        val local = PlantAlbum.list(appCtx, plantId)
+        if (local.isNotEmpty()) return local
+        return try {
+            val remote = ApiClient.api.plantPhotos(plantId).photos
+            val client = OkHttpClient()
+            for (p in remote) {
+                val full = ApiClient.baseUrl.trimEnd('/') + p.url
+                val resp = client.newCall(Request.Builder().url(full).build()).execute()
+                if (!resp.isSuccessful) { resp.close(); continue }
+                val dest = File(appCtx.cacheDir, "dl_${p.id}.jpg")
+                dest.outputStream().use { out -> resp.body!!.byteStream().copyTo(out) }
+                resp.close()
+                PlantAlbum.add(appCtx, plantId, dest, p.taken_at ?: "", p.location ?: Prefs.region(appCtx))
+                dest.delete()
+            }
+            PlantAlbum.list(appCtx, plantId)
+        } catch (_: Exception) {
+            local
+        }
+    }
+
+    private suspend fun reportClipFailed(commandId: String, plantId: String?, error: String) {
+        try {
+            ApiClient.api.clipFailed(slaveId(), ClipFailedRequest(commandId, plantId, error))
+        } catch (_: Exception) {}
     }
 
     // ---------- 3초 비디오 캡처 + 업로드 ----------

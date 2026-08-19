@@ -12,8 +12,9 @@ android {
         applicationId = "com.oojoo.farm.master"
         minSdk = 26
         targetSdk = 34
-versionCode = 2026081004
-        versionName = "1.0.2026081004"
+// Android versionCode is a 32-bit Int (max 2147483647). Build label 20260819001 is in versionName.
+        versionCode = 2026081903
+        versionName = "1.0.2026081903"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -50,6 +51,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:core:1.6.1")

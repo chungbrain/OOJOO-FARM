@@ -16,7 +16,9 @@ data class AnalysisResult(
     val needWater: Boolean,
     val confidence: Double,
     val fruitRipeness: Double = 0.0,   // 열매 익음도(붉은 비율 추정) 0~1
-    val pestSuspected: Boolean = false // 해충 의심(어두운 반점 휴리스틱)
+    val pestSuspected: Boolean = false, // 해충 의심
+    val condition: String? = null,      // healthy / water_low / pest / ...
+    val modelId: String? = null
 )
 
 object PlantAnalyzer {
@@ -90,8 +92,8 @@ object PlantAnalyzer {
         val confidence = (0.5 + greenness * 0.3 + (1.0 - abs(brightnessNorm - 0.5)) * 0.2).coerceIn(0.0, 1.0)
         val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
         val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
-
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
+        val dl = PlantHealthNet.maybeDiagnose(image)
+        return merge(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest, dl)
     }
 
     fun analyzeBitmap(bitmap: Bitmap): AnalysisResult {
@@ -139,7 +141,27 @@ object PlantAnalyzer {
         val confidence = (0.5 + greenness * 0.3 + (1.0 - abs(brightnessNorm - 0.5)) * 0.2).coerceIn(0.0, 1.0)
         val ripeness = (redRatio * 3.0).coerceIn(0.0, 1.0)
         val pest = brightnessNorm > 0.15 && darkRatio in 0.06..0.45
+        val dl = PlantHealthNet.maybeDiagnose(bitmap)
+        return merge(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest, dl)
+    }
 
-        return AnalysisResult(greenness, brightnessNorm, healthStatus, needWater, confidence, ripeness, pest)
+    private fun merge(
+        greenness: Double,
+        brightness: Double,
+        fallbackStatus: String,
+        fallbackWater: Boolean,
+        fallbackConf: Double,
+        ripeness: Double,
+        fallbackPest: Boolean,
+        dl: HealthDiagnosis?
+    ): AnalysisResult {
+        if (dl == null) {
+            return AnalysisResult(greenness, brightness, fallbackStatus, fallbackWater, fallbackConf, ripeness, fallbackPest)
+        }
+        val status = "${dl.labelKo} (${(dl.confidence * 100).toInt()}%)"
+        return AnalysisResult(
+            greenness, brightness, status, dl.needWater, dl.confidence, ripeness,
+            dl.pestSuspected, dl.condition, dl.modelId
+        )
     }
 }

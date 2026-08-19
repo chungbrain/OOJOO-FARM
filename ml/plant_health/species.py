@@ -1,0 +1,78 @@
+"""Species palettes and condition labels for on-device plant health CNNs."""
+
+LABELS = ["healthy", "water_low", "water_high", "light_low", "pest", "heat"]
+
+SPECIES = {
+    "cherry_tomato": {
+        "ko": "방울토마토",
+        "aliases": ["방울토마토", "토마토", "cherry tomato", "tomato", "cherrytomato"],
+        "leaf": (46, 140, 52),
+        "vein": (28, 92, 36),
+        "fruit": (214, 48, 48),
+        "soil": (92, 64, 42),
+        "shape": "leaflet",
+    },
+    "basil": {
+        "ko": "바질",
+        "aliases": ["바질", "basil"],
+        "leaf": (22, 102, 48),
+        "vein": (90, 46, 92),
+        "fruit": (70, 40, 80),
+        "soil": (80, 58, 40),
+        "shape": "round",
+    },
+    "cactus": {
+        "ko": "선인장",
+        "aliases": ["선인장", "cactus"],
+        "leaf": (96, 140, 88),
+        "vein": (70, 110, 70),
+        "fruit": (200, 80, 90),
+        "soil": (168, 140, 96),
+        "shape": "column",
+    },
+    "herb": {
+        "ko": "허브",
+        "aliases": ["허브", "herb", "로즈마리", "rosemary"],
+        "leaf": (60, 128, 70),
+        "vein": (40, 88, 50),
+        "fruit": (90, 70, 40),
+        "soil": (88, 62, 44),
+        "shape": "needle",
+    },
+    "strawberry": {
+        "ko": "딸기",
+        "aliases": ["딸기", "strawberry"],
+        "leaf": (40, 130, 55),
+        "vein": (24, 86, 38),
+        "fruit": (220, 40, 60),
+        "soil": (100, 70, 48),
+        "shape": "serrated",
+    },
+    "pepper": {
+        "ko": "고추",
+        "aliases": ["고추", "chili", "pepper", "chili pepper"],
+        "leaf": (28, 110, 42),
+        "vein": (18, 72, 30),
+        "fruit": (200, 36, 32),
+        "soil": (86, 60, 40),
+        "shape": "long",
+    },
+    "pumpkin": {
+        "ko": "호박",
+        "aliases": ["호박", "pumpkin"],
+        "leaf": (70, 148, 48),
+        "vein": (48, 100, 32),
+        "fruit": (230, 140, 30),
+        "soil": (94, 66, 40),
+        "shape": "lobe",
+    },
+    "zucchini": {
+        "ko": "애호박",
+        "aliases": ["애호박", "zucchini", "squash"],
+        "leaf": (86, 160, 62),
+        "vein": (50, 110, 40),
+        "fruit": (150, 180, 60),
+        "soil": (90, 64, 42),
+        "shape": "lobe",
+    },
+}

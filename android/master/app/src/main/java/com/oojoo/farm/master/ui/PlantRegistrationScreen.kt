@@ -37,7 +37,7 @@ class PlantRegistrationViewModel : ViewModel() {
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     var done by mutableStateOf(false)
-    val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
+    val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "허브", "선인장", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
 
     init { loadSlaves() }
     fun loadSlaves() { viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {} } }
@@ -63,6 +63,7 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
     val S = LocalAppStrings.current
     val speciesLabels = if (S.isEnglish) mapOf(
         "상추" to "Lettuce", "깻잎" to "Perilla", "바질" to "Basil", "로즈마리" to "Rosemary",
+        "허브" to "Herb", "선인장" to "Cactus",
         "방울토마토" to "Cherry tomato", "토마토" to "Tomato", "대파" to "Green onion",
         "딸기" to "Strawberry", "고추" to "Chili pepper", "애호박" to "Zucchini",
         "호박" to "Pumpkin", "고구마" to "Sweet potato", "감자" to "Potato", "양파" to "Onion"
