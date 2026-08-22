@@ -1,32 +1,28 @@
 package com.oojoo.farm.slave.vision
 
 import android.view.ViewGroup
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.Quality
-import androidx.camera.video.QualitySelector
-import androidx.camera.video.Recorder
-import androidx.camera.video.VideoCapture
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
 
+/**
+ * 카메라 프리뷰 UI.
+ *
+ * 카메라 바인딩은 더 이상 여기서 하지 않는다 — FarmerService 가 구동하는
+ * CameraHost(서비스 라이프사이클)가 상시 바인딩을 소유하며, 앱이 내려가도
+ * 관찰·촬영이 유지된다. 이 Composable 은 화면이 떠 있을 때만
+ * PreviewView surface 를 연결(attach)하고 사라질 때 해제(detach)한다.
+ */
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -37,103 +33,41 @@ fun CameraPreview(
     val context = LocalContext.current
     val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
     val executor = remember { Executors.newSingleThreadExecutor() }
-    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
 
     DisposableEffect(Unit) {
+        CameraHost.attach(context, previewView)
         onDispose {
+            // surface만 해제 — 서비스 소유 카메라 바인딩은 백그라운드에서 유지된다.
+            CameraHost.detach()
             executor.shutdown()
-            CameraHolder.setImageCapture(null)
-            CameraHolder.setCapture(null)
-            val providerFuture = ProcessCameraProvider.getInstance(context)
-            providerFuture.addListener({
-                try { providerFuture.get().unbindAll() } catch (_: Exception) {}
-            }, ContextCompat.getMainExecutor(context))
         }
     }
 
-    LaunchedEffect(Unit) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-            val capture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                .build()
-            val analysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also { ia ->
-                    ia.setAnalyzer(executor) { imageProxy ->
-                        val result = PlantAnalyzer.analyze(imageProxy)
-                        onAnalysisResult(result)
-                    }
-                }
-
-            // VideoCapture — Preview/ImageCapture/ImageAnalysis 와 **함께** 바인딩
-            // (CameraX 는 모든 use case 를 단일 bindToLifecycle 에 포함해야 함)
-            val recorder = Recorder.Builder()
-                .setQualitySelector(QualitySelector.from(Quality.SD))
-                .build()
-            val videoCapture = VideoCapture.withOutput(recorder)
-
-            imageCapture = capture
-            CameraHolder.setImageCapture(capture)
-            // use case 바인딩 우선순위:
-            // 1) Preview + ImageCapture + ImageAnalysis + VideoCapture (전부)
-            // 2) Preview + ImageCapture + VideoCapture (ImageAnalysis 제외 — 영상 캡처 우선)
-            // 3) Preview + ImageCapture + ImageAnalysis (VideoCapture 미지원 기기)
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    context as androidx.lifecycle.LifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview, capture, analysis, videoCapture
-                )
-                CameraHolder.setCapture(videoCapture)
-            } catch (e: Exception) {
-                try {
-                    cameraProvider.bindToLifecycle(
-                        context as androidx.lifecycle.LifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview, capture, videoCapture
-                    )
-                    CameraHolder.setCapture(videoCapture)
-                } catch (e2: Exception) {
-                    try {
-                        cameraProvider.bindToLifecycle(
-                            context as androidx.lifecycle.LifecycleOwner,
-                            CameraSelector.DEFAULT_BACK_CAMERA,
-                            preview, capture, analysis
-                        )
-                    } catch (e3: Exception) {
-                        onAnalysisResult(AnalysisResult(0.0, 0.0, "카메라 바인딩 실패: ${e3.message}", false, 0.0))
-                    }
-                    CameraHolder.setCapture(null)
-                }
-            }
-        }, ContextCompat.getMainExecutor(context))
-    }
-
+    // 수동 촬영(대시보드 버튼) — CameraHost 가 등록한 ImageCapture 사용
     LaunchedEffect(captureRequested) {
-        if (captureRequested && imageCapture != null) {
-            val capture = imageCapture!!
-            capture.takePicture(
-                executor,
-                object : ImageCapture.OnImageCapturedCallback() {
-                    override fun onCaptureSuccess(image: androidx.camera.core.ImageProxy) {
-                        val bitmap = imageProxyToBitmap(image)
-                        if (bitmap != null) {
-                            val result = PlantAnalyzer.analyzeBitmap(bitmap)
-                            onAnalysisResult(result)
+        if (captureRequested) {
+            val capture = CameraHolder.imageCapture
+            if (capture == null) {
+                onCaptureDone()
+            } else {
+                capture.takePicture(
+                    executor,
+                    object : ImageCapture.OnImageCapturedCallback() {
+                        override fun onCaptureSuccess(image: androidx.camera.core.ImageProxy) {
+                            val bitmap = imageProxyToBitmap(image)
+                            if (bitmap != null) {
+                                val result = PlantAnalyzer.analyzeBitmap(bitmap)
+                                onAnalysisResult(result)
+                            }
+                            image.close()
+                            onCaptureDone()
                         }
-                        image.close()
-                        onCaptureDone()
+                        override fun onError(exc: ImageCaptureException) {
+                            onCaptureDone()
+                        }
                     }
-                    override fun onError(exc: ImageCaptureException) {
-                        onCaptureDone()
-                    }
-                }
-            )
+                )
+            }
         }
     }
 

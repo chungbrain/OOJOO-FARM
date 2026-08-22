@@ -27,6 +27,16 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
+    override fun onStart() {
+        super.onStart()
+        // 앱이 화면에 보이는 시점에 서비스를 재지시 → FGS camera 타입 재요청 +
+        // 카메라 재바인딩 (부팅/시스템 재시작 직후 백그라운드 시작으로 카메라가
+        // 비활성 상태였던 경우 복구).
+        if (Prefs.isPaired(this)) {
+            FarmerService.start(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppLocale.initialize(this)
         super.onCreate(savedInstanceState)

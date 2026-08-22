@@ -243,6 +243,13 @@
     <string name="video_captured_suffix">)</string>
     <string name="just_now">방금</string>
     <string name="recapture">🔄 다시 촬영</string>
+    <string name="photo_capture">📸 사진 촬영</string>
+    <string name="photo_sending">사진 요청 전송 중…</string>
+    <string name="photo_sent_waiting">사진 요청 전송됨 — 응답 대기 중</string>
+    <string name="photo_done">사진 수신 완료!</string>
+    <string name="photo_captured_prefix">📷 사진 (촬영:\u0020</string>
+    <string name="photo_captured_suffix">)</string>
+    <string name="video_capture_btn">📹 영상 촬영</string>
     <string name="start_app">🚀 시작하기!</string>
     <string name="hello">안녕하세요!</string>
     <string name="welcome_subtitle">누구나 집에서 키우는\n재미있는 스마트 농장</string>

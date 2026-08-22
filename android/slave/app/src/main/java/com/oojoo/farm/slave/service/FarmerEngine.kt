@@ -10,6 +10,7 @@ import com.oojoo.farm.slave.album.PlantAlbum
 import com.oojoo.farm.slave.vision.AnalysisResult
 import com.oojoo.farm.slave.vision.CameraHolder
 import com.oojoo.farm.slave.vision.GrowthClipRenderer
+import com.oojoo.farm.slave.vision.PlantAnalyzer
 import com.oojoo.farm.slave.vision.PlantHealthNet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +96,7 @@ object FarmerEngine {
     private fun slaveId() = Prefs.slaveId(appCtx) ?: ""
 
     @Volatile private var sseJob: Job? = null
+    @Volatile private var sseConnected = false
 
     /** SSE 클라이언트 — 백엔드에서 명령을 실시간으로 수신. */
     private fun startSSE() {
@@ -116,10 +118,12 @@ object FarmerEngine {
                         .build()
                     val response = client.newCall(request).execute()
                     if (!response.isSuccessful) {
+                        sseConnected = false
                         addLog("[${now()}] SSE 연결 실패 (${response.code}) — 5초 후 재시도")
                         delay(5000)
                         continue
                     }
+                    sseConnected = true
                     addLog("[${now()}] SSE 연결됨 — 실시간 명령 대기")
                     val reader = BufferedReader(InputStreamReader(response.body!!.byteStream()))
                     var line: String?
@@ -141,6 +145,7 @@ object FarmerEngine {
                     response.close()
                     if (isActive) { delay(3000) }
                 } catch (_: Exception) {
+                    sseConnected = false
                     if (isActive) { delay(5000) }
                 }
             }
@@ -183,6 +188,11 @@ object FarmerEngine {
                     postEventSafe("pest_control", mapOf("response" to "laser_approved"))
                     ApiClient.api.commandDone(id)
                 }
+                "capture_photo" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 즉시 사진 촬영")
+                    captureAndUploadPhotoNow(id, plantId)
+                    ApiClient.api.commandDone(id)
+                }
                 "capture_video" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 3초 영상 캡처")
                     captureAndUploadVideo(id)
@@ -218,6 +228,7 @@ object FarmerEngine {
                     _online.value = true
                     flushQueue() // 재연결 시 오프라인 누적 이벤트 동기화
                 } catch (_: Exception) { _online.value = false }
+                if (!sseConnected) pollCommands() // SSE 미연결 시 폴링 fallback
                 if (_autoOn.value) tick()
                 maybeCaptureGrowthPhoto()
                 delay(30_000L)
@@ -394,6 +405,11 @@ object FarmerEngine {
                         postEventSafe("pest_control", mapOf("response" to "laser_approved"))
                         ApiClient.api.commandDone(cmd.id)
                     }
+                    "capture_photo" -> {
+                        addLog("[${now()}] 마스터 요청: 즉시 사진 촬영")
+                        captureAndUploadPhotoNow(cmd.id, cmd.plant_id)
+                        ApiClient.api.commandDone(cmd.id)
+                    }
                     "capture_video" -> {
                         addLog("[${now()}] 마스터 요청: 3초 영상 캡처")
                         captureAndUploadVideo(cmd.id)
@@ -440,6 +456,73 @@ object FarmerEngine {
     }
 
     private var lastPhotoAttempt = 0L
+
+    /** 카메라 준비 대기 (바인딩 진행 중일 수 있어 잠깐 재시도). */
+    private suspend fun awaitCameraReady(timeoutMs: Long = 5000): Boolean {
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            if (CameraHolder.ready) return true
+            delay(150)
+        }
+        return CameraHolder.ready
+    }
+
+    /**
+     * 마스터의 즉시 사진 요청(capture_photo) 처리.
+     * 지체 없이 촬영 → 분석 → 업로드. 백그라운드에서도 CameraHost가
+     * 카메라를 유지하므로 앱이 내려가 있어도 동작한다.
+     */
+    private fun captureAndUploadPhotoNow(commandId: String, plantIdHint: String?) {
+        scope.launch {
+            if (!awaitCameraReady()) {
+                addLog("[${now()}] 즉시 사진 실패: 카메라 미준비")
+                return@launch
+            }
+            val plant = _plants.value.firstOrNull { it.id == plantIdHint } ?: _plant.value
+            val pid = plant?.id ?: plantIdHint
+            if (pid.isNullOrBlank()) {
+                addLog("[${now()}] 즉시 사진 실패: 식물 미지정")
+                return@launch
+            }
+            val file = suspendCancellableCoroutine<File?> { cont ->
+                CameraHolder.captureStill(appCtx) { f -> if (cont.isActive) cont.resume(f) }
+            }
+            if (file == null || !file.exists()) {
+                addLog("[${now()}] 즉시 사진 촬영 실패")
+                return@launch
+            }
+            // 촬영 즉시 분석 결과 반영 (마스터 대시보드 상태 갱신)
+            try {
+                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                if (bitmap != null) {
+                    val result = PlantAnalyzer.analyzeBitmap(bitmap)
+                    _lastAnalysis.value = result
+                    addLog("[${now()}] 즉시 분석: ${result.healthStatus} (녹색:${"%.0f".format(result.greenness * 100)}%)")
+                }
+            } catch (_: Exception) {}
+
+            val takenAt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+            val location = Prefs.region(appCtx)
+            try {
+                PlantAlbum.add(appCtx, pid, file, takenAt, location)
+                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
+                ApiClient.api.uploadPhoto(
+                    slaveId(),
+                    part,
+                    pid.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    location.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    commandId.takeIf { it.isNotBlank() }?.toRequestBody("text/plain".toMediaTypeOrNull())
+                )
+                addLog("[${now()}] 즉시 사진 전송 완료 (${file.length() / 1024}KB)")
+            } catch (e: Exception) {
+                addLog("[${now()}] 즉시 사진 업로드 실패: ${e.message}")
+            } finally {
+                file.delete()
+            }
+        }
+    }
 
     private suspend fun maybeCaptureGrowthPhoto() {
         if (!CameraHolder.ready || CameraHolder.isRecording()) return
@@ -565,8 +648,8 @@ object FarmerEngine {
     // 별도 바인딩 불필요 — CameraPreview 의 LaunchedEffect 가 통합 바인딩함.
     private fun captureAndUploadVideo(commandId: String) {
         scope.launch {
-            if (!CameraHolder.ready) {
-                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비 (대시보드 화면이 켜져 있어야 함)")
+            if (!awaitCameraReady()) {
+                addLog("[${now()}] 영상 캡처 실패: 카메라 미준비")
                 return@launch
             }
             addLog("[${now()}] 3초 영상 캡처 시작…")

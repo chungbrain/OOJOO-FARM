@@ -54,7 +54,8 @@ interface ApiService {
         @Part photo: MultipartBody.Part,
         @Part("plantId") plantId: RequestBody,
         @Part("takenAt") takenAt: RequestBody,
-        @Part("location") location: RequestBody
+        @Part("location") location: RequestBody,
+        @Part("commandId") commandId: RequestBody? = null
     ): PhotoUploadResponse
 
     @GET("api/photos/plant/{plantId}")

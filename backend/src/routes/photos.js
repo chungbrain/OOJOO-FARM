@@ -5,6 +5,7 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
+import { notifyMasterEvent } from './commands.js';
 
 const r = Router();
 
@@ -58,7 +59,7 @@ function toPhoto(row) {
 
 r.post('/upload/:slaveId', slaveAuth, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'photo file required' });
-  const { plantId, takenAt, location, lat, lon } = req.body || {};
+  const { plantId, takenAt, location, lat, lon, commandId } = req.body || {};
   if (!plantId) return res.status(400).json({ error: 'plantId required' });
   const id = nanoid(12);
   db.prepare(`
@@ -77,7 +78,19 @@ r.post('/upload/:slaveId', slaveAuth, upload.single('photo'), (req, res) => {
     lon != null && lon !== '' ? Number(lon) : null
   );
   const row = db.prepare('SELECT * FROM plant_photos WHERE id=?').get(id);
-  res.json({ photoId: id, ...toPhoto(row) });
+  const photo = toPhoto(row);
+  // SSE: 연결된 Master에게 즉시 사진 준비 완료 알림 (LiveCamera 등 실시간 UI)
+  notifyMasterEvent(req.params.slaveId, {
+    type: 'photo_ready',
+    photoId: photo.id,
+    slaveId: req.params.slaveId,
+    plantId: photo.plant_id,
+    url: photo.url,
+    taken_at: photo.taken_at,
+    created_at: photo.created_at,
+    commandId: (req.body && req.body.commandId) || null,
+  });
+  res.json({ photoId: id, ...photo });
 });
 
 r.get('/plant/:plantId', (req, res) => {

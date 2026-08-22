@@ -243,6 +243,13 @@
     <string name="video_captured_suffix">)</string>
     <string name="just_now">just now</string>
     <string name="recapture">🔄 Capture again</string>
+    <string name="photo_capture">📸 Take photo</string>
+    <string name="photo_sending">Sending photo request…</string>
+    <string name="photo_sent_waiting">Photo requested — waiting for response</string>
+    <string name="photo_done">Photo received!</string>
+    <string name="photo_captured_prefix">📷 Photo (shot:\u0020</string>
+    <string name="photo_captured_suffix">)</string>
+    <string name="video_capture_btn">📹 Record video</string>
     <string name="start_app">🚀 Get Started!</string>
     <string name="hello">Hello!</string>
     <string name="welcome_subtitle">Grow your own smart farm\nat home</string>

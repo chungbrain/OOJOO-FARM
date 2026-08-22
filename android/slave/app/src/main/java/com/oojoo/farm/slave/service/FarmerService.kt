@@ -16,6 +16,7 @@ import com.oojoo.farm.slave.MainActivity
 import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.network.ApiClient
+import com.oojoo.farm.slave.vision.CameraHost
 
 /**
  * 헤드리스 자율 관리용 Foreground Service.
@@ -43,6 +44,10 @@ class FarmerService : Service() {
         }
         if (Prefs.isPaired(this)) {
             FarmerEngine.start(applicationContext)
+            // 카메라는 서비스 라이프사이클에 바인딩 — 앱이 내려가도 관찰·촬영 유지.
+            // (FGS camera 타입이 활성화되지 않은 백그라운드 시작이면 바인딩이
+            //  실패하고, 사용자가 앱을 열어 재호출할 때 재시도된다.)
+            CameraHost.start(applicationContext)
         }
         // 시스템이 종료해도 재시작되도록 STICKY (24h+ 자율 유지)
         return START_STICKY
@@ -50,6 +55,7 @@ class FarmerService : Service() {
 
     override fun onDestroy() {
         FarmerEngine.stop()
+        CameraHost.stop()
         releaseWakeLock()
         super.onDestroy()
     }
@@ -70,10 +76,27 @@ class FarmerService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIF_ID, notification)
+        when {
+            // Android 11+: 백그라운드 카메라 접근을 위해 camera 타입 포함.
+            // 앱이 화면에 보이는 동안 시작된 경우에만 허용되므로 실패 시 dataSync로 fallback.
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                try {
+                    startForeground(
+                        NOTIF_ID, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    )
+                } catch (_: Exception) {
+                    try {
+                        startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                    } catch (_: Exception) {
+                        startForeground(NOTIF_ID, notification)
+                    }
+                }
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            else -> startForeground(NOTIF_ID, notification)
         }
     }
 

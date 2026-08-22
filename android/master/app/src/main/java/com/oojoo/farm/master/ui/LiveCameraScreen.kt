@@ -53,26 +53,42 @@ class LiveCameraViewModel : ViewModel() {
     var savedPath by mutableStateOf<String?>(null)
     var savedMsg by mutableStateOf<String?>(null)
 
+    // 사진 즉시 촬영 모드 (capture_photo)
+    var photoMode by mutableStateOf(false)
+    var photoUrl by mutableStateOf<String?>(null)
+    var photoTakenAt by mutableStateOf<String?>(null)
+
     private var sseJob: Job? = null
 
     private var videoHandled = false
 
     fun requestAndWatch(slaveId: String, slaveName: String, ctx: android.content.Context) {
+        request(slaveId, slaveName, ctx, action = "capture_video")
+    }
+
+    fun requestPhoto(slaveId: String, slaveName: String, ctx: android.content.Context) {
+        request(slaveId, slaveName, ctx, action = "capture_photo")
+    }
+
+    private fun request(slaveId: String, slaveName: String, ctx: android.content.Context, action: String) {
+        photoMode = action == "capture_photo"
         loading = true
         error = null
-        status = "캡처 요청 전송 중…"
+        status = if (photoMode) "사진 요청 전송 중…" else "캡처 요청 전송 중…"
         videoInfo = null
         savedPath = null
         savedMsg = null
+        photoUrl = null
+        photoTakenAt = null
         videoHandled = false
         // 기존 SSE 연결 종료
         sseJob?.cancel()
         viewModelScope.launch {
             try {
-                val cmdResp = api.sendCommand(CommandRequest(slaveId, null, "capture_video"))
+                val cmdResp = api.sendCommand(CommandRequest(slaveId, null, action))
                 val commandId = cmdResp.commandId
-                status = "캡처 요청 전송됨 — SSE로 응답 대기 중"
-                // SSE로 영상 준비 완료 대기
+                status = if (photoMode) "사진 요청 전송됨 — 응답 대기 중" else "캡처 요청 전송됨 — SSE로 응답 대기 중"
+                // SSE로 영상/사진 준비 완료 대기
                 startMasterSSE(slaveId, commandId, slaveName, ctx)
                 // 시간 초과 감시 (40초)
                 launch {
@@ -95,7 +111,7 @@ class LiveCameraViewModel : ViewModel() {
         }
     }
 
-    /** Master SSE 클라이언트 — 영상 준비 완료 이벤트를 실시간 수신. */
+    /** Master SSE 클라이언트 — 영상/사진 준비 완료 이벤트를 실시간 수신. */
     private fun startMasterSSE(slaveId: String, commandId: String, slaveName: String, ctx: android.content.Context) {
         sseJob = viewModelScope.launch(Dispatchers.IO) {
             val baseUrl = ApiClient.baseUrl.trimEnd('/')
@@ -134,6 +150,17 @@ class LiveCameraViewModel : ViewModel() {
                                         response.close()
                                         return@launch
                                     }
+                                } else if (json.optString("type") == "photo_ready") {
+                                    val cmdId = json.optString("commandId", "")
+                                    if (cmdId == commandId) {
+                                        val url = json.getString("url")
+                                        val takenAt = json.optString("taken_at", "")
+                                        withContext(Dispatchers.Main) {
+                                            onPhotoReady(url, takenAt)
+                                        }
+                                        response.close()
+                                        return@launch
+                                    }
                                 }
                             } catch (_: Exception) {}
                         }
@@ -142,6 +169,17 @@ class LiveCameraViewModel : ViewModel() {
                 response.close()
             } catch (_: Exception) {}
         }
+    }
+
+    /** 사진 수신 처리 — 요청 매칭된 사진만 표시. */
+    private fun onPhotoReady(url: String, takenAt: String) {
+        if (videoHandled) return
+        videoHandled = true
+        photoUrl = url
+        photoTakenAt = takenAt.takeIf { it.isNotBlank() }
+        status = "사진 수신 완료!"
+        loading = false
+        sseJob?.cancel()
     }
 
     /** 영상 수신 처리 — SSE와 폴링 중 먼저 도착한 쪽만 처리 (중복 저장 방지). */
@@ -203,6 +241,24 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
             if (vm.loading) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) }
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
+            vm.photoUrl?.let { pUrl ->
+                val fullUrl = baseUrl + pUrl
+                Text("${S.photoCapturedPrefix}${vm.photoTakenAt ?: S.justNow}${S.photoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                    coil.compose.AsyncImage(
+                        model = fullUrl,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                }
+                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+            }
+
             vm.videoInfo?.let { v ->
                 val fullUrl = baseUrl + v.url
                 Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -220,9 +276,15 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                 vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
                 }
                 OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+            }
+
+            // 결과 없이 대기 중일 때도 사진 촬영으로 전환 가능
+            if (vm.videoInfo == null && vm.photoUrl == null) {
+                OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.fillMaxWidth())
             }
         }
     }
