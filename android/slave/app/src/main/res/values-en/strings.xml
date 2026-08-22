@@ -72,4 +72,18 @@
     <string name="server_invalid">Enter an http or https root address.</string>
     <string name="server_connection_failed">Server health check failed. The previous address and pairing were kept.</string>
     <string name="server_help">The Farmer service reconnects only after /health succeeds. Existing pairing is preserved.</string>
+
+    <string name="roi_editor_title">ROI Settings</string>
+    <string name="roi_editor_guide">1. Select a plant below → 2. Drag over its area on the camera. Each ROI is periodically diagnosed with its own plant model.</string>
+    <string name="roi_select_plant">Select plant (ROI target)</string>
+    <string name="roi_no_plants">No plants registered (register from Master)</string>
+    <string name="roi_saved">%1$s ROI saved</string>
+    <string name="roi_removed">%1$s ROI removed</string>
+    <string name="roi_delete">Delete</string>
+    <string name="roi_close">Done</string>
+    <string name="roi_not_set">ROI not set</string>
+    <string name="roi_region_format">ROI: x=%1$s%% y=%2$s%% w=%3$s%% h=%4$s%%</string>
+    <string name="roi_monitor_title">Per-plant ROI monitoring</string>
+    <string name="roi_status_format">Status: %1$s (model: %2$s)</string>
+    <string name="roi_editor_open">📐 ROI Settings (per-plant area)</string>
 </resources>

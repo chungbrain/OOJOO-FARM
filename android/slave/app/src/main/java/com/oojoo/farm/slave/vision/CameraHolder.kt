@@ -51,6 +51,38 @@ object CameraHolder {
     fun isRecording(): Boolean = recording != null
 
     /**
+     * 현재 프레임을 Bitmap으로 캡처한다 (ROI 모니터링용).
+     * JPEG 저장과 달리 디스크 I/O 없이 메모리에서 변환한다.
+     */
+    fun captureFrame(onDone: (android.graphics.Bitmap?) -> Unit) {
+        val capture = imageCapture
+        if (capture == null) {
+            Log.w(TAG, "captureFrame: ImageCapture not ready")
+            onDone(null)
+            return
+        }
+        try {
+            capture.takePicture(
+                executor,
+                object : androidx.camera.core.ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: androidx.camera.core.ImageProxy) {
+                        val bitmap = try { image.toBitmap() } catch (_: Exception) { null }
+                        image.close()
+                        onDone(bitmap)
+                    }
+                    override fun onError(exception: ImageCaptureException) {
+                        Log.w(TAG, "captureFrame error", exception)
+                        onDone(null)
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "captureFrame failed", e)
+            onDone(null)
+        }
+    }
+
+    /**
      * 정지 사진을 JPEG 파일로 저장한다. 실패 시 null.
      */
     fun captureStill(context: Context, onDone: (File?) -> Unit) {

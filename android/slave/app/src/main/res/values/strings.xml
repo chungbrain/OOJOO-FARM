@@ -72,4 +72,18 @@
     <string name="server_invalid">http 또는 https 루트 주소를 입력하세요.</string>
     <string name="server_connection_failed">서버 상태 확인에 실패했습니다. 기존 주소와 페어링을 유지합니다.</string>
     <string name="server_help">/health 응답이 정상일 때만 저장하고 Farmer 서비스를 다시 연결합니다. 기존 페어링은 유지됩니다.</string>
+
+    <string name="roi_editor_title">ROI 설정</string>
+    <string name="roi_editor_guide">1. 아래 목록에서 식물 선택 → 2. 카메라 화면에서 해당 식물 영역을 드래그. 각 ROI는 서로 다른 식물·모델로 주기적 진단됩니다.</string>
+    <string name="roi_select_plant">식물 선택 (ROI 지정 대상)</string>
+    <string name="roi_no_plants">등록된 식물이 없습니다 (마스터에서 등록 필요)</string>
+    <string name="roi_saved">%1$s ROI 저장됨</string>
+    <string name="roi_removed">%1$s ROI 삭제됨</string>
+    <string name="roi_delete">삭제</string>
+    <string name="roi_close">완료</string>
+    <string name="roi_not_set">ROI 미설정</string>
+    <string name="roi_region_format">ROI: x=%1$s%% y=%2$s%% w=%3$s%% h=%4$s%%</string>
+    <string name="roi_monitor_title">ROI 식물별 모니터링</string>
+    <string name="roi_status_format">상태: %1$s (모델: %2$s)</string>
+    <string name="roi_editor_open">📐 ROI 설정 (식물별 영역 지정)</string>
 </resources>

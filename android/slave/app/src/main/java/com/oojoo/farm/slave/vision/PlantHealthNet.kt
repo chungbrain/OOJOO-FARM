@@ -94,6 +94,28 @@ object PlantHealthNet {
     fun maybeDiagnose(bitmap: Bitmap): HealthDiagnosis? {
         val id = speciesId ?: return null
         if (!available(id)) return null
+        val rgb = bitmapToRgb48(bitmap)
+        last = infer(id, rgb)
+        return last
+    }
+
+    /**
+     * ROI 모니터링용 — 모델을 직접 지정해 진단.
+     * 같은 프레임의 서로 다른 ROI를 각 식물의 모델로 판정한다.
+     * 프레임 스킵(last 재사용) 없이 항상 추론한다.
+     */
+    fun diagnoseWithModel(modelId: String, bitmap: Bitmap): HealthDiagnosis? {
+        if (!available(modelId)) return null
+        return infer(modelId, bitmapToRgb48(bitmap))
+    }
+
+    /** 식물 종명 → 모델 id 해석 (매핑 없으면 null). */
+    fun modelIdFor(raw: String?): String? {
+        val id = resolve(raw) ?: return null
+        return if (available(id)) id else null
+    }
+
+    private fun bitmapToRgb48(bitmap: Bitmap): FloatArray {
         val rgb = FloatArray(SIZE * SIZE * 3)
         val scaled = Bitmap.createScaledBitmap(bitmap, SIZE, SIZE, true)
         val px = IntArray(SIZE * SIZE)
@@ -104,8 +126,7 @@ object PlantHealthNet {
             rgb[i * 3 + 1] = ((px[i] shr 8) and 0xFF) / 255f
             rgb[i * 3 + 2] = (px[i] and 0xFF) / 255f
         }
-        last = infer(id, rgb)
-        return last
+        return rgb
     }
 
     @Volatile private var last: HealthDiagnosis? = null

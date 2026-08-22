@@ -112,6 +112,28 @@ fun DashboardScreen(nav: NavController) {
                 GradientButton(text = stringResource(R.string.manual_water), onClick = { FarmerEngine.manualWater() }, modifier = Modifier.weight(1f))
             }
 
+            // ROI 다중 식물 모니터링 현황
+            val roiStatuses by FarmerEngine.roiStatuses.collectAsState()
+            if (roiStatuses.isNotEmpty()) {
+                Text(stringResource(R.string.roi_monitor_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        roiStatuses.forEach { s ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🌱 ${s.plantName}", Modifier.weight(1f), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(s.updatedAt, color = OojooTheme.Muted, fontSize = 11.sp)
+                            }
+                            Text(
+                                stringResource(R.string.roi_status_format, localizeFarmerText(s.healthStatus, english), s.modelId ?: "heuristic"),
+                                color = if (s.needWater || s.pestSuspected) OojooTheme.Red else OojooTheme.Muted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+            OutlineButton(text = stringResource(R.string.roi_editor_open), onClick = { nav.navigate("roi") }, modifier = Modifier.fillMaxWidth())
+
             Text(stringResource(R.string.event_log), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
             Card(Modifier.fillMaxWidth().heightIn(min = 120.dp).shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

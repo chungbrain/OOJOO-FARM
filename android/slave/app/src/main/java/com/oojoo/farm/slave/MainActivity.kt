@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
                     composable("pairing") { PairingScreen(nav) }
                     composable("dashboard") { DashboardScreen(nav) }
                     composable("settings") { SettingsScreen(nav) }
+                    composable("roi") { com.oojoo.farm.slave.ui.RoiEditorScreen(nav) }
                 }
             }
         }

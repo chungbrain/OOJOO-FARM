@@ -164,4 +164,38 @@ object PlantAnalyzer {
             dl.pestSuspected, dl.condition, dl.modelId
         )
     }
+
+    /**
+     * ROI 단위 분석 — 전체 프레임 bitmap에서 roi 영역만 잘라 진단한다.
+     * roi에 지정된 식물의 모델이 있으면 그 모델로 CNN 추론하고,
+     * 없으면 휴리스틱(색 통계)으로 판정한다.
+     */
+    fun analyzeRoi(bitmap: Bitmap, roi: PlantRoi): AnalysisResult {
+        val bw = bitmap.width
+        val bh = bitmap.height
+        val left = (roi.x * bw).toInt().coerceIn(0, bw - 2)
+        val top = (roi.y * bh).toInt().coerceIn(0, bh - 2)
+        val width = (roi.w * bw).toInt().coerceIn(2, bw - left)
+        val height = (roi.h * bh).toInt().coerceIn(2, bh - top)
+
+        val crop = Bitmap.createBitmap(bitmap, left, top, width, height)
+        val result = try {
+            val heuristic = analyzeBitmap(crop)
+            val modelId = PlantHealthNet.modelIdFor(roi.species ?: roi.plantName)
+            val dl = modelId?.let { PlantHealthNet.diagnoseWithModel(it, crop) }
+            if (dl != null) {
+                AnalysisResult(
+                    heuristic.greenness, heuristic.brightness,
+                    "${dl.labelKo} (${(dl.confidence * 100).toInt()}%)",
+                    dl.needWater, dl.confidence, heuristic.fruitRipeness,
+                    dl.pestSuspected, dl.condition, dl.modelId
+                )
+            } else {
+                heuristic
+            }
+        } finally {
+            crop.recycle()
+        }
+        return result
+    }
 }

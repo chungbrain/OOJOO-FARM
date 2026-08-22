@@ -12,10 +12,12 @@ import com.oojoo.farm.slave.vision.CameraHolder
 import com.oojoo.farm.slave.vision.GrowthClipRenderer
 import com.oojoo.farm.slave.vision.PlantAnalyzer
 import com.oojoo.farm.slave.vision.PlantHealthNet
+import com.oojoo.farm.slave.vision.RoiStore
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -60,6 +62,7 @@ object FarmerEngine {
     private val _plant = MutableStateFlow<Plant?>(null)
     val plant: StateFlow<Plant?> = _plant.asStateFlow()
     private val _plants = MutableStateFlow<List<Plant>>(emptyList())
+    val plants: StateFlow<List<Plant>> = _plants.asStateFlow()
 
     private val _autoOn = MutableStateFlow(true)
     val autoOn: StateFlow<Boolean> = _autoOn.asStateFlow()
@@ -76,6 +79,24 @@ object FarmerEngine {
     // 카메라 즉시 캡처 요청 플래그 (UI 가 관찰)
     private val _captureRequested = MutableStateFlow(false)
     val captureRequested: StateFlow<Boolean> = _captureRequested.asStateFlow()
+
+    // ROI 기반 다중 식물 모니터링 결과 (plantId -> 최신 진단)
+    data class RoiStatus(
+        val plantId: String,
+        val plantName: String,
+        val healthStatus: String,
+        val greenness: Double,
+        val needWater: Boolean,
+        val pestSuspected: Boolean,
+        val modelId: String?,
+        val updatedAt: String
+    )
+
+    private val _roiStatuses = MutableStateFlow<List<RoiStatus>>(emptyList())
+    val roiStatuses: StateFlow<List<RoiStatus>> = _roiStatuses.asStateFlow()
+
+    // ROI 모니터링에서 물 필요/해충 감지 시 각 식물 알림 debounce
+    private val roiLastNotify = mutableMapOf<String, Long>()
 
     // 자율 실행 정책 (원격 정책 동기화)
     private val _fanAuto = MutableStateFlow(true)
@@ -242,6 +263,8 @@ object FarmerEngine {
         })
         // SSE: 실시간 명령 수신 (폴링 대체)
         startSSE()
+        // ROI 다중 식물 모니터링 루프
+        loops.add(scope.launch { roiMonitorLoop() })
         addLog("[${now()}] 엔진 시작")
     }
 
@@ -456,6 +479,76 @@ object FarmerEngine {
     }
 
     private var lastPhotoAttempt = 0L
+
+    /** ROI 편집 화면에서 저장 후 호출 — 즉시 재로드. */
+    fun onRoisChanged() {
+        scope.launch { runRoiMonitoring() }
+    }
+
+    /**
+     * ROI 기반 다중 식물 모니터링 루프.
+     * 설정된 각 ROI를 프레임에서 잘라 해당 식물의 모델로 주기적으로 진단한다.
+     * ROI가 없으면 기존 단일 식물 흐름(_lastAnalysis)을 그대로 사용한다.
+     */
+    private suspend fun roiMonitorLoop() {
+        while (coroutineContext.isActive) {
+            delay(20_000L) // 20초 주기
+            try {
+                runRoiMonitoring()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private suspend fun runRoiMonitoring() {
+        val rois = RoiStore.list(appCtx)
+        if (rois.isEmpty()) {
+            if (_roiStatuses.value.isNotEmpty()) _roiStatuses.value = emptyList()
+            return
+        }
+        if (!awaitCameraReady(1500)) return
+
+        val bitmap = suspendCancellableCoroutine<android.graphics.Bitmap?> { cont ->
+            CameraHolder.captureFrame { b -> if (cont.isActive) cont.resume(b) }
+        } ?: return
+
+        try {
+            val newStatuses = mutableListOf<RoiStatus>()
+            for (roi in rois) {
+                if (!roi.isValid()) continue
+                val result = PlantAnalyzer.analyzeRoi(bitmap, roi)
+                val status = RoiStatus(
+                    plantId = roi.plantId,
+                    plantName = roi.plantName,
+                    healthStatus = result.healthStatus,
+                    greenness = result.greenness,
+                    needWater = result.needWater,
+                    pestSuspected = result.pestSuspected,
+                    modelId = result.modelId,
+                    updatedAt = now()
+                )
+                newStatuses += status
+
+                // ROI별 이벤트 알림 (식물당 15분 debounce)
+                val nowMs = System.currentTimeMillis()
+                val lastN = roiLastNotify[roi.plantId] ?: 0L
+                if (nowMs - lastN > 15 * 60 * 1000L) {
+                    if (result.needWater) {
+                        roiLastNotify[roi.plantId] = nowMs
+                        addLog("[${now()}] ROI 진단 [${roi.plantName}]: ${result.healthStatus} → 물 부족")
+                        postEventSafe("water_low", mapOf("health" to result.healthStatus), roi.plantId)
+                    }
+                    if (result.pestSuspected) {
+                        roiLastNotify[roi.plantId] = nowMs
+                        addLog("[${now()}] ROI 진단 [${roi.plantName}]: 해충 의심")
+                        postEventSafe("pest_detected", mapOf("health" to result.healthStatus), roi.plantId)
+                    }
+                }
+            }
+            _roiStatuses.value = newStatuses
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     /** 카메라 준비 대기 (바인딩 진행 중일 수 있어 잠깐 재시도). */
     private suspend fun awaitCameraReady(timeoutMs: Long = 5000): Boolean {
