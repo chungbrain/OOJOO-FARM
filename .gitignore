@@ -35,5 +35,6 @@ ml/plant_health/test_internet/images/
 
 # tooling / automation
 .tools/
-.opencode/
+.opencode/*
+!.opencode/skills/
 .vscode/
