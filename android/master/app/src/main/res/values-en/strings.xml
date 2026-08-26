@@ -81,6 +81,8 @@
     <string name="delete_plant_title">🗑️ Delete plant</string>
     <string name="delete_plant_confirm">\u0020will be deleted.\nWatering history &amp; events will also be removed.</string>
     <string name="plant_detail">Plant detail</string>
+    <string name="plant_edit">✏️ Edit</string>
+    <string name="plant_edit_title">✏️ Edit plant</string>
     <string name="plant_not_found">Plant not found</string>
     <string name="type_label">Type</string>
     <string name="date_planted_label">Planted</string>

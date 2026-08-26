@@ -138,6 +138,8 @@ class AppStrings internal constructor(private val context: Context) {
     val deletePlantTitle: String get() = context.getString(R.string.delete_plant_title)
     val deletePlantConfirm: String get() = context.getString(R.string.delete_plant_confirm)
     val plantDetail: String get() = context.getString(R.string.plant_detail)
+    val plantEdit: String get() = context.getString(R.string.plant_edit)
+    val plantEditTitle: String get() = context.getString(R.string.plant_edit_title)
     val plantNotFound: String get() = context.getString(R.string.plant_not_found)
     val typeLabel: String get() = context.getString(R.string.type_label)
     val datePlantedLabel: String get() = context.getString(R.string.date_planted_label)

@@ -3,8 +3,10 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -59,7 +62,16 @@ class PlantDetailViewModel : ViewModel() {
     var clipMaking by mutableStateOf(false)
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
+    var slaves by mutableStateOf<List<Slave>>(emptyList())
+    var editing by mutableStateOf(false)
+    var saving by mutableStateOf(false)
+    var editName by mutableStateOf("")
+    var editSpecies by mutableStateOf("")
+    var editPlantedAt by mutableStateOf("")
+    var editStage by mutableStateOf("seedling")
+    var editSlaveId by mutableStateOf<String?>(null)
     private var sseJob: Job? = null
+    val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "허브", "선인장", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
 
     fun load(plantId: String) {
         loading = true
@@ -73,9 +85,44 @@ class PlantDetailViewModel : ViewModel() {
                     try { photos = api.plantPhotos(p.id).photos } catch (_: Exception) {}
                     try { growthClip = api.plantVideos(p.id, "growth").videos.firstOrNull() } catch (_: Exception) {}
                 }
+                try { slaves = api.slaves(Session.userId).slaves } catch (_: Exception) {}
                 try { weather = api.weather(Session.region) } catch (_: Exception) {}
             } catch (e: Exception) { msg = e.message }
             loading = false
+        }
+    }
+
+    fun startEdit() {
+        val p = plant ?: return
+        editName = p.name
+        editSpecies = p.species ?: ""
+        editPlantedAt = p.planted_at ?: ""
+        editStage = p.stage ?: "seedling"
+        editSlaveId = p.slave_id
+        editing = true
+    }
+
+    fun saveEdit() {
+        val p = plant ?: return
+        if (editName.isBlank()) { msg = "식물 이름을 입력하세요"; return }
+        saving = true
+        viewModelScope.launch {
+            try {
+                api.updatePlant(
+                    p.id,
+                    UpdatePlantRequest(
+                        slaveId = editSlaveId,
+                        name = editName.trim(),
+                        species = editSpecies.trim().ifBlank { null },
+                        plantedAt = editPlantedAt.trim().ifBlank { null },
+                        stage = editStage
+                    )
+                )
+                editing = false
+                msg = "수정되었습니다"
+                load(p.id)
+            } catch (e: Exception) { msg = e.message }
+            saving = false
         }
     }
 
@@ -201,7 +248,9 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 val pl = vm.plant
-                if (pl != null) {
+                if (vm.editing && pl != null) {
+                    PlantEditCard(vm)
+                } else if (pl != null) {
                     val stageK = mapOf(
                         "seedling" to S.growthStageSeedling,
                         "vegetative" to S.growthStageVegetative,
@@ -210,11 +259,23 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                     )
                     Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(pl.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(pl.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink, modifier = Modifier.weight(1f))
+                                Surface(
+                                    shape = CircleShape,
+                                    color = OojooTheme.GreenBg,
+                                    border = BorderStroke(1.dp, OojooTheme.Ink),
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clickable { vm.startEdit() }
+                                ) {
+                                    Text("✏️", fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
                             Text("${S.typeLabel}: ${pl.species ?: S.unknown}", color = OojooTheme.Muted, fontSize = 14.sp)
                             Text("${S.datePlantedLabel}: ${pl.planted_at ?: S.unknown}", color = OojooTheme.Muted, fontSize = 13.sp)
                             Text("${S.stageLabel}: ${stageK[pl.stage] ?: pl.stage ?: S.unknown}", color = OojooTheme.Muted, fontSize = 13.sp)
-                            Text("${S.farmerLabel}: ${pl.slave_id?.take(8) ?: S.unconnected}", color = OojooTheme.Muted, fontSize = 13.sp)
+                            Text("${S.farmerLabel}: ${vm.slaves.find { it.id == pl.slave_id }?.name ?: pl.slave_id?.take(8) ?: S.unconnected}", color = OojooTheme.Muted, fontSize = 13.sp)
                         }
                     }
                 } else if (vm.loading) {
@@ -418,6 +479,89 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
             item {
                 vm.msg?.let { Text(localizeMasterMessage(it, S), fontSize = 13.sp, color = OojooTheme.Green) }
                 OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlantEditCard(vm: PlantDetailViewModel) {
+    val S = LocalAppStrings.current
+    val speciesLabels = if (S.isEnglish) mapOf(
+        "상추" to "Lettuce", "깻잎" to "Perilla", "바질" to "Basil", "로즈마리" to "Rosemary",
+        "허브" to "Herb", "선인장" to "Cactus",
+        "방울토마토" to "Cherry tomato", "토마토" to "Tomato", "대파" to "Green onion",
+        "딸기" to "Strawberry", "고추" to "Chili pepper", "애호박" to "Zucchini",
+        "호박" to "Pumpkin", "고구마" to "Sweet potato", "감자" to "Potato", "양파" to "Onion"
+    ) else emptyMap()
+    val stages = listOf(
+        "seedling" to S.growthStageSeedling,
+        "vegetative" to S.growthStageVegetative,
+        "flowering" to S.growthStageFlowering,
+        "fruiting" to S.growthStageFruiting
+    )
+    var speciesExpanded by remember { mutableStateOf(false) }
+    var stageExpanded by remember { mutableStateOf(false) }
+    var slaveExpanded by remember { mutableStateOf(false) }
+    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(S.plantEditTitle, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = OojooTheme.Ink)
+                Text(plantEmojiFor(vm.editSpecies.ifBlank { null }, vm.editStage), fontSize = 24.sp)
+            }
+            Text(S.plantNameRequired, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.editName, { vm.editName = it }, S.plantNamePh)
+            Text(S.species, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            ExposedDropdownMenuBox(expanded = speciesExpanded, onExpandedChange = { speciesExpanded = it }) {
+                OutlinedTextField(
+                    value = speciesLabels[vm.editSpecies] ?: vm.editSpecies,
+                    onValueChange = { vm.editSpecies = it; speciesExpanded = true },
+                    placeholder = { Text(S.speciesPh) },
+                    shape = OojooTheme.FieldShape,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = speciesExpanded) },
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line),
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                val filtered = vm.popularSpecies.filter {
+                    it.contains(vm.editSpecies, ignoreCase = true) || speciesLabels[it]?.contains(vm.editSpecies, ignoreCase = true) == true
+                }
+                if (filtered.isNotEmpty()) {
+                    ExposedDropdownMenu(expanded = speciesExpanded, onDismissRequest = { speciesExpanded = false }) {
+                        filtered.forEach { sp ->
+                            DropdownMenuItem(
+                                text = { Text("${plantEmojiFor(sp, null)}  ${speciesLabels[sp] ?: sp}") },
+                                onClick = { vm.editSpecies = sp; speciesExpanded = false }
+                            )
+                        }
+                    }
+                }
+            }
+            Text(S.plantedDateOptional, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            OojooField(vm.editPlantedAt, { vm.editPlantedAt = it }, S.plantedDatePh)
+            Text(S.selectFarmer, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            ExposedDropdownMenuBox(expanded = slaveExpanded, onExpandedChange = { slaveExpanded = it }) {
+                val s = vm.slaves.find { it.id == vm.editSlaveId }
+                OutlinedTextField(value = s?.name ?: S.selectLater, onValueChange = {}, readOnly = true, shape = OojooTheme.FieldShape, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = slaveExpanded) }, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line), modifier = Modifier.fillMaxWidth().menuAnchor())
+                ExposedDropdownMenu(expanded = slaveExpanded, onDismissRequest = { slaveExpanded = false }) {
+                    DropdownMenuItem(text = { Text(S.selectNone) }, onClick = { vm.editSlaveId = null; slaveExpanded = false })
+                    vm.slaves.forEach { sl -> DropdownMenuItem(text = { Text("${sl.name} ${if (sl.online == 1) S.farmerOnlineBadge else S.farmerOfflineBadge}") }, onClick = { vm.editSlaveId = sl.id; slaveExpanded = false }) }
+                }
+            }
+            Text(S.growthStage, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            ExposedDropdownMenuBox(expanded = stageExpanded, onExpandedChange = { stageExpanded = it }) {
+                val lbl = stages.find { it.first == vm.editStage }?.second ?: vm.editStage
+                OutlinedTextField(value = lbl, onValueChange = {}, readOnly = true, shape = OojooTheme.FieldShape, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = stageExpanded) }, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line), modifier = Modifier.fillMaxWidth().menuAnchor())
+                ExposedDropdownMenu(expanded = stageExpanded, onDismissRequest = { stageExpanded = false }) {
+                    stages.forEach { (v, l) -> DropdownMenuItem(text = { Text(l) }, onClick = { vm.editStage = v; stageExpanded = false }) }
+                }
+            }
+            if (vm.saving) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GradientButton(text = S.save, onClick = { vm.saveEdit() }, enabled = !vm.saving && vm.editName.isNotBlank(), modifier = Modifier.weight(1f))
+                OutlineButton(text = S.cancel, onClick = { vm.editing = false }, modifier = Modifier.weight(1f), enabled = !vm.saving)
             }
         }
     }

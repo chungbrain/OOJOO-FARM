@@ -24,6 +24,7 @@ internal fun localizeMasterMessage(message: String, strings: AppStrings): String
         "삭제 실패" to "Deletion failed",
         "삭제됨" to "deleted",
         "식물 이름을 입력하세요" to "Enter a plant name",
+        "수정되었습니다" to "Updated",
         "플랜으로 변경되었습니다" to "plan selected",
         "분석 불가" to "Analysis unavailable",
         "너무 어두움 (카메라 위치 확인 필요)" to "Too dark (check camera position)",

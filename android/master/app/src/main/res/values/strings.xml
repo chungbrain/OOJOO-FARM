@@ -81,6 +81,8 @@
     <string name="delete_plant_title">🗑️ 식물 삭제</string>
     <string name="delete_plant_confirm">을(를) 삭제합니다.\n관련 이벤트/관수 기록도 함께 삭제됩니다.</string>
     <string name="plant_detail">식물 상세</string>
+    <string name="plant_edit">✏️ 수정</string>
+    <string name="plant_edit_title">✏️ 식물 수정</string>
     <string name="plant_not_found">식물을 찾을 수 없습니다</string>
     <string name="type_label">종류</string>
     <string name="date_planted_label">식재일</string>
