@@ -95,8 +95,16 @@ object FarmerEngine {
     private val _roiStatuses = MutableStateFlow<List<RoiStatus>>(emptyList())
     val roiStatuses: StateFlow<List<RoiStatus>> = _roiStatuses.asStateFlow()
 
+    // ROI 진단 주기 (초) — 원격 정책에서 동기화, 마스터가 원격 조정
+    private val _roiIntervalSec = MutableStateFlow(20)
+    val roiIntervalSec: StateFlow<Int> = _roiIntervalSec.asStateFlow()
+
     // ROI 모니터링에서 물 필요/해충 감지 시 각 식물 알림 debounce
     private val roiLastNotify = mutableMapOf<String, Long>()
+
+    // ROI 진단 결과 백엔드 업로드 스로틀 (식물당 5분)
+    private val roiLastUpload = mutableMapOf<String, Long>()
+    private val ROI_UPLOAD_THROTTLE = 5 * 60 * 1000L
 
     // 자율 실행 정책 (원격 정책 동기화)
     private val _fanAuto = MutableStateFlow(true)
@@ -241,6 +249,7 @@ object FarmerEngine {
         loadPlant()
         syncPolicy()
 
+        var tickCount = 0
         loops.add(scope.launch {
             while (isActive) {
                 // 하트비트는 자율 정지 상태여도 항상 전송(온라인 표시 유지)
@@ -252,6 +261,8 @@ object FarmerEngine {
                 if (!sseConnected) pollCommands() // SSE 미연결 시 폴링 fallback
                 if (_autoOn.value) tick()
                 maybeCaptureGrowthPhoto()
+                // 5분마다 원격 정책 재동기화 (ROI 진단 주기 등 즉시 반영)
+                if (++tickCount % 10 == 0) syncPolicy()
                 delay(30_000L)
             }
         })
@@ -328,10 +339,11 @@ object FarmerEngine {
                 _autoOn.value = p.water_auto == 1
                 _fanAuto.value = p.fan_auto == 1
                 _laserApproval.value = p.laser_approval == 1
+                _roiIntervalSec.value = p.roi_interval.coerceIn(10, 3600)
                 Prefs.setAutoWater(appCtx, _autoOn.value)
                 Prefs.setCaptureIntervalMinutes(appCtx, p.capture_interval)
                 p.region?.takeIf { it.isNotBlank() }?.let { Prefs.setRegion(appCtx, it) }
-                addLog("[${now()}] 원격 정책 동기화 (자동관수:${if (_autoOn.value) "ON" else "OFF"}, Fan:${if (_fanAuto.value) "자동" else "수동"}, Laser:${if (_laserApproval.value) "승인필요" else "자동"})")
+                addLog("[${now()}] 원격 정책 동기화 (자동관수:${if (_autoOn.value) "ON" else "OFF"}, Fan:${if (_fanAuto.value) "자동" else "수동"}, Laser:${if (_laserApproval.value) "승인필요" else "자동"}, ROI주기:${_roiIntervalSec.value}초)")
             } catch (_: Exception) { /* 정책 없으면 로컬 기본값 유지 */ }
         }
     }
@@ -488,11 +500,12 @@ object FarmerEngine {
     /**
      * ROI 기반 다중 식물 모니터링 루프.
      * 설정된 각 ROI를 프레임에서 잘라 해당 식물의 모델로 주기적으로 진단한다.
+     * 주기는 원격 정책(roi_interval)에서 동적으로 변경 가능하다.
      * ROI가 없으면 기존 단일 식물 흐름(_lastAnalysis)을 그대로 사용한다.
      */
     private suspend fun roiMonitorLoop() {
         while (coroutineContext.isActive) {
-            delay(20_000L) // 20초 주기
+            delay(_roiIntervalSec.value * 1000L)
             try {
                 runRoiMonitoring()
             } catch (_: Exception) {}
@@ -513,6 +526,7 @@ object FarmerEngine {
 
         try {
             val newStatuses = mutableListOf<RoiStatus>()
+            val nowMs = System.currentTimeMillis()
             for (roi in rois) {
                 if (!roi.isValid()) continue
                 val result = PlantAnalyzer.analyzeRoi(bitmap, roi)
@@ -528,8 +542,32 @@ object FarmerEngine {
                 )
                 newStatuses += status
 
+                // 마스터 표시용: 식물별 진단 결과를 백엔드에 업로드 (5분 스로틀, 이상 시 즉시)
+                val lastUp = roiLastUpload[roi.plantId] ?: 0L
+                val abnormal = result.needWater || result.pestSuspected
+                if (nowMs - lastUp > ROI_UPLOAD_THROTTLE || (abnormal && nowMs - lastUp > 60_000L)) {
+                    roiLastUpload[roi.plantId] = nowMs
+                    try {
+                        ApiClient.api.reportAnalysis(
+                            AnalysisReportRequest(
+                                slaveId = slaveId(),
+                                plantId = roi.plantId,
+                                analysis = AnalysisPayload(
+                                    greenness = result.greenness,
+                                    brightness = result.brightness,
+                                    healthStatus = result.healthStatus,
+                                    needWater = result.needWater,
+                                    confidence = result.confidence,
+                                    fruitRipeness = result.fruitRipeness,
+                                    pestSuspected = result.pestSuspected,
+                                    modelId = result.modelId
+                                )
+                            )
+                        )
+                    } catch (_: Exception) { /* 오프라인이면 다음 주기에 재시도 */ }
+                }
+
                 // ROI별 이벤트 알림 (식물당 15분 debounce)
-                val nowMs = System.currentTimeMillis()
                 val lastN = roiLastNotify[roi.plantId] ?: 0L
                 if (nowMs - lastN > 15 * 60 * 1000L) {
                     if (result.needWater) {

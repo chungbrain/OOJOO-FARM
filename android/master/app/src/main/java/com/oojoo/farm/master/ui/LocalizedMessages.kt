@@ -21,6 +21,7 @@ internal fun localizeMasterMessage(message: String, strings: AppStrings): String
         "Farmer 배정 해제" to "Farmer unassigned",
         "Farmer 배정 완료" to "Farmer assigned",
         "배정 실패" to "Assignment failed",
+        "정책이 저장되었습니다" to "Policy saved",
         "삭제 실패" to "Deletion failed",
         "삭제됨" to "deleted",
         "식물 이름을 입력하세요" to "Enter a plant name",

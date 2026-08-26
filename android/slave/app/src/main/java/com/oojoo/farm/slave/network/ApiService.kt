@@ -33,6 +33,9 @@ interface ApiService {
     @GET("api/policy/{slaveId}")
     suspend fun policy(@Path("slaveId") slaveId: String): PolicyResponse
 
+    @POST("api/analysis/report")
+    suspend fun reportAnalysis(@Body body: AnalysisReportRequest): AnalysisReportResponse
+
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
 

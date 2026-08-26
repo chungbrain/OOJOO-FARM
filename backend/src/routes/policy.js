@@ -7,6 +7,7 @@ const DEFAULT_POLICY = {
   fan_auto: 1,
   laser_approval: 1,
   capture_interval: 60,
+  roi_interval: 20,
   region: null,
 };
 
@@ -21,7 +22,7 @@ r.get('/:slaveId', (req, res) => {
 r.put('/:slaveId', (req, res) => {
   const { slaveId } = req.params;
   const {
-    waterAuto, fanAuto, laserApproval, captureInterval, region,
+    waterAuto, fanAuto, laserApproval, captureInterval, roiInterval, region,
   } = req.body;
 
   const cur = db.prepare('SELECT * FROM policies WHERE slave_id=?').get(slaveId) || DEFAULT_POLICY;
@@ -31,16 +32,18 @@ r.put('/:slaveId', (req, res) => {
     laser_approval: laserApproval != null ? (laserApproval ? 1 : 0) : cur.laser_approval,
     capture_interval: captureInterval != null
       ? Math.min(360, Math.max(1, Number(captureInterval))) : cur.capture_interval,
+    roi_interval: roiInterval != null
+      ? Math.min(3600, Math.max(10, Number(roiInterval))) : cur.roi_interval,
     region: region !== undefined ? region : cur.region,
   };
 
-  db.prepare(`INSERT INTO policies(slave_id, water_auto, fan_auto, laser_approval, capture_interval, region, updated_at)
-    VALUES(?,?,?,?,?,?,datetime('now'))
+  db.prepare(`INSERT INTO policies(slave_id, water_auto, fan_auto, laser_approval, capture_interval, roi_interval, region, updated_at)
+    VALUES(?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(slave_id) DO UPDATE SET
       water_auto=excluded.water_auto, fan_auto=excluded.fan_auto,
       laser_approval=excluded.laser_approval, capture_interval=excluded.capture_interval,
-      region=excluded.region, updated_at=datetime('now')`)
-    .run(slaveId, next.water_auto, next.fan_auto, next.laser_approval, next.capture_interval, next.region);
+      roi_interval=excluded.roi_interval, region=excluded.region, updated_at=datetime('now')`)
+    .run(slaveId, next.water_auto, next.fan_auto, next.laser_approval, next.capture_interval, next.roi_interval, next.region);
 
   res.json({ slaveId, ...next });
 });

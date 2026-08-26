@@ -396,6 +396,11 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                 Text(S.pestSuspect, color = OojooTheme.Muted, fontSize = 13.sp)
                                 Text(if (a.pestSuspected) S.found else S.safe, fontWeight = FontWeight.Bold, color = if (a.pestSuspected) OojooTheme.Red else OojooTheme.Ink, fontSize = 14.sp)
                             }
+                            HorizontalDivider(color = OojooTheme.Line)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(S.aiModelLabel, color = OojooTheme.Muted, fontSize = 13.sp)
+                                Text(a.modelId ?: S.heuristicModel, fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 14.sp)
+                            }
                             a.normalShot?.let { ns ->
                                 HorizontalDivider(color = OojooTheme.Line)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

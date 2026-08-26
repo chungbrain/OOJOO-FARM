@@ -64,6 +64,7 @@ data class PolicyRequest(
     val fanAuto: Boolean? = null,
     val laserApproval: Boolean? = null,
     val captureInterval: Int? = null,
+    val roiInterval: Int? = null,
     val region: String? = null
 )
 @Serializable
@@ -73,6 +74,7 @@ data class PolicyResponse(
     val fan_auto: Int = 1,
     val laser_approval: Int = 1,
     val capture_interval: Int = 60,
+    val roi_interval: Int = 20,
     val region: String? = null
 )
 
@@ -425,6 +427,7 @@ data class AnalysisData(
     val confidence: Double = 0.0,
     val fruitRipeness: Double = 0.0,
     val pestSuspected: Boolean = false,
+    val modelId: String? = null,
     val wideShot: WideShotData? = null,
     val normalShot: NormalShotData? = null,
     val zoomShot: ZoomShotData? = null

@@ -132,6 +132,13 @@
     <string name="laser_control">🔦 Laser</string>
     <string name="view_camera">📹 View camera (3s)</string>
     <string name="report_btn">📊 Report</string>
+    <string name="monitoring_settings">⚙️ Monitoring settings</string>
+    <string name="roi_interval_label">ROI diagnosis interval (sec)</string>
+    <string name="roi_interval_hint">e.g. 20</string>
+    <string name="roi_interval_desc">Set how often each ROI plant is diagnosed.</string>
+    <string name="roi_interval_range">10–3600 sec (default 20) · Farmer applies within 5 min</string>
+    <string name="ai_model_label">AI model</string>
+    <string name="heuristic_model">Color heuristic (no dedicated model)</string>
     <string name="delete_farmer_title">🗑️ Delete Farmer</string>
     <string name="delete_farmer_confirm">\u0020will be deleted.\nPairing is removed and it disappears from the list.</string>
     <string name="notification_center">🔔 Notifications</string>

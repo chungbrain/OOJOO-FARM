@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oojoo.farm.master.R
@@ -27,6 +29,8 @@ import androidx.navigation.NavController
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
+import com.oojoo.farm.master.model.PolicyRequest
+import com.oojoo.farm.master.model.PolicyResponse
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
@@ -37,12 +41,39 @@ class FarmerListViewModel : ViewModel() {
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
+    var policyTarget by mutableStateOf<Slave?>(null)
+    var policy by mutableStateOf<PolicyResponse?>(null)
+    var policyLoading by mutableStateOf(false)
+    var policySaving by mutableStateOf(false)
     fun refresh() { loading = true; viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {}; loading = false } }
     fun pauseSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "pause")); msg = "⏸ 일시정지 지시!" } catch (e: Exception) { msg = e.message } } }
     fun resumeSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "resume")); msg = "▶ 재개 지시!" } catch (e: Exception) { msg = e.message } } }
     fun unpair(id: String) { viewModelScope.launch { try { api.unpair(id); msg = "연결 해제됨"; refresh() } catch (e: Exception) { msg = e.message } } }
     fun pestFan(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "fan")); msg = "🌀 Fan 퇴치 지시!" } catch (e: Exception) { msg = e.message } } }
     fun pestLaser(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "laser")); msg = "🔦 Laser 퇴치 승인!" } catch (e: Exception) { msg = e.message } } }
+
+    fun openPolicy(s: Slave) {
+        policyTarget = s
+        policy = null
+        policyLoading = true
+        viewModelScope.launch {
+            try { policy = api.policy(s.id) } catch (_: Exception) {}
+            policyLoading = false
+        }
+    }
+    fun closePolicy() { policyTarget = null; policy = null }
+    fun savePolicy(roiIntervalSec: Int) {
+        val target = policyTarget ?: return
+        policySaving = true
+        viewModelScope.launch {
+            try {
+                api.setPolicy(target.id, PolicyRequest(roiInterval = roiIntervalSec))
+                msg = "정책이 저장되었습니다"
+                closePolicy()
+            } catch (e: Exception) { msg = e.message }
+            policySaving = false
+        }
+    }
     init { refresh() }
 }
 
@@ -100,9 +131,10 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                             val encoded = android.net.Uri.encode(s.name)
                             nav.navigate("live_camera/${s.id}/$encoded")
                         }, modifier = Modifier.fillMaxWidth())
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text(S.reportBtn, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-                            var showUnpairDialog by remember { mutableStateOf(false) }
+                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                             TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text(S.reportBtn, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                             TextButton(onClick = { vm.openPolicy(s) }) { Text(stringResource(R.string.monitoring_settings), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                             var showUnpairDialog by remember { mutableStateOf(false) }
                             TextButton(onClick = { showUnpairDialog = true }) { Text("🗑️ ${S.delete}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
                             if (showUnpairDialog) {
                                 AlertDialog(
@@ -127,4 +159,49 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
             item { TextButton(onClick = { vm.refresh() }) { Text(S.refresh, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) } }
         }
     }
+
+    vm.policyTarget?.let { target ->
+        MonitoringPolicyDialog(vm = vm, target = target)
+    }
+}
+
+@Composable
+private fun MonitoringPolicyDialog(vm: FarmerListViewModel, target: Slave) {
+    val S = LocalAppStrings.current
+    var intervalText by remember(vm.policy) { mutableStateOf(vm.policy?.roi_interval?.toString() ?: "") }
+    AlertDialog(
+        onDismissRequest = { if (!vm.policySaving) vm.closePolicy() },
+        title = { Text(stringResource(R.string.monitoring_settings), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("'${target.name}' — ${stringResource(R.string.roi_interval_desc)}", fontSize = 13.sp, color = OojooTheme.Muted)
+                if (vm.policyLoading) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
+                } else {
+                    OutlinedTextField(
+                        value = intervalText,
+                        onValueChange = { v -> intervalText = v.filter { it.isDigit() }.take(4) },
+                        label = { Text(stringResource(R.string.roi_interval_label)) },
+                        placeholder = { Text(stringResource(R.string.roi_interval_hint)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = OojooTheme.FieldShape,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(stringResource(R.string.roi_interval_range), fontSize = 11.sp, color = OojooTheme.Muted)
+                }
+            }
+        },
+        confirmButton = {
+            val sec = intervalText.toIntOrNull()
+            TextButton(
+                onClick = { sec?.let { vm.savePolicy(it.coerceIn(10, 3600)) } },
+                enabled = !vm.policySaving && sec != null && sec >= 10
+            ) { Text(S.save, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = { vm.closePolicy() }, enabled = !vm.policySaving) { Text(S.cancel) }
+        }
+    )
 }
