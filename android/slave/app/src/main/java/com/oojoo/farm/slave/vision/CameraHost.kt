@@ -2,7 +2,10 @@ package com.oojoo.farm.slave.vision
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.display.DisplayManager
 import android.util.Log
+import android.view.Display
+import android.view.Surface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -49,6 +52,13 @@ object CameraHost {
     @Volatile private var pendingPreviewView: PreviewView? = null
     private val analysisExecutor = Executors.newSingleThreadExecutor()
 
+    // 가로/세로 회전 지원 — use case 들의 targetRotation 을 디스플레이 회전에 맞춘다.
+    private var appCtx: Context? = null
+    private var imageCaptureUseCase: ImageCapture? = null
+    private var videoCaptureUseCase: VideoCapture<Recorder>? = null
+    private var analysisUseCase: ImageAnalysis? = null
+    private var displayListener: DisplayManager.DisplayListener? = null
+
     val isReady: Boolean get() = started && CameraHolder.ready
 
     /**
@@ -67,6 +77,7 @@ object CameraHost {
             return false
         }
         starting = true
+        this.appCtx = appCtx
 
         val lifecycleOwner = HostLifecycleOwner().also {
             it.registry.currentState = Lifecycle.State.RESUMED
@@ -85,6 +96,7 @@ object CameraHost {
                 val imageCapture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
+                imageCaptureUseCase = imageCapture
 
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -95,12 +107,14 @@ object CameraHost {
                             FarmerEngine.onAnalysis(result)
                         }
                     }
+                analysisUseCase = analysis
 
                 // VideoCapture — 나머지 use case와 반드시 함께 바인딩
                 val recorder = Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(Quality.SD))
                     .build()
                 val videoCapture = VideoCapture.withOutput(recorder)
+                videoCaptureUseCase = videoCapture
 
                 fun bindAll() {
                     cameraProvider.unbindAll()
@@ -151,6 +165,9 @@ object CameraHost {
                 pendingPreviewView?.let { view ->
                     previewUseCase.setSurfaceProvider(view.surfaceProvider)
                 }
+
+                // 가로/세로 회전 추적 — 디스플레이 회전이 바뀌면 targetRotation 갱신
+                if (started) registerRotationListener()
             } catch (e: Exception) {
                 // Android 11+ 백그라운드 while-in-use 제한 등
                 started = false
@@ -171,6 +188,8 @@ object CameraHost {
         } catch (e: Exception) {
             Log.w(TAG, "attach failed", e)
         }
+        // UI 부착 시점에도 현재 회전 동기화 (리스너 등록이 늦었을 수 있음)
+        applyTargetRotation()
     }
 
     /** UI가 사라질 때 호출 — 카메라 바인딩은 유지, surface만 해제. */
@@ -184,14 +203,72 @@ object CameraHost {
         started = false
         starting = false
         pendingPreviewView = null
+        unregisterRotationListener()
         try { provider?.unbindAll() } catch (_: Exception) {}
         provider = null
         preview = null
+        imageCaptureUseCase = null
+        videoCaptureUseCase = null
+        analysisUseCase = null
         CameraHolder.setImageCapture(null)
         CameraHolder.setCapture(null)
         try {
             host?.registry?.currentState = Lifecycle.State.DESTROYED
         } catch (_: Exception) {}
         host = null
+    }
+
+    // ---------- 가로/세로 회전 지원 ----------
+
+    /** 디스플레이 회전 변경을 감지해 use case 들의 targetRotation 을 갱신한다. */
+    private fun registerRotationListener() {
+        val ctx = appCtx ?: return
+        unregisterRotationListener()
+        val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {}
+            override fun onDisplayRemoved(displayId: Int) {}
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId == Display.DEFAULT_DISPLAY) applyTargetRotation()
+            }
+        }
+        try {
+            dm.registerDisplayListener(listener, null)
+            displayListener = listener
+        } catch (e: Exception) {
+            Log.w(TAG, "display listener registration failed", e)
+        }
+        applyTargetRotation()
+    }
+
+    private fun unregisterRotationListener() {
+        val ctx = appCtx
+        val listener = displayListener
+        if (ctx != null && listener != null) {
+            try {
+                val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                dm.unregisterDisplayListener(listener)
+            } catch (_: Exception) {}
+        }
+        displayListener = null
+    }
+
+    private fun currentRotation(): Int {
+        val ctx = appCtx ?: return Surface.ROTATION_0
+        return try {
+            val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            dm.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
+        } catch (_: Exception) {
+            Surface.ROTATION_0
+        }
+    }
+
+    /** 현재 디스플레이 회전(가로/세로)을 촬영 use case 에 반영 — Farmer의 촬영 방향을 따른다. */
+    fun applyTargetRotation() {
+        val rot = currentRotation()
+        try { preview?.targetRotation = rot } catch (_: Exception) {}
+        try { imageCaptureUseCase?.targetRotation = rot } catch (_: Exception) {}
+        try { analysisUseCase?.targetRotation = rot } catch (_: Exception) {}
+        try { videoCaptureUseCase?.targetRotation = rot } catch (_: Exception) {}
     }
 }

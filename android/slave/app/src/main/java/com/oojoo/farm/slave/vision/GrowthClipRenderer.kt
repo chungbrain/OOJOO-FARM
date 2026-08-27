@@ -1,7 +1,6 @@
 package com.oojoo.farm.slave.vision
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -46,7 +45,8 @@ object GrowthClipRenderer {
         val frames = mutableListOf<Bitmap>()
         frames += titleFrame(plantName, picked.size)
         for (p in picked) {
-            val src = BitmapFactory.decodeFile(p.file.absolutePath)
+            // EXIF 회전 적용 — 가로/세로 어느 방향으로 찍힌 사진도 upright로
+            val src = OrientationUtil.decodeUpright(p.file.absolutePath)
                 ?: continue
             frames += composeFrame(src, caption(p))
             if (src !== frames.last()) src.recycle()

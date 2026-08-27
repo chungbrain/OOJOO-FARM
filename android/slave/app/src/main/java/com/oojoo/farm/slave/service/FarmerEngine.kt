@@ -622,9 +622,9 @@ object FarmerEngine {
                 addLog("[${now()}] 즉시 사진 촬영 실패")
                 return@launch
             }
-            // 촬영 즉시 분석 결과 반영 (마스터 대시보드 상태 갱신)
+            // 촬영 즉시 분석 결과 반영 (마스터 대시보드 상태 갱신) — EXIF 회전 적용 (가로/세로 지원)
             try {
-                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                val bitmap = com.oojoo.farm.slave.vision.OrientationUtil.decodeUpright(file.absolutePath)
                 if (bitmap != null) {
                     val result = PlantAnalyzer.analyzeBitmap(bitmap)
                     _lastAnalysis.value = result

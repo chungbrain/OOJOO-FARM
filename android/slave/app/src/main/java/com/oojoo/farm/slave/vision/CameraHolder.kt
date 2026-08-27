@@ -53,6 +53,8 @@ object CameraHolder {
     /**
      * 현재 프레임을 Bitmap으로 캡처한다 (ROI 모니터링용).
      * JPEG 저장과 달리 디스크 I/O 없이 메모리에서 변환한다.
+     * 가로/세로 어느 방향이든 화면에 보이는 프리뷰와 동일한 upright 방향으로
+     * 회전해서 반환한다 — ROI 정규화 좌표가 프리뷰 기준이기 때문.
      */
     fun captureFrame(onDone: (android.graphics.Bitmap?) -> Unit) {
         val capture = imageCapture
@@ -66,7 +68,10 @@ object CameraHolder {
                 executor,
                 object : androidx.camera.core.ImageCapture.OnImageCapturedCallback() {
                     override fun onCaptureSuccess(image: androidx.camera.core.ImageProxy) {
-                        val bitmap = try { image.toBitmap() } catch (_: Exception) { null }
+                        val bitmap = try {
+                            val raw = image.toBitmap()
+                            OrientationUtil.rotateBitmap(raw, image.imageInfo.rotationDegrees)
+                        } catch (_: Exception) { null }
                         image.close()
                         onDone(bitmap)
                     }

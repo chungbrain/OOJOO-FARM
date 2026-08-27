@@ -87,7 +87,8 @@ fun CameraPreview(
 
 private fun imageProxyToBitmap(image: androidx.camera.core.ImageProxy): android.graphics.Bitmap? {
     return try {
-        image.toBitmap()
+        val raw = image.toBitmap()
+        OrientationUtil.rotateBitmap(raw, image.imageInfo.rotationDegrees)
     } catch (e: Exception) {
         null
     }
