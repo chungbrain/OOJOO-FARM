@@ -74,7 +74,10 @@
     <string name="server_help">The Farmer service reconnects only after /health succeeds. Existing pairing is preserved.</string>
 
     <string name="roi_editor_title">ROI Settings</string>
-    <string name="roi_editor_guide">1. Select a plant below → 2. Drag over its area on the camera. Each ROI is periodically diagnosed with its own plant model.</string>
+    <string name="roi_editor_guide">1. Drag over a plant area on the camera → 2. Pick which plant it is. Each ROI is periodically diagnosed with its own plant model.</string>
+    <string name="roi_pick_plant_title">🌱 Which plant is in this area?</string>
+    <string name="roi_pick_plant_desc">Select the plant growing in the dragged region.</string>
+    <string name="roi_cancel_selection">Cancel</string>
     <string name="roi_select_plant">Select plant (ROI target)</string>
     <string name="roi_no_plants">No plants registered (register from Master)</string>
     <string name="roi_saved">%1$s ROI saved</string>

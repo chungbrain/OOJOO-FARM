@@ -183,8 +183,15 @@ object CameraHost {
     fun attach(context: Context, view: PreviewView) {
         pendingPreviewView = view
         if (!started) start(context)
+        // preview use case 가 아직 생성 전이면 start() 완료 시
+        // pendingPreviewView 로 연결된다. 이미 있으면 즉시 연결.
         try {
-            preview?.setSurfaceProvider(view.surfaceProvider)
+            val p = preview
+            if (p != null) {
+                p.setSurfaceProvider(view.surfaceProvider)
+            } else {
+                Log.i(TAG, "attach: preview not ready yet — deferred to pendingPreviewView")
+            }
         } catch (e: Exception) {
             Log.w(TAG, "attach failed", e)
         }

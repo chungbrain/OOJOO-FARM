@@ -74,7 +74,10 @@
     <string name="server_help">/health 응답이 정상일 때만 저장하고 Farmer 서비스를 다시 연결합니다. 기존 페어링은 유지됩니다.</string>
 
     <string name="roi_editor_title">ROI 설정</string>
-    <string name="roi_editor_guide">1. 아래 목록에서 식물 선택 → 2. 카메라 화면에서 해당 식물 영역을 드래그. 각 ROI는 서로 다른 식물·모델로 주기적 진단됩니다.</string>
+    <string name="roi_editor_guide">1. 카메라 화면에서 식물 영역을 드래그 → 2. 어떤 식물인지 선택. 각 ROI는 서로 다른 식물·모델로 주기적 진단됩니다.</string>
+    <string name="roi_pick_plant_title">🌱 이 영역의 식물은?</string>
+    <string name="roi_pick_plant_desc">드래그한 영역에 어떤 식물이 있는지 선택하세요.</string>
+    <string name="roi_cancel_selection">취소</string>
     <string name="roi_select_plant">식물 선택 (ROI 지정 대상)</string>
     <string name="roi_no_plants">등록된 식물이 없습니다 (마스터에서 등록 필요)</string>
     <string name="roi_saved">%1$s ROI 저장됨</string>
