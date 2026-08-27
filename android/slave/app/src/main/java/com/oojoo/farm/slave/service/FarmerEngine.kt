@@ -290,9 +290,12 @@ object FarmerEngine {
 
     fun isRunning() = started
 
-    // 이벤트 로그 스로틀 — 분석 로그는 프레임마다가 아닌 10초에 1회만 남긴다.
+    // 이벤트 로그/모니터링 스로틀 — 분석 로그·해충 감지 판정은 프레임마다가 아닌 10초에 1회만 처리한다.
     private var lastAnalysisLogAt = 0L
     private val ANALYSIS_LOG_THROTTLE = 10_000L
+    // 해충/건강 모니터링 판정 진입도 10초에 1회로 제한 (프레임 단위 과판정 방지)
+    private var lastPestCheckAt = 0L
+    private val PEST_CHECK_THROTTLE = 10_000L
 
     fun onAnalysis(result: AnalysisResult) {
         _lastAnalysis.value = result
@@ -302,6 +305,14 @@ object FarmerEngine {
             lastAnalysisLogAt = nowMs
             addLog("[${now()}] 분석: ${result.healthStatus} (녹색:${"%.0f".format(result.greenness * 100)}%)")
         }
+    }
+
+    /** 해충/건강 모니터링 판정 — 10초 스로틀. true면 이번 판정을 처리해도 된다. */
+    private fun shouldRunPestCheck(): Boolean {
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastPestCheckAt < PEST_CHECK_THROTTLE) return false
+        lastPestCheckAt = nowMs
+        return true
     }
 
     fun toggleAuto() {
@@ -367,8 +378,8 @@ object FarmerEngine {
             _status.value = "관찰 대기 (카메라 분석 대기)"
         }
 
-        // 수확/해충 자율 파이프라인
-        if (result != null) {
+        // 수확/해충 자율 파이프라인 — 해충 판정은 10초에 1회만 진행
+        if (result != null && shouldRunPestCheck()) {
             val nowMs = System.currentTimeMillis()
             if (result.fruitRipeness >= 0.55 && nowMs - lastHarvestNotify > HARVEST_COOLDOWN) {
                 lastHarvestNotify = nowMs
