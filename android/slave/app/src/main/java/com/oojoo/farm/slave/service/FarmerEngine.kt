@@ -290,9 +290,16 @@ object FarmerEngine {
 
     fun isRunning() = started
 
+    // 이벤트 로그 스로틀 — 분석 로그는 프레임마다가 아닌 10초에 1회만 남긴다.
+    private var lastAnalysisLogAt = 0L
+    private val ANALYSIS_LOG_THROTTLE = 10_000L
+
     fun onAnalysis(result: AnalysisResult) {
         _lastAnalysis.value = result
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastAnalysisLogAt < ANALYSIS_LOG_THROTTLE) return
         if (!result.healthStatus.contains("실패") && !result.healthStatus.contains("불가")) {
+            lastAnalysisLogAt = nowMs
             addLog("[${now()}] 분석: ${result.healthStatus} (녹색:${"%.0f".format(result.greenness * 100)}%)")
         }
     }
