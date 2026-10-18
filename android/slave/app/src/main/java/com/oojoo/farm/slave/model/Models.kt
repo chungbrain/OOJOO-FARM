@@ -138,3 +138,6 @@ data class AnalysisReportRequest(
 
 @Serializable
 data class AnalysisReportResponse(val analysisId: String)
+
+@Serializable
+data class DiagnosisSessionResponse(val sessionId: String)

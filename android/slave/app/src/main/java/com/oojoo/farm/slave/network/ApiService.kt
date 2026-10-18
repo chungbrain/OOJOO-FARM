@@ -66,4 +66,19 @@ interface ApiService {
 
     @POST("api/videos/clip-failed/{slaveId}")
     suspend fun clipFailed(@Path("slaveId") slaveId: String, @Body body: ClipFailedRequest): OkResponse
+
+    @Multipart
+    @POST("api/diagnosis/sessions/{slaveId}")
+    suspend fun uploadDiagnosisSession(
+        @Path("slaveId") slaveId: String,
+        @Part frames: List<MultipartBody.Part>,
+        @Part("plantId") plantId: RequestBody,
+        @Part("modelId") modelId: RequestBody? = null,
+        @Part("aiLabel") aiLabel: RequestBody,
+        @Part("aiConfidence") aiConfidence: RequestBody? = null,
+        @Part("frameCount") frameCount: RequestBody? = null,
+        @Part("videoId") videoId: RequestBody? = null,
+        @Part("commandId") commandId: RequestBody? = null,
+        @Part("framesMeta") framesMeta: RequestBody? = null
+    ): DiagnosisSessionResponse
 }

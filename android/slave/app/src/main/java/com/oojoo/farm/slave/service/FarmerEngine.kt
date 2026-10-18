@@ -1,6 +1,7 @@
 package com.oojoo.farm.slave.service
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.BatteryManager
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
@@ -13,6 +14,7 @@ import com.oojoo.farm.slave.vision.GrowthClipRenderer
 import com.oojoo.farm.slave.vision.PlantAnalyzer
 import com.oojoo.farm.slave.vision.PlantHealthNet
 import com.oojoo.farm.slave.vision.RoiStore
+import com.oojoo.farm.slave.vision.VideoFrameSampler
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.io.File
 import java.text.SimpleDateFormat
@@ -230,6 +233,11 @@ object FarmerEngine {
                 "generate_growth_clip" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 성장 숏클립 생성")
                     generateAndUploadClip(id, plantId)
+                    ApiClient.api.commandDone(id)
+                }
+                "diagnose_video" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 영상 건강진단")
+                    diagnoseVideo(id, plantId)
                     ApiClient.api.commandDone(id)
                 }
             }
@@ -471,6 +479,11 @@ object FarmerEngine {
                     "generate_growth_clip" -> {
                         addLog("[${now()}] 마스터 요청: 성장 숏클립 생성")
                         generateAndUploadClip(cmd.id, cmd.plant_id)
+                        ApiClient.api.commandDone(cmd.id)
+                    }
+                    "diagnose_video" -> {
+                        addLog("[${now()}] 마스터 요청: 영상 건강진단")
+                        diagnoseVideo(cmd.id, cmd.plant_id)
                         ApiClient.api.commandDone(cmd.id)
                     }
                 }
@@ -821,6 +834,143 @@ object FarmerEngine {
                 addLog("[${now()}] 영상 업로드 실패: ${e.message}")
             } finally {
                 file.delete()
+            }
+        }
+    }
+
+    // ---------- 영상 프레임 샘플링 건강진단 (diagnose_video) ----------
+    // 3초 MP4를 촬영 → 프레임 샘플링 → 각 프레임을 대상 식물의 모델로 진단 →
+    // 다수결 집계 → 영상 + 진단 세션(프레임 JPEG + 메타)을 백엔드에 업로드해
+    // 사람 라벨 확인을 받는다.
+    private fun diagnoseVideo(commandId: String, plantIdHint: String?) {
+        scope.launch {
+            if (!awaitCameraReady()) {
+                addLog("[${now()}] 진단 실패: 카메라 미준비")
+                return@launch
+            }
+            val plant = _plants.value.firstOrNull { it.id == plantIdHint } ?: _plant.value
+            if (plant == null) {
+                addLog("[${now()}] 진단 실패: 식물 미지정")
+                return@launch
+            }
+            // 대상 식물의 종으로 모델 해석 (전역 speciesId와 무관 — 다중 식물 대응)
+            val modelId = PlantHealthNet.modelIdFor(plant.species ?: plant.name)
+
+            addLog("[${now()}] 영상 건강진단 시작 (${plant.name})")
+            val videoFile = suspendCancellableCoroutine<File?> { cont ->
+                CameraHolder.capture3s(appCtx) { f -> if (cont.isActive) cont.resume(f) }
+            }
+            if (videoFile == null || !videoFile.exists()) {
+                addLog("[${now()}] 진단 실패: 영상 캡처 실패")
+                return@launch
+            }
+
+            val frames = mutableListOf<VideoFrameSampler.SampledFrame>()
+            try {
+                // 프레임 샘플링 — 디코딩은 무거운 작업이므로 Default 디스패처
+                val sampled = withContext(Dispatchers.Default) {
+                    VideoFrameSampler.sample(videoFile, maxFrames = 6, intervalMs = 500)
+                }
+                if (sampled.isEmpty()) {
+                    addLog("[${now()}] 진단 실패: 프레임 추출 불가")
+                    return@launch
+                }
+                frames.addAll(sampled)
+
+                // 대상 식물의 ROI (있으면 프레임에서 해당 영역만 잘라 진단)
+                val roi = RoiStore.list(appCtx).firstOrNull { it.plantId == plant.id && it.isValid() }
+
+                // 프레임별 진단 — CNN 결과(dl)만 condition으로 신뢰한다.
+                // analyzeBitmap 내부의 maybeDiagnose는 전역 speciesId를 쓰므로
+                // 다중 식물 환경에서 대상 식물과 다를 수 있어 휴리스틱은 통계로만 사용.
+                data class FrameDiagnosis(val condition: String?, val confidence: Double)
+                val diagnoses = mutableListOf<FrameDiagnosis>()
+                for (frame in frames) {
+                    val crop = if (roi != null) {
+                        val bw = frame.bitmap.width
+                        val bh = frame.bitmap.height
+                        val left = (roi.x * bw).toInt().coerceIn(0, bw - 2)
+                        val top = (roi.y * bh).toInt().coerceIn(0, bh - 2)
+                        val cw = (roi.w * bw).toInt().coerceIn(2, bw - left)
+                        val ch = (roi.h * bh).toInt().coerceIn(2, bh - top)
+                        Bitmap.createBitmap(frame.bitmap, left, top, cw, ch)
+                    } else null
+                    try {
+                        val dl = modelId?.let { mid ->
+                            val target = crop ?: frame.bitmap
+                            PlantHealthNet.diagnoseWithModel(mid, target)
+                        }
+                        diagnoses += FrameDiagnosis(dl?.condition, dl?.confidence ?: 0.0)
+                    } catch (_: Exception) {
+                        diagnoses += FrameDiagnosis(null, 0.0)
+                    } finally {
+                        crop?.recycle()
+                    }
+                }
+
+                // 다수결 집계 — condition이 있는 프레임만 대상. 동률이면 평균 신뢰도가 높은 쪽.
+                val voted = diagnoses.filter { it.condition != null }
+                    .groupBy { it.condition!! }
+                    .maxWithOrNull(compareBy({ it.value.size }, { it.value.sumOf { d -> d.confidence } / it.value.size }))
+                val aiLabel = voted?.key ?: "heuristic"
+                val aiConfidence = voted?.value?.map { it.confidence }?.average() ?: 0.0
+
+                // 1) 영상 먼저 업로드 (사람이 영상을 바로 볼 수 있도록)
+                var videoId: String? = null
+                try {
+                    val reqFile = videoFile.asRequestBody("video/mp4".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("video", videoFile.name, reqFile)
+                    val resp = ApiClient.api.uploadVideo(
+                        slaveId(),
+                        part,
+                        commandId.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        plant.id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        "diagnosis".toRequestBody("text/plain".toMediaTypeOrNull()),
+                        null
+                    )
+                    videoId = resp.videoId
+                } catch (e: Exception) {
+                    addLog("[${now()}] 진단 영상 업로드 실패: ${e.message}")
+                }
+
+                // 2) 프레임 JPEG 파트 생성
+                val frameParts = mutableListOf<MultipartBody.Part>()
+                val metaArr = JSONArray()
+                for ((i, frame) in frames.withIndex()) {
+                    val bos = ByteArrayOutputStream()
+                    frame.bitmap.compress(Bitmap.CompressFormat.JPEG, 85, bos)
+                    frameParts += MultipartBody.Part.createFormData(
+                        "frames", "frame_$i.jpg",
+                        bos.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull())
+                    )
+                    val d = diagnoses.getOrNull(i)
+                    metaArr.put(JSONObject().apply {
+                        put("index", i)
+                        put("timestampMs", frame.timestampMs)
+                        put("condition", d?.condition ?: JSONObject.NULL)
+                        put("confidence", d?.confidence ?: 0.0)
+                    })
+                }
+
+                // 3) 진단 세션 업로드 (프레임 + 메타데이터)
+                ApiClient.api.uploadDiagnosisSession(
+                    slaveId(),
+                    frameParts,
+                    plant.id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    modelId?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    aiLabel.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    "%.2f".format(aiConfidence).toRequestBody("text/plain".toMediaTypeOrNull()),
+                    frames.size.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
+                    videoId?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    commandId.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    metaArr.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                )
+                addLog("[${now()}] 영상 건강진단 업로드 완료 (AI:${aiLabel} ${"%.2f".format(aiConfidence)}%, 프레임 ${frames.size}장)")
+            } catch (e: Exception) {
+                addLog("[${now()}] 영상 건강진단 실패: ${e.message}")
+            } finally {
+                videoFile.delete()
+                frames.forEach { it.bitmap.recycle() }
             }
         }
     }
