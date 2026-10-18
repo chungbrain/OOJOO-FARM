@@ -494,3 +494,32 @@ data class HouseholdInviteResponse(
 data class HouseholdAcceptRequest(val userId: String, val code: String)
 @Serializable
 data class HouseholdLeaveRequest(val userId: String)
+
+// ---------- 영상 건강진단 (video diagnosis review) ----------
+@Serializable
+data class DiagnosisFrame(
+    val index: Int,
+    val timestampMs: Long? = null,
+    val condition: String? = null,
+    val confidence: Double? = null,
+    val url: String
+)
+@Serializable
+data class DiagnosisSession(
+    val id: String,
+    val slaveId: String,
+    val plantId: String,
+    val videoId: String? = null,
+    val modelId: String? = null,
+    val aiLabel: String,
+    val aiConfidence: Double? = null,
+    val humanLabel: String? = null,
+    val confirmedBy: String? = null,
+    val confirmedAt: String? = null,
+    val createdAt: String? = null,
+    val frames: List<DiagnosisFrame> = emptyList()
+)
+@Serializable
+data class DiagnosisSessionsResponse(val sessions: List<DiagnosisSession> = emptyList())
+@Serializable
+data class DiagnosisConfirmRequest(val humanLabel: String, val confirmedBy: String)

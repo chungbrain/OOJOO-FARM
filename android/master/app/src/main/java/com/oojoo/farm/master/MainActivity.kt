@@ -82,6 +82,7 @@ import com.oojoo.farm.master.ui.PlantDetailScreen
 import com.oojoo.farm.master.ui.PlantListScreen
 import com.oojoo.farm.master.ui.PlantRegistrationScreen
 import com.oojoo.farm.master.ui.LiveCameraScreen
+import com.oojoo.farm.master.ui.DiagnosisReviewScreen
 import com.oojoo.farm.master.ui.GalleryScreen
 import com.oojoo.farm.master.ui.ReportScreen
 import com.oojoo.farm.master.ui.SubscriptionScreen
@@ -166,6 +167,9 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
             composable("report/{slaveId}") { b -> ReportScreen(nav, b.arguments?.getString("slaveId") ?: "") }
             composable("live_camera/{slaveId}/{slaveName}") { b ->
                 LiveCameraScreen(nav, b.arguments?.getString("slaveId") ?: "", b.arguments?.getString("slaveName") ?: "Farmer")
+            }
+            composable("diagnosis/{plantId}") { b ->
+                DiagnosisReviewScreen(nav, b.arguments?.getString("plantId") ?: "")
             }
             composable("gallery") { GalleryScreen(nav) }
             composable("subscription") { SubscriptionScreen(nav) }

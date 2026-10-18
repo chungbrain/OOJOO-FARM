@@ -350,4 +350,29 @@
     <string name="growth_clip_need_photos">You need accumulated photos to make a short clip.</string>
     <string name="growth_clip_no_farmer">No Farmer is assigned.</string>
     <string name="growth_clip_ready_label">Growth story</string>
+
+    <!-- Video diagnosis review -->
+    <string name="diagnosis_btn">Video health check</string>
+    <string name="diagnosis_title">Video health diagnosis</string>
+    <string name="diagnosis_sending">Sending diagnosis request…</string>
+    <string name="diagnosis_sent">Diagnosis request sent</string>
+    <string name="diagnosis_empty">No diagnosis sessions yet</string>
+    <string name="diagnosis_empty_hint">Start one with the video health check button on the plant detail screen.</string>
+    <string name="diagnosis_ai_verdict">AI verdict</string>
+    <string name="diagnosis_ai_pick">AI pick</string>
+    <string name="diagnosis_need_human">Needs human review</string>
+    <string name="diagnosis_confirm_btn">Confirm label</string>
+    <string name="diagnosis_confirmed">Confirmed</string>
+    <string name="diagnosis_confirmed_label">Confirmed label</string>
+    <string name="diagnosis_no_condition">No verdict</string>
+    <string name="diagnosis_frames_label">Sampled frames</string>
+    <string name="diagnosis_video_label">Diagnosis video</string>
+    <string name="diagnosis_confirm_done">Label confirmed</string>
+    <string name="diagnosis_confirm_fail">Confirm failed</string>
+    <string name="health_class_healthy">Healthy</string>
+    <string name="health_class_water_low">Low water</string>
+    <string name="health_class_water_high">Too much water</string>
+    <string name="health_class_light_low">Low light</string>
+    <string name="health_class_pest">Pest detected</string>
+    <string name="health_class_heat">Too hot</string>
 </resources>

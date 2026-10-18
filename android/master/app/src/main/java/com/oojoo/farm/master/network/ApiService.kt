@@ -201,4 +201,14 @@ interface ApiService {
         @Path("code") code: String,
         @Query("userId") userId: String
     ): HouseholdResponse
+
+    // ---------- 영상 건강진단 ----------
+    @GET("api/diagnosis/plant/{plantId}")
+    suspend fun plantDiagnoses(@Path("plantId") plantId: String): DiagnosisSessionsResponse
+
+    @POST("api/diagnosis/sessions/{id}/confirm")
+    suspend fun confirmDiagnosis(@Path("id") id: String, @Body body: DiagnosisConfirmRequest): OkResponse
+
+    @GET("api/videos/{videoId}")
+    suspend fun videoInfo(@Path("videoId") videoId: String): VideoInfoResponse
 }

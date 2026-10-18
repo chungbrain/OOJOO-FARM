@@ -32,7 +32,9 @@ internal fun localizeMasterMessage(message: String, strings: AppStrings): String
         "건강 (녹색 충분)" to "Healthy (sufficient greenness)",
         "보통 (녹색 약간 부족)" to "Fair (slightly low greenness)",
         "주의 (황변 의심)" to "Caution (possible yellowing)",
-        "이상 (색상 심각)" to "Abnormal (severe color issue)"
+        "이상 (색상 심각)" to "Abnormal (severe color issue)",
+        "진단 요청 전송 중…" to "Sending diagnosis request…",
+        "진단 요청 전송 완료" to "Diagnosis request sent"
     )
     return replacements.fold(message) { result, (source, target) -> result.replace(source, target) }
 }

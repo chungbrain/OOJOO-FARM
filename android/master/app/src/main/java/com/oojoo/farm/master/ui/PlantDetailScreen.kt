@@ -65,6 +65,7 @@ class PlantDetailViewModel : ViewModel() {
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var editing by mutableStateOf(false)
     var saving by mutableStateOf(false)
+    var diagSending by mutableStateOf(false)
     var editName by mutableStateOf("")
     var editSpecies by mutableStateOf("")
     var editPlantedAt by mutableStateOf("")
@@ -234,6 +235,25 @@ class PlantDetailViewModel : ViewModel() {
             } catch (e: Exception) { msg = e.message }
         }
     }
+
+    /** 영상 건강진단 요청 — diagnose_video 커맨드 전송 후 진단 리뷰 화면으로 이동. */
+    fun requestDiagnosis(onReady: () -> Unit) {
+        val p = plant ?: return
+        val sId = p.slave_id ?: run { msg = "담당 Farmer 없음"; return }
+        diagSending = true
+        msg = "진단 요청 전송 중…"
+        viewModelScope.launch {
+            try {
+                api.sendCommand(CommandRequest(sId, p.id, "diagnose_video"))
+                msg = "진단 요청 전송 완료"
+                diagSending = false
+                onReady()
+            } catch (e: Exception) {
+                msg = e.message
+                diagSending = false
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -285,6 +305,15 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
 
             item {
                 GradientButton(text = S.quickWater, onClick = { vm.quickWater() }, enabled = vm.plant?.slave_id != null, modifier = Modifier.fillMaxWidth())
+            }
+
+            item {
+                GradientButton(
+                    text = S.diagnosisBtn,
+                    onClick = { vm.requestDiagnosis { nav.navigate("diagnosis/$plantId") } },
+                    enabled = !vm.diagSending && vm.plant?.slave_id != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             item {

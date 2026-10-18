@@ -350,4 +350,29 @@
     <string name="growth_clip_need_photos">누적된 사진이 있어야 숏클립을 만들 수 있어요.</string>
     <string name="growth_clip_no_farmer">담당 Farmer가 없습니다.</string>
     <string name="growth_clip_ready_label">성장 스토리</string>
+
+    <!-- Video diagnosis review -->
+    <string name="diagnosis_btn">영상 건강진단</string>
+    <string name="diagnosis_title">영상 건강진단</string>
+    <string name="diagnosis_sending">진단 요청 전송 중…</string>
+    <string name="diagnosis_sent">진단 요청 전송 완료</string>
+    <string name="diagnosis_empty">아직 진단 세션이 없습니다</string>
+    <string name="diagnosis_empty_hint">식물 상세 화면의 영상 건강진단 버튼으로 진단을 시작할 수 있어요.</string>
+    <string name="diagnosis_ai_verdict">AI 판정</string>
+    <string name="diagnosis_ai_pick">AI 추천</string>
+    <string name="diagnosis_need_human">사람 확인 필요</string>
+    <string name="diagnosis_confirm_btn">라벨 확정</string>
+    <string name="diagnosis_confirmed">확정됨</string>
+    <string name="diagnosis_confirmed_label">확정 라벨</string>
+    <string name="diagnosis_no_condition">판정 없음</string>
+    <string name="diagnosis_frames_label">샘플 프레임</string>
+    <string name="diagnosis_video_label">진단 영상</string>
+    <string name="diagnosis_confirm_done">라벨이 확정되었습니다</string>
+    <string name="diagnosis_confirm_fail">확정 실패</string>
+    <string name="health_class_healthy">건강</string>
+    <string name="health_class_water_low">물 부족</string>
+    <string name="health_class_water_high">물 과다</string>
+    <string name="health_class_light_low">햇빛 부족</string>
+    <string name="health_class_pest">해충 발생</string>
+    <string name="health_class_heat">온도 더움</string>
 </resources>
