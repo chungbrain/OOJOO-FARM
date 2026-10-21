@@ -112,6 +112,9 @@
     <string name="noti_manual_water">💧 수동 관수</string>
     <string name="noti_anomaly">⚠️ 이상 징후</string>
     <string name="noti_capture">📷 캡처</string>
+    <string name="noti_health_change">🌿 건강상태 변화</string>
+    <string name="health_grade_label">건강등급</string>
+    <string name="pest_level_label">해충발생</string>
     <string name="farmer_manage">🤖 Farmer 관리</string>
     <string name="gallery">📷 사진첩</string>
     <string name="subscription">⭐ 구독</string>

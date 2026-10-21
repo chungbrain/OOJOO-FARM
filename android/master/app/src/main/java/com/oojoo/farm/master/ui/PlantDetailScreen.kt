@@ -415,6 +415,27 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                 val color = if (a.healthStatus.contains("건강") || a.healthStatus.contains("양호")) OojooTheme.Teal else OojooTheme.Orange
                                 Text(localizeMasterMessage(a.healthStatus, S), fontWeight = FontWeight.Bold, color = color, fontSize = 14.sp)
                             }
+                            // F1 — 건강등급 5단계(매우건강/건강/보통/나쁨/매우나쁨) — JevHealthNet
+                            a.healthGradeKo?.let { g ->
+                                HorizontalDivider(color = OojooTheme.Line)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(S.healthGradeLabel, color = OojooTheme.Muted, fontSize = 13.sp)
+                                    val gc = when (a.healthGrade) {
+                                        "poor", "very_poor" -> OojooTheme.Red
+                                        "fair" -> OojooTheme.Orange
+                                        else -> OojooTheme.Teal
+                                    }
+                                    Text("$g (${(a.gradeConfidence * 100).toInt()}%)", fontWeight = FontWeight.Bold, color = gc, fontSize = 14.sp)
+                                }
+                            }
+                            // F2 — 해충발생 4단계(없음/경미/보통/심각) — PestNet(건강진단과 별도 모델)
+                            a.pestLevelKo?.let { pk ->
+                                HorizontalDivider(color = OojooTheme.Line)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(S.pestLevelLabel, color = OojooTheme.Muted, fontSize = 13.sp)
+                                    Text(pk, fontWeight = FontWeight.Bold, color = if (a.pestLevel == "none") OojooTheme.Ink else OojooTheme.Red, fontSize = 14.sp)
+                                }
+                            }
                             HorizontalDivider(color = OojooTheme.Line)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(S.waterNeed, color = OojooTheme.Muted, fontSize = 13.sp)
@@ -608,5 +629,6 @@ fun notiLabel(t: String, S: com.oojoo.farm.master.data.AppStrings): String = whe
     "manual_water" -> S.notiManualWater
     "anomaly" -> S.notiAnomaly
     "capture" -> S.notiCapture
+    "health_change" -> S.notiHealthChange
     else -> t
 }

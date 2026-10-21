@@ -428,6 +428,15 @@ data class AnalysisData(
     val fruitRipeness: Double = 0.0,
     val pestSuspected: Boolean = false,
     val modelId: String? = null,
+    // F1 — 건강등급 5단계(매우건강/건강/보통/나쁨/매우나쁨) — health_grade.bin
+    val healthGrade: String? = null,
+    val healthGradeKo: String? = null,
+    val gradeConfidence: Double = 0.0,
+    // F2 — 해충발생 4단계(없음/경미/보통/심각) — pest.bin(별도 모델)
+    val pestLevel: String? = null,
+    val pestLevelKo: String? = null,
+    val pestConfidence: Double = 0.0,
+    val pestModelId: String? = null,
     val wideShot: WideShotData? = null,
     val normalShot: NormalShotData? = null,
     val zoomShot: ZoomShotData? = null

@@ -112,6 +112,9 @@
     <string name="noti_manual_water">💧 Manual water</string>
     <string name="noti_anomaly">⚠️ Anomaly</string>
     <string name="noti_capture">📷 Capture</string>
+    <string name="noti_health_change">🌿 Health change</string>
+    <string name="health_grade_label">Health grade</string>
+    <string name="pest_level_label">Pest level</string>
     <string name="farmer_manage">🤖 Manage Farmers</string>
     <string name="gallery">📷 Gallery</string>
     <string name="subscription">⭐ Subscribe</string>
