@@ -1,0 +1,47 @@
+{
+  "model": "pest",
+  "labels": [
+    "none",
+    "light",
+    "moderate",
+    "severe"
+  ],
+  "labels_ko": [
+    "\ud574\ucda9\uc5c6\uc74c",
+    "\uacbd\ubbf8\ubc1c\uc0dd",
+    "\ubcf4\ud1b5\ubc1c\uc0dd",
+    "\uc2ec\uac01\ubc1c\uc0dd"
+  ],
+  "val_acc": 0.8841698841698842,
+  "confusion": [
+    [
+      202,
+      57,
+      0,
+      0
+    ],
+    [
+      24,
+      226,
+      9,
+      0
+    ],
+    [
+      0,
+      3,
+      247,
+      9
+    ],
+    [
+      0,
+      0,
+      18,
+      241
+    ]
+  ],
+  "n_train": 4724,
+  "n_val": 1036,
+  "input": 48,
+  "arch": "conv8-16-24 + GAP + dense4 (Jev\uae09, OJP1) \u2014 health_grade \uc640 \ubcc4\ub3c4 \ubaa8\ub378",
+  "train_recipe": "8\uc885 \ud63c\ud569 + \ub4f1\uae09 \ud63c\ud569 \ubc30\uacbd + \ud574\ucda9 \ub2e8\uacc4\ubcc4 \uc2dd\ud574/\ubc8c\ub808 \uc99d\uc0c1 + \ub2e4\uc911 \uc2a4\ucf00\uc77c/\uacbd\ub85c(480x640\u00b7144x192\u00b796x96 \ubc15\uc2a4 \ub2e4\uc6b4\uc0d8\ud50c) + augment + \uc804\uc5ed \ub178\ub984 \ud074\ub9ac\ud551"
+}

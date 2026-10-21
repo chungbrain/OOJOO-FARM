@@ -1,0 +1,60 @@
+{
+  "model": "health_grade",
+  "labels": [
+    "very_healthy",
+    "healthy",
+    "fair",
+    "poor",
+    "very_poor"
+  ],
+  "labels_ko": [
+    "\ub9e4\uc6b0\uac74\uac15",
+    "\uac74\uac15",
+    "\ubcf4\ud1b5",
+    "\ub098\uc068",
+    "\ub9e4\uc6b0\ub098\uc068"
+  ],
+  "val_acc": 0.8268518518518518,
+  "confusion": [
+    [
+      124,
+      87,
+      5,
+      0,
+      0
+    ],
+    [
+      40,
+      167,
+      6,
+      3,
+      0
+    ],
+    [
+      0,
+      4,
+      207,
+      5,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      189,
+      26
+    ],
+    [
+      0,
+      3,
+      1,
+      6,
+      206
+    ]
+  ],
+  "n_train": 4920,
+  "n_val": 1080,
+  "input": 48,
+  "arch": "conv8-16-24 + GAP + dense5 (Jev\uae09, OJP1)",
+  "train_recipe": "8\uc885 \ud63c\ud569 \ub4f1\uae09\ubcc4 \ud569\uc131 + \ud574\ucda9 \ub178\uc774\uc988 13% + \ub2e4\uc911 \uc2a4\ucf00\uc77c/\uacbd\ub85c(480x640\u00b7144x192\u00b796x96 \ubc15\uc2a4 \ub2e4\uc6b4\uc0d8\ud50c) + augment + \uc804\uc5ed \ub178\ub984 \ud074\ub9ac\ud551"
+}
