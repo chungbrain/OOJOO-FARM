@@ -1,0 +1,15 @@
+{
+  "name": "oojoo-farm-simulation",
+  "version": "1.0.0",
+  "description": "OOJOO FARM farmer 기능 PC 시뮬레이션 — Jev 건강판단/해충탐지/변화 알림/자동 방향 촬영 (Android 이식 선행 검증)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "sim": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
