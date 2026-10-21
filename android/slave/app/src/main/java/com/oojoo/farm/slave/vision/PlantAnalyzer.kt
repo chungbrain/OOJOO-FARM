@@ -18,7 +18,16 @@ data class AnalysisResult(
     val fruitRipeness: Double = 0.0,   // 열매 익음도(붉은 비율 추정) 0~1
     val pestSuspected: Boolean = false, // 해충 의심
     val condition: String? = null,      // healthy / water_low / pest / ...
-    val modelId: String? = null
+    val modelId: String? = null,
+    // F1 — 건강등급 5단계(매우건강/건강/보통/나쁨/매우나쁨) — JevHealthNet
+    val healthGrade: String? = null,
+    val healthGradeKo: String? = null,
+    val gradeConfidence: Double = 0.0,
+    // F2 — 해충발생 4단계(없음/경미/보통/심각) — PestNet(건강진단과 별도 모델)
+    val pestLevel: String? = null,
+    val pestLevelKo: String? = null,
+    val pestConfidence: Double = 0.0,
+    val pestModelId: String? = null
 )
 
 object PlantAnalyzer {
@@ -169,6 +178,8 @@ object PlantAnalyzer {
      * ROI 단위 분석 — 전체 프레임 bitmap에서 roi 영역만 잘라 진단한다.
      * roi에 지정된 식물의 모델이 있으면 그 모델로 CNN 추론하고,
      * 없으면 휴리스틱(색 통계)으로 판정한다.
+     * 함께 F1(건강등급 5단계, HealthGradeNet)과 F2(해충발생 4단계, PestNet —
+     * 건강진단과 별도 모델)를 같은 crop 으로 추론해 결과에 병합한다.
      */
     fun analyzeRoi(bitmap: Bitmap, roi: PlantRoi): AnalysisResult {
         val bw = bitmap.width
@@ -183,7 +194,7 @@ object PlantAnalyzer {
             val heuristic = analyzeBitmap(crop)
             val modelId = PlantHealthNet.modelIdFor(roi.species ?: roi.plantName)
             val dl = modelId?.let { PlantHealthNet.diagnoseWithModel(it, crop) }
-            if (dl != null) {
+            val base = if (dl != null) {
                 AnalysisResult(
                     heuristic.greenness, heuristic.brightness,
                     "${dl.labelKo} (${(dl.confidence * 100).toInt()}%)",
@@ -192,6 +203,22 @@ object PlantAnalyzer {
                 )
             } else {
                 heuristic
+            }
+            // F1/F2 — 등급(5단계) + 해충(4단계) 별도 모델 추론 (동일 crop 재사용)
+            val grade = HealthGradeNet.infer(crop)
+            val pest = PestNet.infer(crop)
+            if (grade == null && pest == null) {
+                base
+            } else {
+                base.copy(
+                    healthGrade = grade?.grade,
+                    healthGradeKo = grade?.gradeKo,
+                    gradeConfidence = grade?.confidence ?: 0.0,
+                    pestLevel = pest?.level,
+                    pestLevelKo = pest?.levelKo,
+                    pestConfidence = pest?.confidence ?: 0.0,
+                    pestModelId = pest?.modelId
+                )
             }
         } finally {
             crop.recycle()

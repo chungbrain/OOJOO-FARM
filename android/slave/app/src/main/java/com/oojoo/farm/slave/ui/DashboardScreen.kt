@@ -123,6 +123,19 @@ fun DashboardScreen(nav: NavController) {
                                 Text("🌱 ${s.plantName}", Modifier.weight(1f), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Text(s.updatedAt, color = OojooTheme.Muted, fontSize = 11.sp)
                             }
+                            // F1/F2 — 건강등급(5단계) + 해충발생(4단계, 별도 모델) 요약
+                            if (s.healthGradeKo != null) {
+                                Text(
+                                    "① 건강: ${s.healthGradeKo} (${(s.gradeConfidence * 100).toInt()}%)" +
+                                        (s.pestLevelKo?.let { "  ·  🐛 해충: $it" } ?: ""),
+                                    color = when (s.healthGrade) {
+                                        "poor", "very_poor" -> OojooTheme.Red
+                                        "fair" -> OojooTheme.Amber
+                                        else -> OojooTheme.TealDark
+                                    },
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold
+                                )
+                            }
                             Text(
                                 stringResource(R.string.roi_status_format, localizeFarmerText(s.healthStatus, english), s.modelId ?: "heuristic"),
                                 color = if (s.needWater || s.pestSuspected) OojooTheme.Red else OojooTheme.Muted,

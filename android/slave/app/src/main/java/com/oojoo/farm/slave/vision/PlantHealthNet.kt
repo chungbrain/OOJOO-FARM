@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.Image
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import kotlin.math.exp
 
 data class HealthDiagnosis(
     val condition: String,
@@ -17,37 +15,37 @@ data class HealthDiagnosis(
 )
 
 /**
- * 식물별 독립 tiny CNN (conv8-16-24 + GAP + dense6).
- * 가중치는 `assets/models/<species>.bin` (OJP1).
+ * ì‹ë¬¼ë³„ ë…ë¦½ tiny CNN (conv8-16-24 + GAP + dense6).
+ * ê°€ì¤‘ì¹˜ëŠ” `assets/models/<species>.bin` (OJP1) â€” íŒŒì‹±/forward ëŠ” ê³µìœ  ëŸ°íƒ€ìž„
+ * Ojp1.kt ë¥¼ ì‚¬ìš©í•œë‹¤ (ê±´ê°•ë“±ê¸‰/í•´ì¶© ëª¨ë¸ê³¼ ë™ì¼ ëŸ°íƒ€ìž„).
  */
 object PlantHealthNet {
     const val SIZE = 48
     val LABELS = listOf("healthy", "water_low", "water_high", "light_low", "pest", "heat")
     private val LABEL_KO = mapOf(
-        "healthy" to "건강",
-        "water_low" to "물 부족",
-        "water_high" to "물 과다",
-        "light_low" to "햇빛 부족",
-        "pest" to "해충 발생",
-        "heat" to "온도 더움"
+        "healthy" to "ê±´ê°•",
+        "water_low" to "ë¬¼ ë¶€ì¡±",
+        "water_high" to "ë¬¼ ê³¼ë‹¤",
+        "light_low" to "í–‡ë¹› ë¶€ì¡±",
+        "pest" to "í•´ì¶© ë°œìƒ",
+        "heat" to "ì˜¨ë„ ë”ì›€"
     )
 
     private val ALIAS = mapOf(
-        "방울토마토" to "cherry_tomato", "토마토" to "cherry_tomato", "tomato" to "cherry_tomato",
+        "ë°©ìš¸í† ë§ˆí† " to "cherry_tomato", "í† ë§ˆí† " to "cherry_tomato", "tomato" to "cherry_tomato",
         "cherrytomato" to "cherry_tomato", "cherry tomato" to "cherry_tomato",
-        "바질" to "basil", "basil" to "basil",
-        "선인장" to "cactus", "cactus" to "cactus",
-        "허브" to "herb", "herb" to "herb", "로즈마리" to "herb", "rosemary" to "herb",
-        "딸기" to "strawberry", "strawberry" to "strawberry",
-        "고추" to "pepper", "chili" to "pepper", "pepper" to "pepper",
-        "호박" to "pumpkin", "pumpkin" to "pumpkin",
-        "애호박" to "zucchini", "zucchini" to "zucchini", "squash" to "zucchini"
+        "ë°”ì§ˆ" to "basil", "basil" to "basil",
+        "ì„ ì¸ìž¥" to "cactus", "cactus" to "cactus",
+        "í—ˆë¸Œ" to "herb", "herb" to "herb", "ë¡œì¦ˆë§ˆë¦¬" to "herb", "rosemary" to "herb",
+        "ë”¸ê¸°" to "strawberry", "strawberry" to "strawberry",
+        "ê³ ì¶”" to "pepper", "chili" to "pepper", "pepper" to "pepper",
+        "í˜¸ë°•" to "pumpkin", "pumpkin" to "pumpkin",
+        "ì• í˜¸ë°•" to "zucchini", "zucchini" to "zucchini", "squash" to "zucchini"
     )
 
     @Volatile private var appCtx: Context? = null
     @Volatile var speciesId: String? = null
         private set
-    private val cache = mutableMapOf<String, PackedModel>()
     private var frame = 0
 
     fun init(ctx: Context) {
@@ -94,39 +92,26 @@ object PlantHealthNet {
     fun maybeDiagnose(bitmap: Bitmap): HealthDiagnosis? {
         val id = speciesId ?: return null
         if (!available(id)) return null
-        val rgb = bitmapToRgb48(bitmap)
-        last = infer(id, rgb)
+        val model = load(id) ?: return null
+        last = infer(id, model.bitmapToRgb48(bitmap))
         return last
     }
 
     /**
-     * ROI 모니터링용 — 모델을 직접 지정해 진단.
-     * 같은 프레임의 서로 다른 ROI를 각 식물의 모델로 판정한다.
-     * 프레임 스킵(last 재사용) 없이 항상 추론한다.
+     * ROI ëª¨ë‹ˆí„°ë§ìš© â€” ëª¨ë¸ì„ ì§ì ‘ ì§€ì •í•´ ì§„ë‹¨.
+     * ê°™ì€ í”„ë ˆìž„ì˜ ì„œë¡œ ë‹¤ë¥¸ ROIë¥¼ ê° ì‹ë¬¼ì˜ ëª¨ë¸ë¡œ íŒì •í•œë‹¤.
+     * í”„ë ˆìž„ ìŠ¤í‚µ(last ìž¬ì‚¬ìš©) ì—†ì´ í•­ìƒ ì¶”ë¡ í•œë‹¤.
      */
     fun diagnoseWithModel(modelId: String, bitmap: Bitmap): HealthDiagnosis? {
         if (!available(modelId)) return null
-        return infer(modelId, bitmapToRgb48(bitmap))
+        val model = load(modelId) ?: return null
+        return infer(modelId, model.bitmapToRgb48(bitmap))
     }
 
-    /** 식물 종명 → 모델 id 해석 (매핑 없으면 null). */
+    /** ì‹ë¬¼ ì¢…ëª… â†’ ëª¨ë¸ id í•´ì„ (ë§¤í•‘ ì—†ìœ¼ë©´ null). */
     fun modelIdFor(raw: String?): String? {
         val id = resolve(raw) ?: return null
         return if (available(id)) id else null
-    }
-
-    private fun bitmapToRgb48(bitmap: Bitmap): FloatArray {
-        val rgb = FloatArray(SIZE * SIZE * 3)
-        val scaled = Bitmap.createScaledBitmap(bitmap, SIZE, SIZE, true)
-        val px = IntArray(SIZE * SIZE)
-        scaled.getPixels(px, 0, SIZE, 0, 0, SIZE, SIZE)
-        if (scaled !== bitmap) scaled.recycle()
-        for (i in px.indices) {
-            rgb[i * 3] = ((px[i] shr 16) and 0xFF) / 255f
-            rgb[i * 3 + 1] = ((px[i] shr 8) and 0xFF) / 255f
-            rgb[i * 3 + 2] = (px[i] and 0xFF) / 255f
-        }
-        return rgb
     }
 
     @Volatile private var last: HealthDiagnosis? = null
@@ -134,19 +119,7 @@ object PlantHealthNet {
     fun infer(modelId: String, rgb: FloatArray): HealthDiagnosis? {
         val model = load(modelId) ?: return null
         val logits = model.forward(rgb)
-        var maxI = 0
-        var maxV = logits[0]
-        var sum = 0.0
-        val exps = DoubleArray(logits.size)
-        for (i in logits.indices) {
-            exps[i] = exp(logits[i].toDouble())
-            sum += exps[i]
-            if (logits[i] > maxV) {
-                maxV = logits[i]
-                maxI = i
-            }
-        }
-        val conf = if (sum > 0) exps[maxI] / sum else 0.0
+        val (maxI, conf) = model.argmaxSoftmax(logits)
         val cond = LABELS.getOrElse(maxI) { "healthy" }
         return HealthDiagnosis(
             condition = cond,
@@ -158,17 +131,9 @@ object PlantHealthNet {
         )
     }
 
-    private fun load(id: String): PackedModel? {
-        cache[id]?.let { return it }
+    private fun load(id: String): Ojp1Model? {
         val ctx = appCtx ?: return null
-        return try {
-            val bytes = ctx.assets.open("models/$id.bin").use { it.readBytes() }
-            val m = PackedModel.parse(bytes)
-            cache[id] = m
-            m
-        } catch (_: Exception) {
-            null
-        }
+        return Ojp1.load(ctx, id)
     }
 
     private fun yuvToRgb48(
@@ -197,120 +162,4 @@ object PlantHealthNet {
         }
         return out
     }
-}
-
-private class ConvLayer(val kh: Int, val kw: Int, val cin: Int, val cout: Int, val w: FloatArray, val b: FloatArray)
-private class DenseLayer(val inn: Int, val out: Int, val w: FloatArray, val b: FloatArray)
-
-private class PackedModel(val size: Int, val convs: List<ConvLayer>, val dense: DenseLayer) {
-    fun forward(rgb: FloatArray): FloatArray {
-        var maps = rgb
-        var h = size
-        var w = size
-        var c = 3
-        for (layer in convs) {
-            maps = convRelu(maps, h, w, c, layer)
-            c = layer.cout
-            maps = maxPool2(maps, h, w, c)
-            h /= 2
-            w /= 2
-        }
-        val gap = FloatArray(c)
-        val plane = h * w
-        for (ch in 0 until c) {
-            var s = 0f
-            for (i in 0 until plane) s += maps[i * c + ch]
-            gap[ch] = s / plane
-        }
-        val logits = FloatArray(dense.out)
-        for (o in 0 until dense.out) {
-            var s = dense.b[o]
-            for (i in 0 until dense.inn) s += gap[i] * dense.w[i * dense.out + o]
-            logits[o] = s
-        }
-        return logits
-    }
-
-    companion object {
-        fun parse(bytes: ByteArray): PackedModel {
-            val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-            val magic = ByteArray(4)
-            buf.get(magic)
-            require(magic.decodeToString() == "OJP1") { "bad model magic" }
-            val size = buf.int
-            buf.int // nclass
-            val nLayers = buf.int
-            val convs = mutableListOf<ConvLayer>()
-            var dense: DenseLayer? = null
-            repeat(nLayers) {
-                val type = buf.get().toInt() and 0xFF
-                if (type == 1) {
-                    val kh = buf.int
-                    val kw = buf.int
-                    val cin = buf.int
-                    val cout = buf.int
-                    val w = FloatArray(kh * kw * cin * cout)
-                    for (i in w.indices) w[i] = buf.float
-                    val b = FloatArray(cout)
-                    for (i in b.indices) b[i] = buf.float
-                    convs += ConvLayer(kh, kw, cin, cout, w, b)
-                } else {
-                    val inn = buf.int
-                    val out = buf.int
-                    val w = FloatArray(inn * out)
-                    for (i in w.indices) w[i] = buf.float
-                    val b = FloatArray(out)
-                    for (i in b.indices) b[i] = buf.float
-                    dense = DenseLayer(inn, out, w, b)
-                }
-            }
-            return PackedModel(size, convs, dense ?: error("no dense"))
-        }
-    }
-}
-
-private fun convRelu(src: FloatArray, h: Int, w: Int, cin: Int, layer: ConvLayer): FloatArray {
-    val out = FloatArray(h * w * layer.cout)
-    val pad = layer.kh / 2
-    for (y in 0 until h) {
-        for (x in 0 until w) {
-            for (oc in 0 until layer.cout) {
-                var s = layer.b[oc]
-                for (ky in 0 until layer.kh) {
-                    val iy = y + ky - pad
-                    if (iy < 0 || iy >= h) continue
-                    for (kx in 0 until layer.kw) {
-                        val ix = x + kx - pad
-                        if (ix < 0 || ix >= w) continue
-                        for (ic in 0 until cin) {
-                            val wi = ((ky * layer.kw + kx) * cin + ic) * layer.cout + oc
-                            val si = (iy * w + ix) * cin + ic
-                            s += src[si] * layer.w[wi]
-                        }
-                    }
-                }
-                out[(y * w + x) * layer.cout + oc] = if (s > 0f) s else 0f
-            }
-        }
-    }
-    return out
-}
-
-private fun maxPool2(src: FloatArray, h: Int, w: Int, c: Int): FloatArray {
-    val oh = h / 2
-    val ow = w / 2
-    val out = FloatArray(oh * ow * c)
-    for (y in 0 until oh) {
-        for (x in 0 until ow) {
-            for (ch in 0 until c) {
-                var m = Float.NEGATIVE_INFINITY
-                for (dy in 0..1) for (dx in 0..1) {
-                    val v = src[((y * 2 + dy) * w + (x * 2 + dx)) * c + ch]
-                    if (v > m) m = v
-                }
-                out[(y * ow + x) * c + ch] = m
-            }
-        }
-    }
-    return out
 }

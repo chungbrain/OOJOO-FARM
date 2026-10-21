@@ -59,6 +59,9 @@ object CameraHost {
     private var analysisUseCase: ImageAnalysis? = null
     private var displayListener: DisplayManager.DisplayListener? = null
 
+    // F4 — 카메라 센서 고정 각(후면 카메라 전형 90°). bindToLifecycle 반환에서 확보.
+    @Volatile private var sensorOrientation = 90
+
     val isReady: Boolean get() = started && CameraHolder.ready
 
     /**
@@ -118,11 +121,12 @@ object CameraHost {
 
                 fun bindAll() {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    val camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         previewUseCase, imageCapture, analysis, videoCapture
                     )
+                    captureSensorOrientation(camera)
                     CameraHolder.setCapture(videoCapture)
                 }
 
@@ -134,22 +138,24 @@ object CameraHost {
                 } catch (e: Exception) {
                     Log.w(TAG, "full bind failed — retry without analysis", e)
                     try {
-                        cameraProvider.bindToLifecycle(
+                        val camera = cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             CameraSelector.DEFAULT_BACK_CAMERA,
                             previewUseCase, imageCapture, videoCapture
                         )
+                        captureSensorOrientation(camera)
                         CameraHolder.setCapture(videoCapture)
                         started = true
                         Log.i(TAG, "camera bound to service lifecycle (no analysis)")
                     } catch (e2: Exception) {
                         Log.w(TAG, "bind failed — retry without video", e2)
                         try {
-                            cameraProvider.bindToLifecycle(
+                            val camera = cameraProvider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 previewUseCase, imageCapture, analysis
                             )
+                            captureSensorOrientation(camera)
                             CameraHolder.setCapture(null)
                             started = true
                             Log.i(TAG, "camera bound to service lifecycle (no video)")
@@ -260,6 +266,15 @@ object CameraHost {
         displayListener = null
     }
 
+    /** 바인딩된 카메라에서 센서 고정 각 확보 — F4 방향 리졸버 입력.
+     * CameraX CameraInfo.sensorRotationDegrees — camera2 SENSOR_ORIENTATION 와 동일 값. */
+    private fun captureSensorOrientation(camera: androidx.camera.core.Camera?) {
+        try {
+            val rot = camera?.cameraInfo?.sensorRotationDegrees ?: return
+            if (rot > 0) sensorOrientation = rot
+        } catch (_: Exception) { /* 기본값(90°) 유지 */ }
+    }
+
     private fun currentRotation(): Int {
         val ctx = appCtx ?: return Surface.ROTATION_0
         return try {
@@ -270,9 +285,22 @@ object CameraHost {
         }
     }
 
-    /** 현재 디스플레이 회전(가로/세로)을 촬영 use case 에 반영 — Farmer의 촬영 방향을 따른다. */
+    /** 최근 적용한 방향 계획 — 촬영 로그/검증용. */
+    @Volatile var lastPlan: OrientationPolicy.OrientationPlan? = null
+        private set
+
+    /**
+     * 현재 촬영 방향을 use case 에 반영 — F4.
+     * camera_mount 정책(auto/landscape/portrait)과 센서 각을 조합해 결정한다:
+     *   auto       → 디스플레이 회전 감지(기존 동작)
+     *   landscape  → 가로 설치 고정 — natural portrait 센서면 ROTATION_90 고정
+     *   portrait   → 세로 설치 고정 — ROTATION_0 고정
+     * 원격 정책 동기화(FarmerEngine.syncPolicy) 후에도 재호출된다.
+     */
     fun applyTargetRotation() {
-        val rot = currentRotation()
+        val plan = OrientationPolicy.resolve(sensorOrientation, currentRotation())
+        lastPlan = plan
+        val rot = plan.targetRotation
         try { preview?.targetRotation = rot } catch (_: Exception) {}
         try { imageCaptureUseCase?.targetRotation = rot } catch (_: Exception) {}
         try { analysisUseCase?.targetRotation = rot } catch (_: Exception) {}
