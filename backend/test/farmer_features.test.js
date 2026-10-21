@@ -80,7 +80,7 @@ test('F3: health_change 이벤트 → master SSE push + 알림 센터 집계', a
     payload: {
       from: 'healthy', to: 'poor', fromKo: '건강', toKo: '나쁨',
       confidence: 0.91, modelId: 'health_grade',
-      pest: { level: 'severe', levelKo: '심각발생', confidence: 0.88, modelId: 'pest' },
+      pestFrom: 'none', pestTo: 'severe', pestLevelKo: '심각발생', pestConfidence: 0.88, pestModelId: 'pest',
     },
   }, { 'x-session-key': sessionKey });
   assert.equal(res.status, 200);
@@ -104,7 +104,7 @@ test('F3: health_change 이벤트 → master SSE push + 알림 센터 집계', a
   assert.equal(noti.plant_name, '바질');
   const payload = JSON.parse(noti.payload);
   assert.equal(payload.toKo, '나쁨');
-  assert.equal(payload.pest.level, 'severe');
+  assert.equal(payload.pestTo, 'severe');
 });
 
 test('F3: noti 대상 외 이벤트는 SSE push 하지 않음 (알림 센터에만)', async () => {

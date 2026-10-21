@@ -181,7 +181,7 @@ async function scenarioS3(base) {
   log(`  master 수신 health_change: ${events.length}건`);
   for (const e of events) {
     log(`    - ${e.payload.fromKo} → ${e.payload.toKo} (신뢰도 ${(e.payload.confidence * 100).toFixed(0)}%)` +
-      (e.payload.pest ? ` 해충:${e.payload.pest.levelKo}` : ''));
+      (e.payload.pestLevelKo ? ` 해충:${e.payload.pestLevelKo}` : ''));
   }
 
   // 등급 전이(악화/회복)와 해충 전이(페드로 라이딩)를 구분해 검증 —
@@ -195,8 +195,8 @@ async function scenarioS3(base) {
   push('마지막 등급 전이: 매우나쁨 → 건강 (회복)', gradeEvents.length > 0 && gradeEvents[gradeEvents.length - 1].payload.to === 'healthy');
   const chainOk = events.every((e, i) => i === 0 || e.payload.from === events[i - 1].payload.to);
   push('전이 체인 일관성 (from == 이전 to)', chainOk);
-  const pestEvent = events.find((e) => e.payload.pest);
-  push('해충 등급 전이 payload 동반 (별도 모델 결과)', !!pestEvent && !!pestEvent.payload.pest.levelKo);
+  const pestEvent = events.find((e) => e.payload.pestTo);
+  push('해충 등급 전이 payload 동반 (별도 모델 결과)', !!pestEvent && !!pestEvent.payload.pestLevelKo);
 
   // 알림 센터 (폴링) 집계 + 식물명 조인
   const notis = await master.notifications();

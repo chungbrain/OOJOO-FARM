@@ -81,9 +81,9 @@ test('전이 감지: 첫 관찰 기준선 → 유지 무알림 → 연속 2회 �
   assert.equal(ev.payload.fromKo, GRADE_KO[baseline.healthGrade]);
   assert.equal(ev.payload.toKo, after.healthGradeKo);
   assert.equal(ev.payload.modelId, 'health_grade');
-  assert.equal(ev.payload.pest.to, after.pestLevel);
-  assert.equal(ev.payload.pest.levelKo, after.pestLevelKo);
-  assert.equal(ev.payload.pest.modelId, 'pest');
+  assert.equal(ev.payload.pestTo, after.pestLevel);
+  assert.equal(ev.payload.pestLevelKo, after.pestLevelKo);
+  assert.equal(ev.payload.pestModelId, 'pest');
   assert.equal(ev.plantId, 'plant-1');
 
   await observe(farmer, 1); // 유지 — 무알림
@@ -124,7 +124,7 @@ test('전이 감지: 등급은 유지, 해충만 전이해도 health_change (pes
   const after = lastAnalysis(api, 'plant-1');
   assert.equal(ev.payload.from, baseline.healthGrade);
   assert.equal(ev.payload.to, after.healthGrade);
-  assert.equal(ev.payload.pest.to, after.pestLevel);
+  assert.equal(ev.payload.pestTo, after.pestLevel);
 });
 
 test('오프라인 큐: 이벤트 전송 실패 → 큐 적재 → 재연결 시 flush', async () => {

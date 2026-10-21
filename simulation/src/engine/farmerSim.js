@@ -138,6 +138,7 @@ export class FarmerSim {
       }
       // F3 — 건강상태 전이 감지 (연속 confirmCycles 회 관측으로 확정) → master 알림.
       // 단일 사이클 오분류(플리커)는 pending 으로만 기록되고 알림을 유발하지 않는다.
+      // payload 는 플랫 키 — Android(slave) EventRequest(Map<String,String>) 와 동일 스키마.
       const cur = { grade: grade.grade, pestLevel: pest.level };
       let prev = this.lastByPlant.get(p.plantId);
       if (!prev) {
@@ -167,15 +168,14 @@ export class FarmerSim {
         greenness: status.greenness,
       };
       if (prev.pestLevel !== cur.pestLevel) {
-        payload.pest = {
-          from: prev.pestLevel, to: cur.pestLevel,
-          level: pest.level, levelKo: pest.levelKo,
-          confidence: status.pestConfidence,
-          modelId: pest.modelId,
-        };
+        payload.pestFrom = prev.pestLevel;
+        payload.pestTo = cur.pestLevel;
+        payload.pestLevelKo = pest.levelKo;
+        payload.pestConfidence = status.pestConfidence;
+        payload.pestModelId = pest.modelId;
       }
       await this.postEventSafe('health_change', payload, p.plantId);
-      this.logger(`[전이] ${p.name}: ${payload.fromKo} → ${payload.toKo}` + (payload.pest ? ` (해충: ${payload.pest.levelKo})` : ''));
+      this.logger(`[전이] ${p.name}: ${payload.fromKo} → ${payload.toKo}` + (payload.pestTo ? ` (해충: ${payload.pestLevelKo})` : ''));
       this.lastByPlant.set(p.plantId, { grade: cur.grade, pestLevel: cur.pestLevel, pending: null, pendingCount: 0 });
     }
   }

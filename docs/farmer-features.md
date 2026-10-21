@@ -44,7 +44,7 @@
 
 ROI 모니터링 결과 건강등급이 **이전 사이클과 다른 등급으로 전이**되면 즉시 master에게 알린다.
 
-**이벤트 스펙** (`POST /api/events`):
+**이벤트 스펙** (`POST /api/events`) — payload 는 플랫 키(Android slave `EventRequest`의 `Map<String,String>`과 동일 스키마):
 
 ```json
 {
@@ -54,12 +54,15 @@ ROI 모니터링 결과 건강등급이 **이전 사이클과 다른 등급으�
     "fromKo": "건강", "toKo": "나쁨",
     "confidence": 0.91, "modelId": "health_grade",
     "greenness": 0.31,
-    "pest": { "from": "none", "to": "severe", "level": "severe", "levelKo": "심각발생", "confidence": 0.88, "modelId": "pest" }
+    "pestFrom": "none", "pestTo": "severe", "pestLevelKo": "심각발생",
+    "pestConfidence": 0.88, "pestModelId": "pest"
   }
 }
 ```
 
-- 해충 등급 전이는 `health_change` payload의 `pest` 필드로 함께 전달한다 (별도 이벤트 폭증 방지)
+(`pest*` 필드는 해충 등급 전이가 동반된 경우에만 포함)
+
+- 해충 등급 전이는 `health_change` payload의 `pest*` 플랫 필드(`pestFrom`/`pestTo`/`pestLevelKo`/…)로 함께 전달한다 (별도 이벤트 폭증 방지)
 - **전이 확정**: 새 등급/해충 상태가 **연속 2회 관측**될 때만 알림을 발행한다 — 단일 사이클 오분류(플리커)가 마스터 알림을 유발하지 않도록 한다 (PC 시뮬레이션 S3에서 발견해 규격에 반영)
 - 백엔드는 noti 대상 이벤트(`health_change`, `water_low`, `pest_detected`, `harvest_ready`)를 events 테이블 저장과 함께 **master SSE**(`GET /api/commands/sse/master/:slaveId`)로 실시간 push한다. 알림 센터(`GET /api/notifications/:userId`) 폴링은 기존대로 동작
 - 동일 등급 유지 시 알림 없음 (확정된 전이 시에만 1회)
