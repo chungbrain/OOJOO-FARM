@@ -235,6 +235,8 @@ ensureColumn('users', 'plan', "plan TEXT DEFAULT 'free'");
 ensureColumn('users', 'email', 'email TEXT');
 ensureColumn('users', 'password_hash', 'password_hash TEXT');
 ensureColumn('policies', 'roi_interval', 'roi_interval INTEGER DEFAULT 20');
+// F4 — 카메라 설치 위치 기반 자동 가로/세로 촬영 정책 (auto | landscape | portrait)
+ensureColumn('policies', 'camera_mount', "camera_mount TEXT DEFAULT 'auto'");
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 db.exec(`

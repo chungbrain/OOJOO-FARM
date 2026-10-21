@@ -9,7 +9,12 @@ const DEFAULT_POLICY = {
   capture_interval: 60,
   roi_interval: 20,
   region: null,
+  // F4 — 카메라 물리 설치 위치 기반 자동 가로/세로 촬영.
+  // auto: 디스플레이 회전 감지 / landscape·portrait: 고정 설치 기기 명시 지정
+  camera_mount: 'auto',
 };
+
+const CAMERA_MOUNTS = new Set(['auto', 'landscape', 'portrait']);
 
 // 슬레이브 자율 실행 정책 조회 (없으면 기본값).
 // 마스터: 정책 화면 표시 / 슬레이브: 부팅 시 원격 정책 동기화
@@ -22,7 +27,7 @@ r.get('/:slaveId', (req, res) => {
 r.put('/:slaveId', (req, res) => {
   const { slaveId } = req.params;
   const {
-    waterAuto, fanAuto, laserApproval, captureInterval, roiInterval, region,
+    waterAuto, fanAuto, laserApproval, captureInterval, roiInterval, region, cameraMount,
   } = req.body;
 
   const cur = db.prepare('SELECT * FROM policies WHERE slave_id=?').get(slaveId) || DEFAULT_POLICY;
@@ -35,15 +40,19 @@ r.put('/:slaveId', (req, res) => {
     roi_interval: roiInterval != null
       ? Math.min(3600, Math.max(10, Number(roiInterval))) : cur.roi_interval,
     region: region !== undefined ? region : cur.region,
+    camera_mount: cameraMount !== undefined
+      ? (CAMERA_MOUNTS.has(cameraMount) ? cameraMount : cur.camera_mount)
+      : (cur.camera_mount ?? 'auto'),
   };
 
-  db.prepare(`INSERT INTO policies(slave_id, water_auto, fan_auto, laser_approval, capture_interval, roi_interval, region, updated_at)
-    VALUES(?,?,?,?,?,?,?,datetime('now'))
+  db.prepare(`INSERT INTO policies(slave_id, water_auto, fan_auto, laser_approval, capture_interval, roi_interval, region, camera_mount, updated_at)
+    VALUES(?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(slave_id) DO UPDATE SET
       water_auto=excluded.water_auto, fan_auto=excluded.fan_auto,
       laser_approval=excluded.laser_approval, capture_interval=excluded.capture_interval,
-      roi_interval=excluded.roi_interval, region=excluded.region, updated_at=datetime('now')`)
-    .run(slaveId, next.water_auto, next.fan_auto, next.laser_approval, next.capture_interval, next.roi_interval, next.region);
+      roi_interval=excluded.roi_interval, region=excluded.region,
+      camera_mount=excluded.camera_mount, updated_at=datetime('now')`)
+    .run(slaveId, next.water_auto, next.fan_auto, next.laser_approval, next.capture_interval, next.roi_interval, next.region, next.camera_mount);
 
   res.json({ slaveId, ...next });
 });

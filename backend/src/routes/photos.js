@@ -108,7 +108,9 @@ r.get('/slave/:slaveId', (req, res) => {
 r.get('/file/:filename', (req, res) => {
   const file = path.join(PHOTO_DIR, path.basename(req.params.filename));
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'file not found' });
-  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+  // 업로드 시 기록된 mime 으로 서빙 (PNG 시뮬레이션 사진 등 대응)
+  const row = db.prepare('SELECT mime FROM plant_photos WHERE filename=?').get(path.basename(req.params.filename));
+  res.set({ 'Content-Type': (row && row.mime) || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
   fs.createReadStream(file).pipe(res);
 });
 
