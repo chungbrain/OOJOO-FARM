@@ -20,6 +20,7 @@ import diagnosis from './routes/diagnosis.js';
 import admin from './routes/admin.js';
 import crash from './routes/crash.js';
 import household from './routes/household.js';
+import harvests from './routes/harvests.js';
 import './db.js';
 
 const app = express();
@@ -73,6 +74,7 @@ app.use('/api/diagnosis', diagnosis);
 app.use('/api/admin', admin);
 app.use('/api/crash', crash);
 app.use('/api/household', household);
+app.use('/api/harvests', harvests);
 
 // 알 수 없는 경로
 app.use((req, res) => {
