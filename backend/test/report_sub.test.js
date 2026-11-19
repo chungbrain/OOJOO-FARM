@@ -62,3 +62,36 @@ test('구독: 기본 free → premium 전환', async () => {
   const plans = await (await get('/api/subscription/plans')).json();
   assert.ok(plans.plans.length >= 2);
 });
+
+test('구독 집행: free 2대 상한이 3번째 페어링을 막고, premium 이 해제', async () => {
+  const u = await (await post('/api/users', { region: 'Seoul' })).json();
+
+  // free: 2대 페어링 성공
+  for (let i = 0; i < 2; i++) {
+    const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+    const v = await (await post('/api/pairing/verify', { code })).json();
+    assert.ok(v.slaveId, `pairing ${i + 1}`);
+  }
+
+  // 3번째 코드 생성 시 403
+  const r = await post('/api/pairing/code', { userId: u.id });
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).limit, 2);
+
+  // premium 전환 → 3대 페어링 가능
+  const up = await post('/api/subscription', { userId: u.id, plan: 'premium' });
+  assert.equal(up.status, 200);
+  const code2 = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const v2 = await (await post('/api/pairing/verify', { code: code2 })).json();
+  assert.ok(v2.slaveId);
+});
+
+test('구독: 존재하지 않는 유저는 404 (고스트 유저 생성 금지), demo 플래그', async () => {
+  const r = await post('/api/subscription', { userId: 'ghost-ghost-ghost', plan: 'premium' });
+  assert.equal(r.status, 404);
+
+  const u = await (await post('/api/users', { region: 'Seoul' })).json();
+  const up = await (await post('/api/subscription', { userId: u.id, plan: 'premium' })).json();
+  assert.equal(up.plan, 'premium');
+  assert.equal(up.demo, true);
+});

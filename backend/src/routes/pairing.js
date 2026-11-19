@@ -3,7 +3,17 @@ import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
 import { householdMemberIds, inSql } from '../lib/household.js';
+import { PLANS } from './subscription.js';
 const r = Router();
+
+// PRD 4.10/8 — 플랜별 Farmer 등록 상한 (free 2대 / premium 999)
+export function farmerLimit(userId) {
+  const u = db.prepare('SELECT plan FROM users WHERE id=?').get(userId);
+  return (PLANS[(u && u.plan) || 'free'] || PLANS.free).maxFarmers;
+}
+function slaveCount(userId) {
+  return db.prepare('SELECT COUNT(*) AS n FROM slaves WHERE user_id=?').get(userId).n;
+}
 
 // 마스터: 페어링 코드 생성 (6자리 무작위, 10분 유효)
 r.post('/code', (req, res) => {
@@ -11,6 +21,9 @@ r.post('/code', (req, res) => {
   if (!userId) return res.status(400).json({ error: 'userId required' });
   // 없으면 유저 생성(Phase1 임시)
   db.prepare('INSERT OR IGNORE INTO users(id) VALUES(?)').run(userId);
+  if (slaveCount(userId) >= farmerLimit(userId)) {
+    return res.status(403).json({ error: 'farmer limit reached for this plan', limit: farmerLimit(userId) });
+  }
   // 혼동 방지: 대문자/숫자만, 만료된 pending 코드는 정리
   db.prepare("DELETE FROM pairings WHERE status='pending' AND expires_at < datetime('now')").run();
   const code = nanoid(6).toUpperCase();
@@ -27,6 +40,10 @@ r.post('/verify', (req, res) => {
   if (!p) return res.status(404).json({ error: 'invalid code' });
   if (p.status === 'used') return res.status(410).json({ error: 'code already used' });
   if (p.expires_at && new Date(p.expires_at) < new Date()) return res.status(410).json({ error: 'code expired' });
+  // 코드 생성 이후 상한 도달(동시 페어링/플랜 변경) 대비 2차 점검
+  if (slaveCount(p.user_id) >= farmerLimit(p.user_id)) {
+    return res.status(409).json({ error: 'farmer limit reached for this plan', limit: farmerLimit(p.user_id) });
+  }
   const slaveId = nanoid(12);
   const sessionKey = nanoid(32);
   const slaveName = name || 'Farmer-' + slaveId.slice(0, 4);
