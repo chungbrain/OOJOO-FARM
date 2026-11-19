@@ -37,7 +37,7 @@ if (process.env.NODE_ENV !== 'test') {
       const duration = Date.now() - start;
       const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
       console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
-      // api_logs 테이블에 기록 (단, 정적 파일이나 대시보드 자체 조회는 제외 가능)
+      // api_logs 테이블에 기록
       if (req.originalUrl.startsWith('/api/') && !req.originalUrl.startsWith('/api/admin/')) {
         try {
           db.prepare('INSERT INTO api_logs(method, path, status, duration, ip) VALUES(?,?,?,?,?)')
@@ -50,12 +50,6 @@ if (process.env.NODE_ENV !== 'test') {
     next();
   });
 }
-
-// 대시보드용 정적 파일 서빙
-import path from 'path';
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-app.use('/dashboard', express.static(path.join(__dirname, '../public/dashboard')));
 
 app.get('/health', (req, res) => res.json({ ok: true, service: 'oojoo-farm', ts: Date.now() }));
 
