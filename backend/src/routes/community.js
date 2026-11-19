@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
+import { validCoord } from '../lib/validate.js';
 const r = Router();
 
 const TYPES = ['share', 'sell', 'buy'];
@@ -84,6 +85,8 @@ r.post('/posts', (req, res) => {
   const { userId, type, title, crop, quantity, price, region, description, image, lat, lon } = req.body;
   if (!userId || !type || !title) return res.status(400).json({ error: 'userId, type, title required' });
   if (!TYPES.includes(type)) return res.status(400).json({ error: 'invalid type' });
+  const coordErr = validCoord(lat, lon);
+  if (coordErr) return res.status(400).json({ error: coordErr });
   const id = nanoid(12);
   db.prepare(`INSERT INTO community_posts(id, user_id, type, title, crop, quantity, price, region, description, image, lat, lon)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)

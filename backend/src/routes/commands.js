@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
+import { COMMAND_ACTIONS, validCommandNumbers } from '../lib/validate.js';
 
 const r = Router();
 
@@ -31,9 +32,13 @@ export function notifyMasterEvent(slaveId, event) {
 }
 
 // 마스터: 슬레이브에 원격 지시 등록 (관수/퇴치/모드변경 등)
+// action은 slave가 처리하는 집합만 허용 — 모르는 action은 큐에 영원히 남는다.
 r.post('/', (req, res) => {
   const { slaveId, plantId, action = 'water', amountMl = 300, weatherFactor = 1 } = req.body;
   if (!slaveId) return res.status(400).json({ error: 'slaveId required' });
+  if (!COMMAND_ACTIONS.has(action)) return res.status(400).json({ error: `invalid action (allowed: ${[...COMMAND_ACTIONS].join(', ')})` });
+  const bad = validCommandNumbers(amountMl, weatherFactor);
+  if (bad) return res.status(400).json({ error: bad });
   const id = nanoid(12);
   db.prepare('INSERT INTO commands(id, slave_id, plant_id, action, amount_ml, weather_factor) VALUES(?,?,?,?,?,?)')
     .run(id, slaveId, plantId || null, action, amountMl, weatherFactor);

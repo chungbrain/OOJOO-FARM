@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuthOptional } from '../middleware/auth.js';
 import { notifyMasterEvent } from './commands.js';
+import { validEventType } from '../lib/validate.js';
 const r = Router();
 
 // 즉시 대응이 필요한 이벤트 — events 저장과 함께 master SSE 로 실시간 push.
@@ -12,7 +13,7 @@ const SSE_PUSH_TYPES = new Set(['health_change', 'water_low', 'pest_detected', '
 // 슬레이브: 이벤트 보고 (수확감지/해충탐지/캡처/이상 등)
 r.post('/', slaveAuthOptional, (req, res) => {
   const { slaveId, plantId, type, payload = {} } = req.body;
-  if (!slaveId || !type) return res.status(400).json({ error: 'slaveId, type required' });
+  if (!slaveId || !validEventType(type)) return res.status(400).json({ error: 'slaveId, type required (type: string, max 50)' });
   const id = nanoid(12);
   db.prepare('INSERT INTO events(id, slave_id, plant_id, type, payload) VALUES(?,?,?,?,?)')
     .run(id, slaveId, plantId || null, type, JSON.stringify(payload));
