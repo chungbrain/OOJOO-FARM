@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 // 임시 DB 로 격리 (앱 import 전에 반드시 설정)
 process.env.NODE_ENV = 'test';
@@ -61,4 +63,33 @@ test('삭제된 /dashboard 정적 루트: JSON 404 fallthrough', async () => {
   assert.equal(r.status, 404);
   const j = await r.json();
   assert.equal(j.error, 'not found');
+});
+
+test('SIGTERM graceful shutdown: exit code 0, DB close', async () => {
+  const tmp = path.join(os.tmpdir(), `oojoo-shutdown-${process.pid}.db`);
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const port = 24000 + (process.pid % 20000);
+  const child = spawn(process.execPath, ['--experimental-sqlite', path.join(here, '../src/server.js')], {
+    env: { ...process.env, NODE_ENV: 'test', DB_PATH: tmp, PORT: String(port), HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  // listen 로그 대기 (최대 10s)
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('server did not start in 10s')), 10000);
+    child.stdout.on('data', (d) => {
+      if (String(d).includes('OOJOO FARM backend on')) { clearTimeout(t); resolve(); }
+    });
+  });
+
+  const code = await new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('server did not exit within 8s of SIGTERM')), 8000);
+    child.on('exit', (c) => { clearTimeout(t); resolve(c); });
+    child.kill('SIGTERM');
+  });
+
+  assert.equal(code, 0);
+  for (const f of [tmp, `${tmp}-wal`, `${tmp}-shm`]) {
+    try { fs.rmSync(f); } catch {}
+  }
 });
