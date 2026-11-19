@@ -135,21 +135,6 @@ data class FarmEvent(
 )
 
 @Serializable
-data class WateringCommandRequest(
-    val slaveId: String,
-    val plantId: String? = null,
-    val amountMl: Int = 300,
-    val weatherFactor: Double = 1.0
-)
-@Serializable
-data class WateringCommandResponse(
-    val commandId: String,
-    val slaveId: String,
-    val amountMl: Int,
-    val weatherFactor: Double,
-    val status: String
-)
-@Serializable
 data class WateringLogRequest(
     val slaveId: String,
     val plantId: String? = null,

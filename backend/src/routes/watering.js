@@ -4,16 +4,6 @@ import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
 const r = Router();
 
-// 마스터: 원격 관수 지시 (슬레이브에 전달될 명령 기록)
-r.post('/command', (req, res) => {
-  const { slaveId, plantId, amountMl = 300, weatherFactor = 1 } = req.body;
-  if (!slaveId) return res.status(400).json({ error: 'slaveId required' });
-  const id = nanoid(12);
-  db.prepare('INSERT INTO waterings(id, slave_id, plant_id, amount_ml, source, weather_factor) VALUES(?,?,?,?,?,?)')
-    .run(id, slaveId, plantId || null, amountMl, 'manual', weatherFactor);
-  res.json({ commandId: id, slaveId, amountMl, weatherFactor, status: 'queued' });
-});
-
 // 슬레이브: 관수 실행 보고 (자율/수동) — 세션키 인증
 r.post('/log', slaveAuth, (req, res) => {
   const { slaveId, plantId, amountMl = 300, source = 'auto', weatherFactor = 1 } = req.body;

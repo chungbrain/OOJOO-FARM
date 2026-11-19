@@ -61,9 +61,6 @@ interface ApiService {
     @GET("api/events/{slaveId}")
     suspend fun events(@Path("slaveId") slaveId: String): EventsResponse
 
-    @POST("api/watering/command")
-    suspend fun wateringCommand(@Body body: WateringCommandRequest): WateringCommandResponse
-
     @POST("api/watering/log")
     suspend fun wateringLog(@Body body: WateringLogRequest): WateringLogIdResponse
 
