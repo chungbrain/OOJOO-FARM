@@ -66,6 +66,18 @@ r.post('/heartbeat', slaveAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// 마스터: 슬레이브 이름 변경 (PRD 4.1 연결 후 기기 식별/별명 부여)
+r.put('/:slaveId', (req, res) => {
+  const { name } = req.body || {};
+  const slave = db.prepare('SELECT id FROM slaves WHERE id=?').get(req.params.slaveId);
+  if (!slave) return res.status(404).json({ error: 'not found' });
+  if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 50) {
+    return res.status(400).json({ error: 'name must be 1..50 chars' });
+  }
+  db.prepare('UPDATE slaves SET name=? WHERE id=?').run(name.trim(), req.params.slaveId);
+  res.json({ ok: true, slaveId: req.params.slaveId, name: name.trim() });
+});
+
 // 마스터: 슬레이브 연결 해제(이관/교체) — 관련 정책도 정리
 r.delete('/:slaveId', (req, res) => {
   const { slaveId } = req.params;

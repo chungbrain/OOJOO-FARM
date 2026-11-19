@@ -123,6 +123,28 @@ test('익명 업서 응답: register된 id라도 email 안 나간다', async () 
   assert.equal(u.nickname, '업서');
 });
 
+test('슬레이브 이름 변경 (PRD 4.1 별명 부여)', async () => {
+  const u = await (await post('/api/users', { nickname: 'owner', region: 'Seoul' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+
+  // 기본 이름으로 시작
+  const before = await (await get(`/api/pairing/${u.id}`)).json();
+  assert.match(before.slaves[0].name, /^Farmer-/);
+
+  const r = await put(`/api/pairing/${verify.slaveId}`, { name: '베란다 파머' });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).name, '베란다 파머');
+
+  const after = await (await get(`/api/pairing/${u.id}`)).json();
+  assert.equal(after.slaves[0].name, '베란다 파머');
+
+  // 검증
+  assert.equal((await put(`/api/pairing/${verify.slaveId}`, { name: '  ' })).status, 400);
+  assert.equal((await put(`/api/pairing/${verify.slaveId}`, { name: 'x'.repeat(51) })).status, 400);
+  assert.equal((await put(`/api/pairing/ghost-ghost-ghost`, { name: 'a' })).status, 404);
+});
+
 test('페어링 → 세션키 인증 흐름', async () => {
   // 계정
   const u = await (await post('/api/users', { nickname: 'farmer', region: 'Busan' })).json();
