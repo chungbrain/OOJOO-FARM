@@ -63,6 +63,19 @@ r.post('/:id/done', (req, res) => {
   res.json({ ok: true });
 });
 
+// 마스터: 대기 중 명령 취소 (PRD 5.2 원격 지시 취소).
+// 주의: slave가 이미 가져간 명령은 valve가 이미 열렸을 수 있어
+// 취소가 물리적 실행을 막지는 못한다 — queued 상태만 취소할 수 있고,
+// 그 뒤 slave의 done 보고가 오면 done 으로 덮어쓴다 (단일 디바이스 큐에서 허용).
+r.post('/:id/cancel', (req, res) => {
+  const { id } = req.params;
+  const cmd = db.prepare('SELECT * FROM commands WHERE id=?').get(id);
+  if (!cmd) return res.status(404).json({ error: 'not found' });
+  if (cmd.status !== 'queued') return res.status(409).json({ error: `command is ${cmd.status}, not queued` });
+  db.prepare("UPDATE commands SET status='cancelled' WHERE id=?").run(id);
+  res.json({ ok: true });
+});
+
 // 마스터: 명령 이력 조회
 r.get('/history/:slaveId', (req, res) => {
   const rows = db.prepare('SELECT * FROM commands WHERE slave_id=? ORDER BY created_at DESC LIMIT 50').all(req.params.slaveId);

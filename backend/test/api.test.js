@@ -166,6 +166,32 @@ test('명령 큐: 세션키 인증 + 폴링/완료', async () => {
   assert.equal(afterDone.commands.length, 0);
 });
 
+test('명령 취소: queued 만 취소 가능, 취소 이후 폴링에 안 남는다', async () => {
+  const u = await (await post('/api/users', { region: 'Incheon' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+  const key = { 'x-session-key': verify.sessionKey };
+
+  const cmd = await (await post('/api/commands', { slaveId: verify.slaveId, action: 'water', amountMl: 100 })).json();
+  assert.ok(cmd.commandId);
+
+  // queued → 취소 성공
+  assert.equal((await post(`/api/commands/${cmd.commandId}/cancel`, {})).status, 200);
+  // 이미 취소됨 → 409
+  assert.equal((await post(`/api/commands/${cmd.commandId}/cancel`, {})).status, 409);
+  // 존재하지 않는 id → 404
+  assert.equal((await post('/api/commands/nope-nope-nope/cancel', {})).status, 404);
+
+  // 폴링에 취소된 명령은 안 보인다
+  const pending = await (await get(`/api/commands/pending/${verify.slaveId}`, key)).json();
+  assert.equal(pending.commands.length, 0);
+
+  // done 된 명령도 취소 불가 (409)
+  const cmd2 = await (await post('/api/commands', { slaveId: verify.slaveId, action: 'fan' })).json();
+  assert.equal((await post(`/api/commands/${cmd2.commandId}/done`, {})).status, 200);
+  assert.equal((await post(`/api/commands/${cmd2.commandId}/cancel`, {})).status, 409);
+});
+
 test('알림 센터: 사용자 슬레이브 이벤트 집계', async () => {
   const u = await (await post('/api/users', { region: 'Seoul' })).json();
   const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
