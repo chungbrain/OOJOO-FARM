@@ -79,20 +79,23 @@ app.use((req, res) => {
   res.status(404).json({ error: 'not found', path: req.originalUrl });
 });
 
-// 에러 핸들러
+// 에러 핸들러 — 클라이언트 에러(4xx)는 status 그대로, 서버 에러(5xx)만 크래시 기록
 app.use((err, req, res, next) => {
-  console.error(err);
-  
-  // 백엔드 크래시를 DB에 기록
-  try {
-    const id = nanoid(12);
-    db.prepare('INSERT INTO crash_logs(id, source, device_id, error_message, stack_trace) VALUES(?,?,?,?,?)')
-      .run(id, 'backend', 'server', err.message || String(err), err.stack || '');
-  } catch (dbErr) {
-    console.error('Failed to log crash to DB:', dbErr);
-  }
+  const status = Number.isInteger(err.status) ? err.status : 500;
+  if (status >= 500) {
+    console.error(err);
 
-  res.status(500).json({ error: 'internal' });
+    // 백엔드 크래시를 DB에 기록
+    try {
+      const id = nanoid(12);
+      db.prepare('INSERT INTO crash_logs(id, source, device_id, error_message, stack_trace) VALUES(?,?,?,?,?)')
+        .run(id, 'backend', 'server', err.message || String(err), err.stack || '');
+    } catch (dbErr) {
+      console.error('Failed to log crash to DB:', dbErr);
+    }
+  }
+  if (res.headersSent) return next(err);
+  res.status(status).json({ error: status >= 500 ? 'internal' : (err.message || 'bad request') });
 });
 
 export default app;
