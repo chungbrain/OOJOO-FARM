@@ -11,7 +11,8 @@ data class User(
     val nickname: String? = null,
     val region: String? = null,
     val plan: String? = null,
-    val created_at: String? = null
+    val created_at: String? = null,
+    val interests: List<String>? = null
 )
 
 @Serializable

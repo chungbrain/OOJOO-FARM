@@ -5,6 +5,26 @@ import db from '../db.js';
 
 const r = Router();
 
+// 응답용 user 변환 — password_hash 는 절대 안 나가며,
+// email 은 자기 자신의 등록/로그인 응답(includeEmail)에만 포함.
+// interests 는 DB 에서 JSON 문자열 → 배열로 변환.
+function userResponse(row, { includeEmail = false } = {}) {
+  let interests = [];
+  if (row.interests) {
+    try { interests = JSON.parse(row.interests); } catch { /* 손상된 JSON 은 빈 배열로 */ }
+  }
+  const out = {
+    id: row.id,
+    nickname: row.nickname,
+    region: row.region,
+    plan: row.plan,
+    created_at: row.created_at,
+    interests,
+  };
+  if (includeEmail) out.email = row.email;
+  return out;
+}
+
 // 기존 호환 — 익명 로컬 계정 (닉네임/지역만). id 주면 upsert, 없으면 새 id 발급.
 r.post('/', (req, res) => {
   const { id, nickname, region } = req.body;
@@ -14,8 +34,8 @@ r.post('/', (req, res) => {
       nickname = COALESCE(excluded.nickname, users.nickname),
       region   = COALESCE(excluded.region, users.region)`)
     .run(userId, nickname || null, region || null);
-  const user = db.prepare('SELECT id, email, nickname, region, plan, created_at FROM users WHERE id=?').get(userId);
-  res.json(user);
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+  res.json(userResponse(user));
 });
 
 // 회원가입 — email + password (+ optional nickname, region)
@@ -39,8 +59,8 @@ r.post('/register', (req, res) => {
   db.prepare(
     `INSERT INTO users(id, email, password_hash, nickname, region) VALUES(?,?,?,?,?)`
   ).run(userId, normalizedEmail, passwordHash, nickname || null, region || null);
-  const user = db.prepare('SELECT id, email, nickname, region, plan, created_at FROM users WHERE id=?').get(userId);
-  res.json(user);
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+  res.json(userResponse(user, { includeEmail: true }));
 });
 
 // 로그인 — email + password 검증 후 user 반환.
@@ -56,15 +76,41 @@ r.post('/login', (req, res) => {
   const match = timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(computed, 'hex'));
   if (!match) return res.status(401).json({ error: 'invalid credentials' });
 
-  const user = db.prepare('SELECT id, email, nickname, region, plan, created_at FROM users WHERE id=?').get(row.id);
-  res.json(user);
+  res.json(userResponse(row, { includeEmail: true }));
+});
+
+// 관심 작물 검증: 1..50자 문자열 배열, 최대 20개.
+function validInterests(interests) {
+  return Array.isArray(interests) && interests.length <= 20 &&
+    interests.every((i) => typeof i === 'string' && i.length > 0 && i.length <= 50);
+}
+
+// 프로필 수정 (PRD 4.9: 재배 지역 / 관심 작물). 부분 업데이트 — 준 필드만 변경.
+r.put('/:id', (req, res) => {
+  const { nickname, region, interests } = req.body || {};
+  const cur = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  if (interests !== undefined && !validInterests(interests)) {
+    return res.status(400).json({ error: 'interests must be an array of 1..50-char strings (max 20)' });
+  }
+  db.prepare(`UPDATE users SET
+      nickname = ?, region = ?, interests = ?
+    WHERE id=?`)
+    .run(
+      nickname !== undefined ? (nickname || null) : cur.nickname,
+      region !== undefined ? (region || null) : cur.region,
+      interests !== undefined ? JSON.stringify(interests) : cur.interests,
+      req.params.id
+    );
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
+  res.json(userResponse(user));
 });
 
 // 프로필 조회 — PII 최소화: 비인증 조회라 email은 반환하지 않는다.
 r.get('/:id', (req, res) => {
-  const user = db.prepare('SELECT id, nickname, region, plan, created_at FROM users WHERE id=?').get(req.params.id);
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'not found' });
-  res.json(user);
+  res.json(userResponse(user));
 });
 
 export default r;

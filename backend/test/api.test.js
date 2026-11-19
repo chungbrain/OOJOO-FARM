@@ -84,6 +84,45 @@ test('계정 응답 PII: password_hash 안 새고, 비인증 조회에 email 없
   assert.ok(prof.id);
 });
 
+test('프로필 수정: 지역/관심작물 부분 업데이트 (PRD 4.9)', async () => {
+  const reg = await (await post('/api/users/register', { email: 'profile@test.com', password: 'secret123', nickname: '프로', region: 'Seoul' })).json();
+
+  // 전체 업데이트
+  let r = await fetch(`${base}/api/users/${reg.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ region: 'Busan', interests: ['strawberry', 'basil'] }) });
+  assert.equal(r.status, 200);
+  let j = await r.json();
+  assert.equal(j.region, 'Busan');
+  assert.deepEqual(j.interests, ['strawberry', 'basil']);
+  assert.equal(j.nickname, '프로'); // 준 필드만 변경
+
+  // 부분 업데이트 — interests만
+  r = await fetch(`${base}/api/users/${reg.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interests: [] }) });
+  j = await r.json();
+  assert.deepEqual(j.interests, []);
+  assert.equal(j.region, 'Busan'); // 유지
+
+  // GET 으로도 반영 + email 여전히 없음
+  const prof = await (await get(`/api/users/${reg.id}`)).json();
+  assert.equal(prof.region, 'Busan');
+  assert.equal(prof.email, undefined);
+
+  // 검증 실패 (빈 배열 허용은 위에서 이미 검증됨)
+  for (const interests of ['strawberry', ['a'.repeat(51)], Array.from({ length: 21 }, () => 'x'), ['ok', '']]) {
+    r = await fetch(`${base}/api/users/${reg.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interests }) });
+    assert.equal(r.status, 400, `interests=${JSON.stringify(interests).slice(0, 40)}`);
+  }
+  // unknown id
+  assert.equal((await fetch(`${base}/api/users/ghost-ghost-ghost`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ region: 'Seoul' }) })).status, 404);
+});
+
+test('익명 업서 응답: register된 id라도 email 안 나간다', async () => {
+  const reg = await (await post('/api/users/register', { email: 'upsert@test.com', password: 'secret123' })).json();
+  const u = await (await post('/api/users', { id: reg.id, nickname: '업서' })).json();
+  assert.equal(u.email, undefined);
+  assert.equal(u.password_hash, undefined);
+  assert.equal(u.nickname, '업서');
+});
+
 test('페어링 → 세션키 인증 흐름', async () => {
   // 계정
   const u = await (await post('/api/users', { nickname: 'farmer', region: 'Busan' })).json();
