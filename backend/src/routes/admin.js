@@ -11,10 +11,15 @@ r.get('/stats', (req, res) => {
     // slaves online >= 1 OR last_seen within 24h
     const activeSlaves = db.prepare("SELECT COUNT(*) as count FROM slaves WHERE online = 1 OR last_seen > datetime('now', '-1 day')").get().count;
     
-    // 2. Feature Usage (API calls grouped by base path)
-    const apiLogs = db.prepare(`
+    // 2. Feature Usage (API calls grouped by /api/<domain>)
+    // 2단 경로(/api/users)는 instr=0 이라 ELSE path, 3단 이상은 첫 도메인까지 자름
+    const apiUsage = db.prepare(`
       SELECT 
-        substr(path, 1, instr(substr(path, 6), '/') + 4) as endpoint, 
+        CASE
+          WHEN instr(substr(path, 6), '/') > 0
+            THEN substr(path, 1, instr(substr(path, 6), '/') + 4)
+          ELSE path
+        END as endpoint,
         COUNT(*) as count 
       FROM api_logs 
       WHERE path LIKE '/api/%'
@@ -22,15 +27,6 @@ r.get('/stats', (req, res) => {
       ORDER BY count DESC 
       LIMIT 10
     `).all();
-
-    const formattedApiLogs = apiLogs.map(row => {
-      // Fix endpoint grouping if no trailing slash exists
-      let ep = row.endpoint;
-      if (ep === '/api' || !ep) {
-        ep = row.path ? row.path.split('/').slice(0, 3).join('/') : '/api/unknown';
-      }
-      return { endpoint: ep, count: row.count };
-    });
 
     // 3. Recent Crashes
     const recentCrashes = db.prepare(`
@@ -54,7 +50,7 @@ r.get('/stats', (req, res) => {
         users: usersCount,
         activeSlaves: activeSlaves
       },
-      apiUsage: formattedApiLogs,
+      apiUsage,
       crashes: recentCrashes,
       timeSeries: timeSeries
     });
