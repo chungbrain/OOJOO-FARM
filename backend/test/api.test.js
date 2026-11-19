@@ -65,6 +65,25 @@ test('계정 생성/조회', async () => {
   assert.equal(r2.status, 200);
 });
 
+test('계정 응답 PII: password_hash 안 새고, 비인증 조회에 email 없다', async () => {
+  // register — 자기 이메일은 반환 (로그인/세션 저장용)
+  const reg = await (await post('/api/users/register', { email: 'pii@test.com', password: 'secret123', nickname: 'pii', region: 'Seoul' })).json();
+  assert.ok(reg.id);
+  assert.equal(reg.email, 'pii@test.com');
+  assert.equal(reg.password_hash, undefined);
+
+  // 익명 업서 — 과거 SELECT * 가 password_hash 를 흘렸다
+  const u = await (await post('/api/users', { nickname: 'nohash', region: 'Seoul' })).json();
+  assert.equal(u.password_hash, undefined);
+  assert.ok(!u.email);
+
+  // 비인증 프로필 조회 — register된 사용자의 email 도 반환되지 않아야 한다
+  const prof = await (await get(`/api/users/${reg.id}`)).json();
+  assert.equal(prof.password_hash, undefined);
+  assert.equal(prof.email, undefined);
+  assert.ok(prof.id);
+});
+
 test('페어링 → 세션키 인증 흐름', async () => {
   // 계정
   const u = await (await post('/api/users', { nickname: 'farmer', region: 'Busan' })).json();

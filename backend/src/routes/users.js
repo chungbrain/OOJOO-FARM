@@ -14,7 +14,7 @@ r.post('/', (req, res) => {
       nickname = COALESCE(excluded.nickname, users.nickname),
       region   = COALESCE(excluded.region, users.region)`)
     .run(userId, nickname || null, region || null);
-  const user = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+  const user = db.prepare('SELECT id, email, nickname, region, plan, created_at FROM users WHERE id=?').get(userId);
   res.json(user);
 });
 
@@ -60,9 +60,9 @@ r.post('/login', (req, res) => {
   res.json(user);
 });
 
-// 프로필 조회
+// 프로필 조회 — PII 최소화: 비인증 조회라 email은 반환하지 않는다.
 r.get('/:id', (req, res) => {
-  const user = db.prepare('SELECT id, email, nickname, region, plan, created_at FROM users WHERE id=?').get(req.params.id);
+  const user = db.prepare('SELECT id, nickname, region, plan, created_at FROM users WHERE id=?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json(user);
 });
