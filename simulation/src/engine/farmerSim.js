@@ -5,12 +5,14 @@
 //   ROI 모니터링: upright 프레임 촬영 → ROI crop → JevHealthNet(건강등급 5단계)
 //                + PestNet(해충 4단계, 별도 모델) → 분석 리포트 업로드
 //                → 등급/해충 전이 감지 시 health_change 이벤트 (master 실시간 알림)
-// 명령 (SSE, 폴링 fallback): capture_photo — camera_mount 정책 기반 가로/세로 자동 촬영.
+// 명령 (SSE, 폴링 fallback): capture_photo — camera_mount 정책 기반 가로/세로 자동 촬영,
+//   water — W5 관수 안전 상태머신(wateringSafety.js, FarmerEngine 미러) 경유.
 import { openSse, sleep } from '../net/api.js';
 import * as jevHealth from '../models/jevHealth.js';
 import * as pestNet from '../models/pestNet.js';
 import { composeFrame, cropSample48, greenness } from '../vision/plantScene.js';
 import { resolveCaptureOrientation, rotateCw } from './orientation.js';
+import { WateringSafety } from './wateringSafety.js';
 
 export class FarmerSim {
   /**
@@ -20,7 +22,7 @@ export class FarmerSim {
    *   { plants: [{ plantId, name, species, roi, grade, pest }],
    *     displayRotation: 0..3, battery: 100 }
    */
-  constructor({ api, camera, world, cycleMs = 350, confirmCycles = 2, logger = () => {} }) {
+  constructor({ api, camera, world, cycleMs = 350, confirmCycles = 2, logger = () => {}, nowMs = null }) {
     this.api = api;
     this.camera = camera;
     this.world = world;
@@ -38,6 +40,30 @@ export class FarmerSim {
     this.cycleCount = 0;
     this.eventLog = [];           // 전송 성공한 이벤트 로그 (검증용)
     this.commandLog = [];
+    this.valveLog = [];           // 밸브 액추에이션 기록 (검증용)
+    // W5 관수 안전 상태머신 (FarmerEngine 미러) — 'water' 명령과 safety.tick() 이 공유.
+    // world.bleOnline(기본 true)/world.controlError(기본 false) 이 밸브 하드웨어를 모델링.
+    this.nowMs = nowMs || (() => Date.now());
+    this.safety = new WateringSafety({
+      now: () => this.nowMs(),
+      water: (o) => this.simulateValve(o),
+      reportEvent: (type, payload, plantId) => this.postEventSafe(type, payload, plantId),
+      wateringLog: async (plantId, amount, source, weatherFactor) => {
+        try {
+          await this.api.wateringLog({ plantId, amountMl: amount, source, weatherFactor });
+        } catch (e) { this.logger(`관수 로그 실패: ${e.message}`); }
+      },
+      log: (m) => this.logger(m),
+    });
+  }
+
+  /** PC 시뮬레이션 밸브 — world.bleOnline/world.controlError 모델링 (실기기 Hardware.controller 미러). */
+  async simulateValve(opts) {
+    const bleOnline = this.world.bleOnline !== false;
+    const controlError = this.world.controlError === true;
+    const ok = bleOnline && !controlError;
+    this.valveLog.push({ ...opts, opened: ok, at: new Date().toISOString() });
+    return { ok, reason: ok ? undefined : (bleOnline ? 'control_error' : 'hardware_offline') };
   }
 
   /** 페어링 — 세션키 발급. (slave PairingScreen 와 동일 플로우) */
@@ -228,13 +254,14 @@ export class FarmerSim {
           await this.handleCapturePhoto(cmd);
           break;
         case 'water':
-          await this.api.wateringLog({
-            plantId: cmd.plant_id,
-            amountMl: cmd.amount_ml ?? 300,
+          // W5 — 마스터 지시 관수도 안전 상태머신 경유: 쿨다운 기준점 갱신 +
+          // 밸브 미개방 시 water_failed (거짓 "관수 완료" 방지).
+          await this.safety.doWater({
             source: 'manual',
+            amountMl: cmd.amount_ml ?? 300,
+            plantId: cmd.plant_id,
             weatherFactor: cmd.weather_factor ?? 1,
           });
-          await this.postEventSafe('manual_water', { amountMl: cmd.amount_ml ?? 300, source: 'manual' }, cmd.plant_id);
           break;
         case 'pause':
           this.paused = true;

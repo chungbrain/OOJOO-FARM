@@ -11,6 +11,7 @@ Android(`android/slave`) 이식 **전에** farmer 신규 기능을 PC에서 먼�
 | F2. 해충발생 전용 CNN | S2 | 4단계(없음/경미/보통/심각) `pest.bin` + **건강등급과의 독립성** 검증 |
 | F3. 건강변화 → master 알림 | S3 | E2E — 등급 전이 → `health_change` → master SSE 실시간 + 알림 센터 |
 | F4. 자동 가로/세로 촬영 | S4 | E2E — `camera_mount`(auto/landscape/portrait) → capture_photo → 사진 방향 확인 |
+| W5. 관수 안전(범람 방지) | 단위 테스트 | 히스테리시스(상승 엣지)+30분 쿨다운, `water_failed`(BLE/제어 오류), `battery_low` 하락 엣지 — `FarmerEngine.kt` 미러 상태머신 결정론적 검증 |
 
 ## 구조
 
@@ -20,6 +21,7 @@ src/
 │               ※ Android assets 의 실제 .bin 을 그대로 로드 (기기 == 시뮬레이터)
 ├─ vision/      plantScene.js(합성 식물 장면 — grade_paint.py 와 동일 분포) · png.js(경량 PNG)
 ├─ engine/      farmerSim.js(자율 루프 — FarmerEngine.kt 미러) · cameraSim.js · orientation.js
+│               wateringSafety.js(W5 관수 안전 상태머신 — 히스테리시스/쿨다운/water_failed/battery_low)
 ├─ master/      masterSim.js(페어링/명령/알림 수신 — LiveCameraScreen 미러)
 └─ net/         api.js(REST+SSE 클라이언트 — ApiService.kt 미러, x-session-key 인증)
 ```
@@ -36,7 +38,7 @@ simulation\scripts\run-sim.bat
 :: 오프라인 모델 검증만
 cd simulation && node src\index.js --scenario s1,s2
 
-:: 단위 테스트 (OJP1 round-trip / 방향 리졸버 / 전이 감지)
+:: 단위 테스트 (OJP1 round-trip / 방향 리졸버 / 전이 감지 / W5 관수 안전)
 cd simulation && npm test
 ```
 
@@ -62,6 +64,6 @@ cd simulation && npm test
 | S2 | 전체 일치율 ≥ 80% & 독립성 4케이스 각 ≥ 80% |
 | S3 | 전이 이벤트 ≥ 3건, 첫/끝 전이 일치, 체인 일관성, 해충 payload 동반, 알림 센터 집계, 최신 분석 반영 |
 | S4 | 4 케이스(오토×2, 고정×2) 모두 사진 방향 일치 + PNG mime |
-| 단위 테스트 | Python 학습 export 벡터와 JS forward logits 일치(±1e-3), 방향 수학, 전이 확정(연속 2회 관측)/플리커 방지/오프라인 큐 |
+| 단위 테스트 | Python 학습 export 벡터와 JS forward logits 일치(±1e-3), 방향 수학, 전이 확정(연속 2회 관측)/플리커 방지/오프라인 큐, W5 관수 안전(범람 방지·쿨다운·water_failed·battery_low) |
 
 전체 통과 시 → Android 이식(docs/farmer-features.md §6 매핑 참조).
