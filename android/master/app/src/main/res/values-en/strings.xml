@@ -406,4 +406,5 @@
     <string name="harvest_history">Harvest History</string>
     <string name="harvest_empty">No harvest records yet</string>
     <string name="btn_confirm">Confirm</string>
+    <string name="retry">Retry</string>
 </resources>

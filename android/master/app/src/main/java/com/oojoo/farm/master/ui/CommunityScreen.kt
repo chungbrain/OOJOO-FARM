@@ -21,10 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppStrings
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
@@ -117,7 +120,20 @@ fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewMo
     LaunchedEffect(postId) { vm.load(postId) }
     val d = vm.detail
     Scaffold(topBar = { TopAppBar(title = { Text(S.postTitle, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
-        if (d == null) { Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = OojooTheme.Green) }; return@Scaffold }
+        if (d == null) {
+            Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) {
+                if (vm.msg != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("⚠️", fontSize = 32.sp)
+                        Text(vm.msg ?: "", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        OutlineButton(text = stringResource(R.string.retry), onClick = { vm.load(postId) })
+                    }
+                } else {
+                    CircularProgressIndicator(color = OojooTheme.Green)
+                }
+            }
+            return@Scaffold
+        }
         val post = d.post
         val isAuthor = post.user_id == Session.userId
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -12,10 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.model.ReportResponse
 import com.oojoo.farm.master.network.ApiClient
@@ -25,7 +28,8 @@ class ReportViewModel : ViewModel() {
     private val api get() = ApiClient.api
     var report by mutableStateOf<ReportResponse?>(null)
     var loading by mutableStateOf(false)
-    fun load(slaveId: String) { loading = true; viewModelScope.launch { try { report = api.report(slaveId) } catch (_: Exception) {}; loading = false } }
+    var loadError by mutableStateOf<String?>(null)
+    fun load(slaveId: String) { loading = true; loadError = null; viewModelScope.launch { try { report = api.report(slaveId) } catch (e: Exception) { loadError = e.message }; loading = false } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +39,20 @@ fun ReportScreen(nav: NavController, slaveId: String, vm: ReportViewModel = view
     LaunchedEffect(slaveId) { vm.load(slaveId) }
     Scaffold(topBar = { TopAppBar(title = { Text(S.farmerReportTitle, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         val r = vm.report
-        if (r == null) { Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = OojooTheme.Green) }; return@Scaffold }
+        if (r == null) {
+            Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) {
+                if (vm.loadError != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("⚠️", fontSize = 32.sp)
+                        Text(vm.loadError ?: "", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        OutlineButton(text = stringResource(R.string.retry), onClick = { vm.load(slaveId) })
+                    }
+                } else {
+                    CircularProgressIndicator(color = OojooTheme.Green)
+                }
+            }
+            return@Scaffold
+        }
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

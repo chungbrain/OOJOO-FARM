@@ -406,4 +406,5 @@
     <string name="harvest_history">수확 이력</string>
     <string name="harvest_empty">아직 수확 기록이 없습니다</string>
     <string name="btn_confirm">확인</string>
+    <string name="retry">다시 시도</string>
 </resources>

@@ -23,10 +23,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.Cart
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
@@ -160,7 +163,20 @@ fun ProductDetailScreen(nav: NavController, productId: String, vm: ProductViewMo
     LaunchedEffect(productId) { vm.load(productId) }
     Scaffold(topBar = { TopAppBar(title = { Text(S.productTitle, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         val pr = vm.product
-        if (pr == null) { Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = OojooTheme.Green) }; return@Scaffold }
+        if (pr == null) {
+            Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) {
+                if (vm.msg != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("⚠️", fontSize = 32.sp)
+                        Text(vm.msg ?: "", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        OutlineButton(text = stringResource(R.string.retry), onClick = { vm.load(productId) })
+                    }
+                } else {
+                    CircularProgressIndicator(color = OojooTheme.Green)
+                }
+            }
+            return@Scaffold
+        }
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(pr.image ?: "🛒", fontSize = 64.sp)
             Text(pr.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = OojooTheme.Ink, modifier = Modifier.fillMaxWidth())
