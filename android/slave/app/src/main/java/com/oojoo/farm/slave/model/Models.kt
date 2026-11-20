@@ -7,7 +7,7 @@ data class PairingVerifyRequest(val code: String, val name: String? = null)
 @Serializable
 data class PairingVerifyResponse(val slaveId: String, val sessionKey: String, val userId: String, val name: String? = null)
 @Serializable
-data class HeartbeatRequest(val slaveId: String, val battery: Int? = null)
+data class HeartbeatRequest(val slaveId: String, val battery: Int? = null, val streamUrl: String? = null)
 @Serializable
 data class OkResponse(val ok: Boolean)
 @Serializable

@@ -2,6 +2,7 @@ package com.oojoo.farm.slave.vision
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.hardware.display.DisplayManager
 import android.util.Log
 import android.view.Display
@@ -9,6 +10,7 @@ import android.view.Surface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.Quality
@@ -106,6 +108,7 @@ object CameraHost {
                     .build()
                     .also { ia ->
                         ia.setAnalyzer(analysisExecutor) { imageProxy ->
+                            publishStreamFrame(imageProxy)
                             val result = PlantAnalyzer.analyze(imageProxy)
                             FarmerEngine.onAnalysis(result)
                         }
@@ -229,6 +232,38 @@ object CameraHost {
             host?.registry?.currentState = Lifecycle.State.DESTROYED
         } catch (_: Exception) {}
         host = null
+    }
+
+    // ---------- 실시간 스트림 프레임 ----------
+
+    private const val STREAM_MAX_W = 640
+    private const val STREAM_QUALITY = 70
+
+    /**
+     * 최신 프레임을 스트림용 소JPEG(640w, q70)로 갱신.
+     * ImageAnalysis 프로キシ의 toBitmap→회전(원본 recycle은 rotateBitmap 이 담당)→
+     * 축소→JPEG 인코딩. 실패해도 분석 플로우에는 영향 없다 (best-effort).
+     */
+    private fun publishStreamFrame(imageProxy: ImageProxy) {
+        try {
+            val upright = OrientationUtil.rotateBitmap(
+                imageProxy.toBitmap(), imageProxy.imageInfo.rotationDegrees
+            )
+            val target = if (upright.width > STREAM_MAX_W) {
+                val h = (STREAM_MAX_W.toDouble() * upright.height / upright.width).toInt().coerceAtLeast(1)
+                val scaled = Bitmap.createScaledBitmap(upright, STREAM_MAX_W, h, true)
+                upright.recycle()
+                scaled
+            } else {
+                upright
+            }
+            val out = java.io.ByteArrayOutputStream()
+            target.compress(Bitmap.CompressFormat.JPEG, STREAM_QUALITY, out)
+            target.recycle()
+            CameraHolder.publishFrame(out.toByteArray())
+        } catch (_: Exception) {
+            // 스트림은 보조 기능 — 무시
+        }
     }
 
     // ---------- 가로/세로 회전 지원 ----------

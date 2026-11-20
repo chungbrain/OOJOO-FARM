@@ -33,6 +33,21 @@ object CameraHolder {
     var ready: Boolean = false
         private set
 
+    // 실시간 스트림(MjpegStreamer)이 보내는 최신 프레임 — JPEG 바이트.
+    // CameraHost 의 ImageAnalysis 콜백이 continuously 갱신한다.
+    @Volatile
+    var latestFrame: ByteArray? = null
+        private set
+
+    @Volatile
+    var latestFrameAt: Long = 0L
+        private set
+
+    fun publishFrame(jpeg: ByteArray) {
+        latestFrame = jpeg
+        latestFrameAt = System.currentTimeMillis()
+    }
+
     private var recording: Recording? = null
     private val executor = Executors.newSingleThreadExecutor()
 

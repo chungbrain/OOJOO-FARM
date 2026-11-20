@@ -298,7 +298,8 @@ object FarmerEngine {
                 // 하트비트는 자율 정지 상태여도 항상 전송(온라인 표시 유지)
                 try {
                     val batt = batteryLevel()
-                    ApiClient.api.heartbeat(HeartbeatRequest(slaveId(), batt))
+                    // stream_url: 라이브 카메라 직결 스트림 주소 (마스터가 LAN 으로 접속)
+                    ApiClient.api.heartbeat(HeartbeatRequest(slaveId(), batt, MjpegStreamer.streamUrl()))
                     _online.value = true
                     flushQueue() // 재연결 시 오프라인 누적 이벤트 동기화
                     maybeNotifyLowBattery(batt)
@@ -319,12 +320,15 @@ object FarmerEngine {
         })
         // SSE: 실시간 명령 수신 (폴링 대체)
         startSSE()
+        // 라이브 카메라 MJPEG 스트림 (클라이언트 없으면 비용 없음)
+        MjpegStreamer.start()
         // ROI 다중 식물 모니터링 루프
         loops.add(scope.launch { roiMonitorLoop() })
-        addLog("[${now()}] 엔진 시작")
+        addLog("[${now()}] 엔진 시작 (스트림 :${MjpegStreamer.PORT})")
     }
 
     fun stop() {
+        MjpegStreamer.stop()
         loops.forEach { it.cancel() }
         loops.clear()
         sseJob?.cancel()
