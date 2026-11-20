@@ -19,8 +19,10 @@ let base;
 let app;
 let pg;
 
-// Toss confirm API 스텁 — 응답 큐 (비면 기본 PAID)
-let tossResponses = [];
+// Toss API 스텁 — 엔드포인트별 응답 큐 (create / query / confirm)
+let confirmResponses = [];
+let createResponses = [];
+let queryResponses = [];
 let tossCalls = [];
 let tossShouldThrow = false;
 
@@ -28,9 +30,18 @@ before(async () => {
   ({ default: app } = await import('../src/app.js'));
   pg = await import('../src/lib/pg.js');
   pg._test.setFetch(async (url, opts) => {
-    tossCalls.push({ url: String(url), opts });
+    const u = String(url);
+    tossCalls.push({ url: u, opts });
     if (tossShouldThrow) throw new Error('toss network down');
-    const next = tossResponses.shift() || { status: 'PAID' };
+    let next;
+    if (u.includes('/v1/payments/requests')) {
+      next = createResponses.shift() || { approvalUrl: 'https://pay.toss.test/approve', paymentKey: 'pk-stub-create', status: 'READY' };
+    } else if (u.includes('/gateway/payments/')) {
+      const q = opts?.method === 'GET' ? queryResponses : confirmResponses;
+      next = q.shift() || { status: 'PAID' };
+    } else {
+      next = { status: 'PAID' };
+    }
     return { ok: true, status: 200, json: async () => next };
   });
   await new Promise((resolve) => { server = app.listen(0, resolve); });
@@ -84,7 +95,7 @@ test('toss checkout: pending_payment + 재고 미차감', async () => {
 test('toss confirm: PAID + 금액 일치 → paid + 재고 차감 (1회만)', async () => {
   const { user, order } = await makeTossOrder(1);
   const before = await stockOf('prd_seed_01');
-  tossResponses = [{ status: 'PAID', amount: order.total, approvedAt: '2026-11-20T00:00:00Z' }];
+  confirmResponses = [{ status: 'PAID', amount: order.total, approvedAt: '2026-11-20T00:00:00Z' }];
   tossCalls = [];
   const r1 = await post('/api/payments/toss/confirm', { userId: user.id, orderId: order.orderId, paymentKey: 'pk-001' });
   assert.equal(r1.status, 200);
@@ -98,7 +109,7 @@ test('toss confirm: PAID + 금액 일치 → paid + 재고 차감 (1회만)', as
   assert.equal(await stockOf('prd_seed_01'), before - 1);
 
   // 재확인 (멱등): 상태 변화 없음, 재고 재차감 없음
-  tossResponses = [];
+  confirmResponses = [];
   const r2 = await post('/api/payments/toss/confirm', { userId: user.id, orderId: order.orderId, paymentKey: 'pk-001' });
   const j2 = await r2.json();
   assert.equal(j2.changed, false);
@@ -109,7 +120,7 @@ test('toss confirm: PAID + 금액 일치 → paid + 재고 차감 (1회만)', as
 test('toss confirm: 금액 불일치 → pending 유지', async () => {
   const { user, order } = await makeTossOrder(1);
   const before = await stockOf('prd_seed_01');
-  tossResponses = [{ status: 'PAID', amount: order.total + 1 }];
+  confirmResponses = [{ status: 'PAID', amount: order.total + 1 }];
   const r = await post('/api/payments/toss/confirm', { userId: user.id, orderId: order.orderId, paymentKey: 'pk-002' });
   assert.equal(r.status, 400);
   const hist = await (await get(`/api/market/orders/${user.id}`)).json();
@@ -149,7 +160,7 @@ test('toss webhook: 유효 서명 → paid + 재고 차감', async () => {
   }]);
   const r = await sendWebhook(raw);
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { ok: true, paid: 1 });
+  assert.deepEqual(await r.json(), { ok: true, paid: 1, canceled: 0 });
   const hist = await (await get(`/api/market/orders/${user.id}`)).json();
   assert.equal(hist.orders[0].status, 'paid');
   assert.equal(await stockOf('prd_seed_01'), before - 3);
@@ -181,7 +192,7 @@ test('toss webhook: 시크릿 미설정 → 400', async () => {
 test('confirm + webhook 중복 발화: 재고 1회만 차감 (멱등)', async () => {
   const { user, order } = await makeTossOrder(2);
   const before = await stockOf('prd_seed_01');
-  tossResponses = [{ status: 'PAID', amount: order.total }];
+  confirmResponses = [{ status: 'PAID', amount: order.total }];
   const r1 = await post('/api/payments/toss/confirm', { userId: user.id, orderId: order.orderId, paymentKey: 'pk-dup-1' });
   assert.equal((await r1.json()).changed, true);
 
@@ -192,8 +203,84 @@ test('confirm + webhook 중복 발화: 재고 1회만 차감 (멱등)', async ()
   }]);
   const r2 = await sendWebhook(raw);
   assert.equal(r2.status, 200);
-  assert.deepEqual(await r2.json(), { ok: true, paid: 0 });
+  assert.deepEqual(await r2.json(), { ok: true, paid: 0, canceled: 0 });
   assert.equal(await stockOf('prd_seed_01'), before - 2);
+});
+
+test('toss start: pending 주문 → approvalUrl (Toss 생성 호출 형태 + paymentKey 저장)', async () => {
+  const { user, order } = await makeTossOrder(1);
+  createResponses = [{ approvalUrl: 'https://pay.toss.test/approve-x', paymentKey: 'pk-start-1', status: 'READY' }];
+  tossCalls = [];
+  const r = await post('/api/payments/toss/start', { userId: user.id, orderId: order.orderId });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { approvalUrl: 'https://pay.toss.test/approve-x' });
+  // Toss 호출 형태: Basic auth + 생성 경로 + 금액/통화 검증 필드
+  assert.ok(tossCalls.length === 1 && tossCalls[0].url.endsWith('/v1/payments/requests'));
+  assert.ok(tossCalls[0].opts.headers.Authorization.startsWith('Basic '));
+  const body = JSON.parse(tossCalls[0].opts.body);
+  assert.equal(body.orderId, order.orderId);
+  assert.equal(body.amount, order.total);
+  assert.equal(body.currency, 'KRW');
+  // paymentKey 저장 (audit + status 폴링용)
+  const hist = await (await get(`/api/market/orders/${user.id}`)).json();
+  assert.equal(hist.orders[0].pg_payment_key, 'pk-start-1');
+});
+
+test('toss start: 이미 paid 주문 → 400', async () => {
+  const { user, order } = await makeTossOrder(1);
+  confirmResponses = [{ status: 'PAID', amount: order.total }];
+  await post('/api/payments/toss/confirm', { userId: user.id, orderId: order.orderId, paymentKey: 'pk-paid-1' });
+  const r = await post('/api/payments/toss/start', { userId: user.id, orderId: order.orderId });
+  assert.equal(r.status, 400);
+});
+
+test('toss status: Toss PAID → paid + 재고 차감', async () => {
+  const { user, order } = await makeTossOrder(2);
+  createResponses = [{ approvalUrl: 'https://pay.toss.test/a', paymentKey: 'pk-status-1', status: 'READY' }];
+  await post('/api/payments/toss/start', { userId: user.id, orderId: order.orderId });
+  const before = await stockOf('prd_seed_01');
+  queryResponses = [{ status: 'PAID', amount: order.total }];
+  const r = await post('/api/payments/toss/status', { userId: user.id, orderId: order.orderId });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { status: 'paid' });
+  assert.equal(await stockOf('prd_seed_01'), before - 2);
+});
+
+test('toss status: Toss CANCELED → canceled, 재고 미차감', async () => {
+  const { user, order } = await makeTossOrder(1);
+  createResponses = [{ approvalUrl: 'https://pay.toss.test/b', paymentKey: 'pk-status-2', status: 'READY' }];
+  await post('/api/payments/toss/start', { userId: user.id, orderId: order.orderId });
+  const before = await stockOf('prd_seed_01');
+  queryResponses = [{ status: 'CANCELED' }];
+  const r = await post('/api/payments/toss/status', { userId: user.id, orderId: order.orderId });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { status: 'canceled' });
+  assert.equal(await stockOf('prd_seed_01'), before);
+});
+
+test('toss status: Toss READY → pending 유지', async () => {
+  const { user, order } = await makeTossOrder(1);
+  createResponses = [{ approvalUrl: 'https://pay.toss.test/c', paymentKey: 'pk-status-3', status: 'READY' }];
+  await post('/api/payments/toss/start', { userId: user.id, orderId: order.orderId });
+  queryResponses = [{ status: 'READY' }];
+  const r = await post('/api/payments/toss/status', { userId: user.id, orderId: order.orderId });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { status: 'pending_payment' });
+});
+
+test('toss webhook: payment_canceled → canceled, 재고 미차감', async () => {
+  const { user, order } = await makeTossOrder(1);
+  const before = await stockOf('prd_seed_01');
+  const raw = JSON.stringify([{
+    type: 'payment_canceled',
+    data: { paymentKey: 'pk-wh-c', orderId: order.orderId, amount: order.total },
+  }]);
+  const r = await sendWebhook(raw);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, paid: 0, canceled: 1 });
+  const hist = await (await get(`/api/market/orders/${user.id}`)).json();
+  assert.equal(hist.orders[0].status, 'canceled');
+  assert.equal(await stockOf('prd_seed_01'), before);
 });
 
 test('demo 모드 (PG_MODE 미설정): 즉시 paid — 회귀 방지', async () => {

@@ -79,6 +79,41 @@ export async function tossConfirm(paymentKey, { orderId, amount } = {}) {
   return j;
 }
 
+// ---- 서버사이드 결제 생성 (브라우저 approval 페이지용) ----
+// Toss 표준 REST: POST {apiBase}/v1/payments/requests (secret key)
+// 응답: { approvalUrl, paymentKey, status: 'READY', ... }
+// 클라이언트는 approvalUrl 만을 받아 브라우저로 열면 된다 — 앱에는 어떤 Toss 키도 없다.
+export async function tossCreatePayment(orderId, { orderName, amount }) {
+  const secret = tossSecretKey();
+  if (!secret) throw new Error('toss secret key not configured');
+  const resp = await fetchImpl(`${apiBase}/v1/payments/requests`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(secret + ':').toString('base64')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderId, orderName, amount, currency: 'KRW', methodName: 'card' }),
+  });
+  const j = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(`toss create http ${resp.status}${j.message ? ` (${j.message})` : ''}`);
+  if (!j.approvalUrl) throw new Error('toss create: no approvalUrl');
+  return j;
+}
+
+// ---- 결제 상태 조회 (폴링용, 부효과 없음) ----
+// Toss 표준 REST: GET {apiBase}/gateway/payments/{paymentKey}
+export async function tossQueryPayment(paymentKey) {
+  const secret = tossSecretKey();
+  if (!secret) throw new Error('toss secret key not configured');
+  const resp = await fetchImpl(`${apiBase}/gateway/payments/${paymentKey}`, {
+    method: 'GET',
+    headers: { Authorization: `Basic ${Buffer.from(secret + ':').toString('base64')}` },
+  });
+  const j = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(`toss query http ${resp.status}${j.message ? ` (${j.message})` : ''}`);
+  return j;
+}
+
 // ---- 주문 paid 마킹 (멱등) ----
 // pending_payment → paid 전환 + 자체상품 재고 차감은 "여기서만" 한다.
 // confirm과 webhook가 동시에 와도 (경쟁 포함) 재고는 딱 한 번만 차감된다.
@@ -104,4 +139,13 @@ export function markOrderPaid(orderId, { paymentKey = null } = {}) {
     throw e;
   }
   return { changed: true };
+}
+
+// ---- 주문 취소 마킹 (멱등) — 재고 영향 없음 ----
+export function markOrderCanceled(orderId) {
+  const order = db.prepare('SELECT * FROM orders WHERE id=?').get(orderId);
+  if (!order) return { changed: false, reason: 'no-order' };
+  if (order.status !== 'pending_payment') return { changed: false, reason: `status-${order.status}` };
+  const upd = db.prepare("UPDATE orders SET status='canceled' WHERE id=? AND status='pending_payment'").run(orderId);
+  return { changed: upd.changes > 0 };
 }
