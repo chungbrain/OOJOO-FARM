@@ -3,7 +3,7 @@
 Node.js + Express + SQLite 백엔드. 마스터/슬레이브 페어링, 식물, 이벤트, 관수 API 제공.
 
 ## 요구사항
-- Node.js 18 LTS 이상 — https://nodejs.org
+- Node.js 22 이상 — https://nodejs.org (`node:sqlite` 내장 모듈 사용, 22.5+ 필요)
 
 ## Node.js 설치 (Windows)
 - 권장: https://nodejs.org 에서 LTS 인스톨러 다운로드 후 설치
@@ -56,23 +56,23 @@ npm start
 | GET | /api/events/:slaveId | | { events[] } |
 
 ### 관수
-| POST | /api/watering/command | { slaveId, plantId, amountMl, weatherFactor } | { commandId, status } |
 | POST | /api/watering/log | { slaveId, plantId, amountMl, source, weatherFactor } | { logId } |
 | GET | /api/watering/:plantId | | { waterings[] } |
 
 ### 원격 지시 큐 (마스터→슬레이브)
 | 메서드 | 경로 | 본문 | 응답 |
 |--------|------|------|------|
-| POST | /api/commands | { slaveId, plantId, action(water\|pause\|resume\|fan\|laser), amountMl, weatherFactor } | { commandId, status } |
+| POST | /api/commands | { slaveId, plantId, action(water\|pause\|resume\|fan\|laser\|capture_photo\|capture_video\|generate_growth_clip\|diagnose_video), amountMl, weatherFactor } | { commandId, status } |
 | GET | /api/commands/pending/:slaveId | | { commands[] } |
 | POST | /api/commands/:id/done | | { ok } |
+| POST | /api/commands/:id/cancel | | { ok } (queued 상태만) |
 | GET | /api/commands/history/:slaveId | | { commands[] } |
 
 ### 자율 실행 정책 (마스터 설정 ↔ 슬레이브 동기화)
 | 메서드 | 경로 | 본문 | 응답 |
 |--------|------|------|------|
-| GET | /api/policy/:slaveId | | { waterAuto, fanAuto, laserApproval, captureInterval, region } |
-| PUT | /api/policy/:slaveId | { waterAuto?, fanAuto?, laserApproval?, captureInterval?, region? } | 갱신된 정책 |
+| GET | /api/policy/:slaveId | | { slaveId, water_auto, fan_auto, laser_approval, capture_interval, pest_interval, roi_interval, region, camera_mount } |
+| PUT | /api/policy/:slaveId | { waterAuto?, fanAuto?, laserApproval?, captureInterval?(10~360), pestInterval?(5~120), roiInterval?, region?, cameraMount?(auto\|landscape\|portrait) } | 갱신된 정책 |
 
 ### 알림 센터 (마스터)
 | 메서드 | 경로 | 응답 |

@@ -4,13 +4,13 @@ set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
 set ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk
 set PATH=%JAVA_HOME%\bin;%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\emulator;%PATH%
 
-set ROOT=%~dp0
+set ROOT=%~dp0..\
 set AVD=oojoo_pixel
-set APK=%ROOT%dist\master-debug.apk
+set APK=%ROOT%dist\oojoo-farm-master-debug.apk
 if not exist "%APK%" set APK=%ROOT%android\master\app\build\outputs\apk\debug\app-debug.apk
 
 echo [OOJOO FARM] Starting backend on :4000 ...
-start "OOJOO Backend" cmd /c "%ROOT%start-backend.bat"
+start "OOJOO Backend" cmd /c "%ROOT%scripts\start-backend.bat"
 
 echo [OOJOO FARM] Starting emulator "%AVD%" (stable GPU flags)...
 REM angle_indirect is more stable than host GPU on many Windows laptops;

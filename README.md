@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-Material3-42A5F5?logo=jetpackcompose&logoColor=white" />
   <img src="https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/AI-On--device%20CNN%20(OJP1)-FF6F00" />
-  <img src="https://img.shields.io/badge/release-1.0.2026081910-blue" />
+  <img src="https://img.shields.io/badge/release-1.0.2026112010-blue" />
 </p>
 
 <p align="center">
@@ -47,9 +47,20 @@ The two devices are linked by a randomly generated pairing code — no complex s
 
 ---
 
+## What's New (Build 2026112010)
+
+- **Watering safety (Farmer)** — Auto-watering is now edge-triggered: it fires only on the rising edge of the AI's water-need signal (false→true) with a 30-minute re-water cooldown, so a persistent "dry" reading can no longer re-open the valve every 30 seconds. Manual and Master-commanded waterings also refresh the cooldown so they never stack.
+- **Hardware reliability (Farmer)** — Watering is no longer reported as "done" when the BLE hardware is offline: it posts a `water_failed` event instead, and the ESP32 connection now auto-reconnects (5s after a drop, 15s scan timeout re-scan, duplicate-scan guard, GATT cleanup). The offline event/watering queue is now mutex-serialized so no records are lost to a concurrent flush.
+- **Accurate command completion** — Water / capture-photo / capture-video / diagnose-video commands are marked `done` only after the work actually finishes (previously they were marked done the instant they were kicked off).
+- **Policy that actually works** — `capture_interval` (10min–6h) and `pest_interval` (5–120min) set by the Master now drive the Farmer's periodic capture and pest-response cadence; a low-battery event (below 20%, falling edge, 1h cooldown) alerts the Master.
+- **Master app** — Real (non-placeholder) home dashboard, full policy editor + rename + command history on the Farmer screen, harvest records on plant detail, 1:1 DM, profile editing, notification deep-links, and error+retry in place of infinite spinners.
+- **Backend hardening** — Boundary-validation library, admin-stats fix, harvests API, events batch, command cancel, subscription enforcement, 5km feed radius + coordinate stripping, notification read-state, and a 1:1 DM API. 61 integration tests, all green.
+- **ML** — The weakest model (cactus, val 0.611) was retrained with a verified seed (val 0.685); `train.py` now takes `--seed` for reproducibility; the personalization pipeline (export → split → finetune) is covered by a 16-assert E2E test.
+- **Dead code & bloat removed** — Unreachable onboarding route, 8.3 MB of unused GLB assets, and several dead composables deleted.
+
 ## What's New (Build 2026081910)
 
-- **On-device plant health CNN × 8 species** — a tiny custom CNN (custom `OJP1` format, ~20 KB per model) now runs entirely on the Farmer phone for cherry tomato, basil, cactus, herb (rosemary), strawberry, pepper, pumpkin, and zucchini. It classifies 6 health causes — `healthy`, `water_low`, `water_high`, `light_low`, `pest`, `heat` — and auto-triggers watering or the Fan accordingly. Retrained on pot-invariant data so planter color doesn't skew predictions, and evaluated on 90 held-out Creative-Commons web photos.
+- **On-device plant health CNN × 8 species** — a tiny custom CNN (custom `OJP1` format, ~20 KB per model) now runs entirely on the Farmer phone for cherry tomato, basil, cactus, herb (rosemary), strawberry, pepper, pumpkin, and zucchini. It classifies 6 health causes — `healthy`, `water_low`, `water_high`, `light_low`, `pest`, `heat` — and auto-triggers watering or the Fan accordingly. Retrained on pot-invariant data so planter color doesn't skew predictions, and evaluated on a held-out Creative-Commons web photo test split.
 - **Household sharing** — the Master owner invites family/friends with a 6-digit code; members co-own and co-operate the same Farmers, plants, and notifications (watering, Fan, laser, camera).
 - **Growth photo album & short clips** — the Farmer saves a photo daily (or when the plant visibly changes); the Master's **Make Short Clip** turns the album into a short MP4 with time/location overlays and generated pentatonic BGM, rendered entirely on the Farmer device.
 - **Email/password authentication** — the Master app now supports real accounts with email + password (in addition to the anonymous quick-start), with server-side sessions.
@@ -106,8 +117,7 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 ## Key Features
 
 ### Master App
-- **Authentication** — Email/password sign-up & sign-in with server-side sessions, or anonymous quick-start (nickname + growing region)
-- **Onboarding** — Set the backend URL on first launch; change it any time in Settings with a health-checked reconnect
+- **Authentication** — Email/password sign-up & sign-in with server-side sessions (the sign-up flow also sets the backend URL and detects your growing region), or anonymous quick-start (nickname + growing region); the backend URL can be changed any time in Settings with a health-checked reconnect
 - **Dashboard** — Plant & Farmer overview, region-based weather, quick remote watering
 - **Plant Management** — Register crops, track growth stages, view watering history & events, browse the accumulated photo album
 - **Growth Clips** — One tap asks the Farmer to render a short growth-story MP4 (time/location overlay + BGM) and plays it inline
@@ -154,7 +164,7 @@ The Farmer app ships species-specific tiny CNNs in `android/slave/app/src/main/a
 
 | | |
 |---|---|
-| **Format** | Custom `OJP1` (flat int8 weights + header), read by `PlantHealthNet.kt` |
+| **Format** | Custom `OJP1` (flat float32 weights + header), read by `PlantHealthNet.kt` |
 | **Architecture** | 48×48 RGB input → conv8-16-24 + GAP → 6-class dense |
 | **Classes** | `healthy`, `water_low`, `water_high`, `light_low`, `pest`, `heat` |
 | **Species** | cherry tomato, basil, cactus, herb, strawberry, pepper, pumpkin, zucchini |
@@ -168,6 +178,9 @@ Unknown species fall back to the original color heuristic, so every plant still 
 ml/plant_health/
 ├── train.py               # Train one species (pot-invariant recipe)
 ├── train_all.py           # Train every species model
+├── train_health_grade.py  # Train the 5-grade health model (health_grade.bin)
+├── train_pest.py          # Train the 4-level pest model (pest.bin)
+├── grade_paint.py         # Shared synthetic-scene painter for grade/pest training
 ├── species.py             # Species registry, labels, web-search queries
 ├── fetch_curated.py       # Fetch CC-licensed training photos
 ├── fetch_more.py          # Fetch additional web photos
@@ -175,12 +188,15 @@ ml/plant_health/
 ├── finetune_web.py        # Fine-tune on CC-licensed web images
 ├── split_web.py           # Train/test split for web images
 ├── eval_internet.py       # Evaluate on held-out web photos
+├── export_diagnosis.py    # Export human-confirmed diagnosis frames (personalization)
+├── finetune_diagnosis.py  # Fine-tune a model on user-confirmed diagnosis frames
+├── test_personalization.py# E2E test: seed DB -> export -> finetune (16 asserts)
 ├── label_web/             # Browser-based labeling tool (server.py + web UI)
 ├── test_internet/         # Held-out web test set manifest & split
 └── metrics/               # Per-species training + web-eval metrics (JSON/MD)
 ```
 
-Models are trained to be **pot-invariant** (planter color ignored) and evaluated on **452 Creative-Commons photos** (Openverse / Wikimedia / iNaturalist) with 90 held-out test images per run. Training runs locally with Python/NumPy — no GPU or cloud service required.
+Models are trained to be **pot-invariant** (planter color ignored). Web evaluation uses a 452-image set (`test_internet/`, split 360 train / 92 test) built from Creative-Commons photos (Openverse / Wikimedia / iNaturalist) and topped up with synthetic fills where real photos were scarce — `eval_internet.py` scores each model on the ~92-image held-out test split. Training runs locally with Python/NumPy — no GPU or cloud service required.
 
 ```bash
 cd ml/plant_health
@@ -252,8 +268,9 @@ OOJOO-FARM/
     │           ├── data/       # Prefs, Session, ServerConfig, ServerEndpoint
     │           ├── model/      # Data models
     │           ├── network/    # Retrofit API client
-    │           └── ui/         # Auth, Onboarding, Dashboard, PlantList/Detail/Registration,
-    │                          #   FarmerList, Family (household), Pairing, ThemeEditor, ...
+    │           └── ui/         # Auth, Home (dashboard), PlantList/Detail/Registration,
+    │                          #   FarmerList, Family (household), Pairing, Profile, Messages,
+    │                          #   Notification, Community, Market, Report, ThemeEditor, ...
     └── slave/              # Slave/Farmer app (com.oojoo.farm.slave)
         └── app/src/main/
             ├── assets/models/  # OJP1 CNN weights + labels.json (8 species)
@@ -261,12 +278,13 @@ OOJOO-FARM/
                 ├── MainActivity.kt
                 ├── album/      # PlantAlbum (growth photo album)
                 ├── data/       # SharedPreferences (Prefs), ServerEndpoint
+                ├── hardware/   # HardwareController: BLE (ESP32 NUS) + Mock, fail-safe timers
                 ├── model/      # Data models
                 ├── network/    # Retrofit API client
-                ├── service/    # Foreground autonomous engine
+                ├── service/    # Foreground autonomous engine (FarmerEngine), BootReceiver
                 ├── vision/     # CameraX, PlantAnalyzer, PlantHealthNet (CNN),
-                │               #   GrowthClipRenderer (MP4 + BGM)
-                └── ui/         # Pairing, Dashboard, Settings screens
+                │               #   Ojp1 runtime, GrowthClipRenderer (MP4 + BGM)
+                └── ui/         # Pairing, Dashboard, Settings, RoiEditor screens
 ```
 
 ---
@@ -348,6 +366,8 @@ The prototype lets you switch between two simulated devices with a toggle at the
 
 ### Backend
 
+Requires **Node.js 22+** (the backend uses the built-in `node:sqlite`, available from Node 22).
+
 ```bash
 cd backend
 cp .env.example .env
@@ -394,7 +414,7 @@ Both apps default to Korean and can be switched to English in **Settings**; the 
 | **Phase 3** | Location-based community (share/sell/buy), comments, reputation, moderation | ✅ Done |
 | **Phase 4** | Marketplace, cart/checkout, affiliate links, subscription plans | ✅ Done |
 | **Phase 5** | On-device CNN health models (8 species, OJP1), household sharing, growth clips, email/password auth, ko/en localization, multi-Farmer/crop | ✅ Done |
-| Phase 6 | FCM push notifications, more species models, model personalization from user-labeled photos | Planned |
+| Phase 6 | FCM push notifications, more species models, in-app personalization loop (ML tooling already shipped in `ml/plant_health`) | Planned |
 
 > FCM push requires a Firebase `google-services.json`. On-device inference already uses real trained CNNs (custom `OJP1` format) — no cloud required.
 

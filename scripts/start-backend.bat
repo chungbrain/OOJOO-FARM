@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set BACKEND_DIR=%~dp0backend
+set BACKEND_DIR=%~dp0..\backend
 cd /d "%BACKEND_DIR%"
 
 where node >nul 2>&1
