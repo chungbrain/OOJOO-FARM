@@ -148,6 +148,14 @@ object FarmerEngine {
     private val HARVEST_COOLDOWN = 60 * 60 * 1000L // 1시간
     private val PEST_COOLDOWN = 15 * 60 * 1000L    // 15분
 
+    // 자동관수 범람 방지 — 히스테리시스(상승 엣지) + 쿨다운.
+    // 이전 코드는 직전 분석의 needWater 가 true 로 유지되는 동안 30초 틱마다 doWater 를 재호출해
+    // 300ml/30초(≈36L/h) 범람 위험이 있었다. 이제 needWater 가 false→true 로 전환될 때만(엣지)
+    // 그리고 마지막 관수 후 AUTO_WATER_COOLDOWN 이 지난 뒤에야 자동 관수한다.
+    private var lastAutoWaterMs = 0L
+    private var lastNeedWaterState = false
+    private val AUTO_WATER_COOLDOWN = 30 * 60 * 1000L // 30분
+
     private fun now() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
     private fun slaveId() = Prefs.slaveId(appCtx) ?: ""
@@ -409,11 +417,21 @@ object FarmerEngine {
     private suspend fun tick() {
         _status.value = "관찰 중…"
         val result = _lastAnalysis.value
-        if (result != null && result.needWater && _autoOn.value) {
-            addLog("[${now()}] AI 판정: 수분 부족 의심 → 자동 관수")
-            doWater("auto", result.confidence)
-        } else if (result != null) {
-            _status.value = "관찰 완료: ${result.healthStatus}"
+        if (result != null) {
+            if (result.needWater && _autoOn.value) {
+                // 히스테리시스(상승 엣지) + 쿨다운: 같은 needWater 가 지속되는 동안
+                // 또는 직전 관수 직후에는 재관수하지 않는다.
+                val nowMs = System.currentTimeMillis()
+                if (!lastNeedWaterState && nowMs - lastAutoWaterMs >= AUTO_WATER_COOLDOWN) {
+                    addLog("[${now()}] AI 판정: 수분 부족 의심 → 자동 관수 (재관수 쿨다운 ${AUTO_WATER_COOLDOWN / 60000}분)")
+                    doWater("auto", result.confidence) // doWater 가 lastAutoWaterMs 갱신
+                } else {
+                    _status.value = "관찰 완료: ${result.healthStatus} (관수 쿨다운 ${AUTO_WATER_COOLDOWN / 60000}분)"
+                }
+            } else {
+                _status.value = "관찰 완료: ${result.healthStatus}"
+            }
+            lastNeedWaterState = result.needWater
         } else {
             _status.value = "관찰 대기 (카메라 분석 대기)"
         }
@@ -524,6 +542,9 @@ object FarmerEngine {
     }
 
     private fun doWater(source: String, confidence: Double = 1.0, amountOverride: Int? = null, plantIdOverride: String? = null) {
+        // 모든 관수(자동/수동/마스터 지시)는 재관수 쿨다운 기준점을 갱신한다 —
+        // 수동 관수 직후 자동 관수가 즉각 겹쳐 범람하는 것을 막기 위함.
+        lastAutoWaterMs = System.currentTimeMillis()
         scope.launch {
             val baseAmount = amountOverride ?: 300
             val factor = _weatherFactor.value
