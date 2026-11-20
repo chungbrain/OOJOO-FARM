@@ -199,6 +199,20 @@ test('자율 정책 기본값 + 갱신', async () => {
   const after = await (await get(`/api/policy/${verify.slaveId}`)).json();
   assert.equal(after.water_auto, 0);
   assert.equal(after.region, 'Daegu');
+
+  // PRD 4.2: 캡처 주기 하한 10분 (과거: 1분 허용)
+  const clampLo = await (await put(`/api/policy/${verify.slaveId}`, { captureInterval: 5 })).json();
+  assert.equal(clampLo.capture_interval, 10);
+  const clampHi = await (await put(`/api/policy/${verify.slaveId}`, { captureInterval: 9999 })).json();
+  assert.equal(clampHi.capture_interval, 360);
+
+  // PRD 4.2: 해충 짧은 주기 기본 15분, 범위 5~120분
+  const defPest = await (await get(`/api/policy/${verify.slaveId}`)).json();
+  assert.equal(defPest.pest_interval, 15);
+  const pestLo = await (await put(`/api/policy/${verify.slaveId}`, { pestInterval: 1 })).json();
+  assert.equal(pestLo.pest_interval, 5);
+  const pestHi = await (await put(`/api/policy/${verify.slaveId}`, { pestInterval: 9999 })).json();
+  assert.equal(pestHi.pest_interval, 120);
 });
 
 test('명령 큐: 세션키 인증 + 폴링/완료', async () => {
