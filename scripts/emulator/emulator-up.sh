@@ -30,9 +30,9 @@ else
   if pgrep -f "emulator -avd $AVD_NAME" >/dev/null 2>&1; then
     log "emulator process running — waiting for boot"
   else
-    log "starting emulator '$AVD_NAME' (TCG — first boot can take 10-30 min)"
+    log "starting emulator '$AVD_NAME' (TCG — first boot can take 10-30 min, adb port $EMU_PORT)"
     ANDROID_I_WANT_MY_TCG=yes nohup "$EMULATOR_BIN" -avd "$AVD_NAME" \
-      -accel "$EMU_ACCEL" "${EMU_EXTRA_FLAGS[@]}" >> "$EMULATOR_LOG" 2>&1 &
+      -accel "$EMU_ACCEL" -port "$EMU_PORT" "${EMU_EXTRA_FLAGS[@]}" >> "$EMULATOR_LOG" 2>&1 &
     echo $! > "$EMULATOR_PIDFILE"
   fi
   "$ADB" wait-for-device
