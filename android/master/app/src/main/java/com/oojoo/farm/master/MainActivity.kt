@@ -76,7 +76,6 @@ import com.oojoo.farm.master.ui.MarketScreen
 import com.oojoo.farm.master.ui.MessageThreadScreen
 import com.oojoo.farm.master.ui.MessagesScreen
 import com.oojoo.farm.master.ui.NotificationScreen
-import com.oojoo.farm.master.ui.OnboardingScreen
 import com.oojoo.farm.master.ui.OrdersScreen
 import com.oojoo.farm.master.ui.ProductDetailScreen
 import com.oojoo.farm.master.ui.PairingScreen
@@ -146,7 +145,6 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
                 .padding(bottom = if (showBottomBar) 76.dp else 0.dp)
         ) {
             composable("auth") { AuthScreen(nav) }
-            composable("onboarding") { OnboardingScreen(nav) }
             composable("home") { HomeScreen(nav) }
             composable("plants") { PlantListScreen(nav) }
             composable("plant_register") { PlantRegistrationScreen(nav) }

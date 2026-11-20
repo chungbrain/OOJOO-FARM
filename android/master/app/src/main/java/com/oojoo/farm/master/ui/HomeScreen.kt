@@ -500,23 +500,3 @@ private fun StarField() {
         }
     }
 }
-
-@Composable
-fun SpeechBubble(text: String, textColor: Color, bg: Color = OojooTheme.Card) {
-    Box(Modifier.offset(y = (-10).dp)) {
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = bg,
-            border = BorderStroke(2.dp, OojooTheme.Ink),
-            shadowElevation = 2.dp
-        ) {
-            Text(
-                text,
-                Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                color = textColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-    }
-}
