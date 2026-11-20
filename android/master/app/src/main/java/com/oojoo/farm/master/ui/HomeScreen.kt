@@ -73,6 +73,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.LocationHelper
+import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
@@ -337,6 +338,7 @@ private fun FarmWeatherCard(
     onClickPlant: (Plant) -> Unit,
     S: com.oojoo.farm.master.data.AppStrings
 ) {
+    val ctx = LocalContext.current
     val scene = weatherScene(weather, S)
     val w = weather
     val screenH = LocalConfiguration.current.screenHeightDp.dp
@@ -444,8 +446,9 @@ private fun FarmWeatherCard(
                 // 우측상단 — 사용자(master app 현재 위치) 날씨 소형 표시.
                 // farmer 위치가 확보돼야(=메인이 진짜 농장 날씨일 때) 표시 —
                 // 폴백 상태(메인==사용자 날씨)면 같은 데이터를 두 번 보여주는 셈이라 숨긴다.
+                // 설정(홈 옵션)에서 끌 수도 있다. ON_RESUME 리프레시 재구성 때 반영.
                 // top 54dp — 씬의 ☀️/🌙(상단 우측) 아래.
-                if (farmerAvailable && userWeather != null) {
+                if (farmerAvailable && userWeather != null && Prefs.showUserWeather(ctx)) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color.White.copy(alpha = 0.16f),

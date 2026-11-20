@@ -106,6 +106,15 @@ object Prefs {
     fun borderWidth(ctx: Context): Int = sp(ctx).getInt(K_BORDER_WIDTH, 2)
     fun setBorderWidth(ctx: Context, value: Int) = sp(ctx).edit().putInt(K_BORDER_WIDTH, value).apply()
 
+    // ---------- 홈 옵션 ----------
+    private const val K_SHOW_USER_WEATHER = "showUserWeather"
+
+    /** 홈 농장 카드 우측 상단 — 사용자(현재 위치) 날씨 칩 표시 여부. 기본 표시. */
+    fun showUserWeather(ctx: Context): Boolean = sp(ctx).getBoolean(K_SHOW_USER_WEATHER, true)
+
+    fun setShowUserWeather(ctx: Context, value: Boolean) =
+        sp(ctx).edit().putBoolean(K_SHOW_USER_WEATHER, value).apply()
+
     // ---------- 언어 설정 ----------
     private const val K_LANGUAGE = "language"
     private const val K_LANGUAGE_MIGRATED = "languageMigratedToExplicitLocale"

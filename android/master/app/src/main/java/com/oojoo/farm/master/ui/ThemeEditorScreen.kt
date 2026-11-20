@@ -126,6 +126,34 @@ fun ThemeEditorScreen(nav: NavController, uiState: MutableState<OojooUiState>) {
                     color = OojooTheme.Red
                 )
 
+                // === 홈 옵션 ===
+                Spacer(Modifier.height(20.dp))
+                HorizontalDivider(color = OojooTheme.Line)
+                Text(S.homeOptionsTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)
+                var showUserWeather by remember { mutableStateOf(Prefs.showUserWeather(ctx)) }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(S.showMyWeather, fontSize = 15.sp, color = OojooTheme.Ink)
+                        Text(S.showMyWeatherDesc, fontSize = 12.sp, color = OojooTheme.Muted)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = showUserWeather,
+                        onCheckedChange = {
+                            showUserWeather = it
+                            Prefs.setShowUserWeather(ctx, it)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = OojooTheme.Ink,
+                            checkedTrackColor = OojooTheme.Green,
+                            uncheckedTrackColor = OojooTheme.Line
+                        )
+                    )
+                }
+
                 // === 언어 설정 ===
                 Spacer(Modifier.height(20.dp))
                 Text(S.language, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = OojooTheme.Ink)

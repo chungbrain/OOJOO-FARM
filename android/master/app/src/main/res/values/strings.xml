@@ -29,6 +29,9 @@
     <string name="weather_day">낮 ☀️ 맑음</string>
     <string name="weather_farm_tag">🏡 농장</string>
     <string name="weather_me_tag">📍 나</string>
+    <string name="home_options_title">홈 옵션</string>
+    <string name="show_my_weather">내 날씨 함께 표시</string>
+    <string name="show_my_weather_desc">홈 농장 카드 우측 상단에 내(현재 위치) 날씨를 작은 칩으로 함께 표시합니다. 농장 날씨가 확보된 상태에서만 표시됩니다.</string>
     <string name="settings">설정</string>
     <string name="ui_customize">UI 커스터마이징</string>
     <string name="language">언어</string>

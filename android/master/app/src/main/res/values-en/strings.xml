@@ -29,6 +29,9 @@
     <string name="weather_day">Day ☀️ Clear</string>
     <string name="weather_farm_tag">🏡 Farm</string>
     <string name="weather_me_tag">📍 Me</string>
+    <string name="home_options_title">Home options</string>
+    <string name="show_my_weather">Show my weather</string>
+    <string name="show_my_weather_desc">Shows your current-location weather as a small chip in the top-right of the home farm card. Visible only when the farm weather is available.</string>
     <string name="settings">Settings</string>
     <string name="ui_customize">UI Customize</string>
     <string name="language">Language</string>
