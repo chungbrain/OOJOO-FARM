@@ -9,60 +9,61 @@
     "pest",
     "heat"
   ],
-  "val_acc": 0.9814814814814815,
+  "val_acc": 0.8333333333333334,
   "confusion": [
     [
-      18,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      18,
-      0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      18,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      1,
-      0,
-      17,
-      0,
-      0
-    ],
-    [
+      15,
       1,
       0,
       0,
+      2,
+      0
+    ],
+    [
+      2,
+      13,
       0,
-      17,
+      0,
+      1,
+      2
+    ],
+    [
+      0,
+      0,
+      18,
+      0,
+      0,
       0
     ],
     [
       0,
       0,
       0,
+      18,
+      0,
+      0
+    ],
+    [
+      3,
       0,
       0,
-      18
+      0,
+      15,
+      0
+    ],
+    [
+      0,
+      5,
+      2,
+      0,
+      0,
+      11
     ]
   ],
   "n_train": 492,
   "n_val": 108,
   "input": 48,
   "arch": "conv8-16-24 + GAP + dense6",
-  "train_recipe": "pot-invariant synthetic + geometric symptoms + augment"
+  "train_recipe": "on-disk synthetic (gen_dataset.py PNG, pot-invariant)",
+  "seed": 7
 }

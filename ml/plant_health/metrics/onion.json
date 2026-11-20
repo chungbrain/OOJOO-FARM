@@ -1,0 +1,69 @@
+{
+  "species": "onion",
+  "korean": "\uc591\ud30c",
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "val_acc": 0.9074074074074074,
+  "confusion": [
+    [
+      16,
+      0,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      12,
+      0,
+      0,
+      1,
+      5
+    ],
+    [
+      0,
+      0,
+      18,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      17,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      17,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      18
+    ]
+  ],
+  "n_train": 492,
+  "n_val": 108,
+  "input": 48,
+  "arch": "conv8-16-24 + GAP + dense6",
+  "train_recipe": "on-disk synthetic (gen_dataset.py PNG, pot-invariant)",
+  "seed": 13
+}
