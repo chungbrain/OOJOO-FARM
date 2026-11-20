@@ -66,6 +66,12 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             needed.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // 농장 위치 (마스터의 농장 날씨) — 거부해도 동작은 유지 (region 기반 폴백)
+        for (p in arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(p)
+            }
+        }
         if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
     }
 }

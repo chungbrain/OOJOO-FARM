@@ -39,6 +39,12 @@ interface ApiService {
     @GET("api/weather/{region}")
     suspend fun weather(@Path("region") region: String): WeatherResponse
 
+    @GET("api/weather/coords")
+    suspend fun weatherByCoords(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double
+    ): WeatherResponse
+
     @Multipart
     @POST("api/videos/upload/{slaveId}")
     suspend fun uploadVideo(

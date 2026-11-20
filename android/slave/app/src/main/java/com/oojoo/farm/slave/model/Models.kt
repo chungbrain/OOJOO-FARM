@@ -7,7 +7,15 @@ data class PairingVerifyRequest(val code: String, val name: String? = null)
 @Serializable
 data class PairingVerifyResponse(val slaveId: String, val sessionKey: String, val userId: String, val name: String? = null)
 @Serializable
-data class HeartbeatRequest(val slaveId: String, val battery: Int? = null, val streamUrl: String? = null)
+data class HeartbeatRequest(
+    val slaveId: String,
+    val battery: Int? = null,
+    val streamUrl: String? = null,
+    // farmer(농장) 위치 — 마스터 홈의 농장 날씨 조회용 (best-effort, 권한 없으면 null)
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val region: String? = null
+)
 @Serializable
 data class OkResponse(val ok: Boolean)
 @Serializable

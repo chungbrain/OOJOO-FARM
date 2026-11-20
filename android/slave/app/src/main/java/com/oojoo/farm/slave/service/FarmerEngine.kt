@@ -299,7 +299,14 @@ object FarmerEngine {
                 try {
                     val batt = batteryLevel()
                     // stream_url: 라이브 카메라 직결 스트림 주소 (마스터가 LAN 으로 접속)
-                    ApiClient.api.heartbeat(HeartbeatRequest(slaveId(), batt, MjpegStreamer.streamUrl()))
+                    // lat/lon/region: 농장 위치 — 마스터 홈의 "농장 날씨" 조회용 (best-effort)
+                    ApiClient.api.heartbeat(
+                        HeartbeatRequest(
+                            slaveId(), batt, MjpegStreamer.streamUrl(),
+                            lat = farmLoc?.lat, lon = farmLoc?.lon,
+                            region = Prefs.region(appCtx).takeIf { it.isNotBlank() }
+                        )
+                    )
                     _online.value = true
                     flushQueue() // 재연결 시 오프라인 누적 이벤트 동기화
                     maybeNotifyLowBattery(batt)
@@ -314,6 +321,7 @@ object FarmerEngine {
         })
         loops.add(scope.launch {
             while (isActive) {
+                refreshFarmLocation()
                 fetchWeather()
                 delay(30 * 60 * 1000L)
             }
@@ -381,6 +389,20 @@ object FarmerEngine {
         val bm = appCtx.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
     } catch (_: Exception) { null }
+
+    // ---------- Farmer(농장) 위치 — 마스터 홈의 농장 날씨 조회 데이터 ----------
+    // 날씨 루프(30분)에서 해석. 권한 미위임/해석 실패면 null — 하트비트는
+    // region 만 보고하고 마스터는 region 으로 날씨를 조회한다.
+    @Volatile
+    private var farmLoc: com.oojoo.farm.slave.data.LocationUtil.Loc? = null
+
+    private suspend fun refreshFarmLocation() {
+        try {
+            farmLoc = com.oojoo.farm.slave.data.LocationUtil.resolve(appCtx)
+        } catch (_: Exception) {
+            // 이전 위치 유지 (농장은 움직이지 않는다)
+        }
+    }
 
     // 배터리 부족 알림 — 임계값 이하로 떨어질 때(하락 엣지) 마스터에 battery_low 이벤트.
     private val BATTERY_LOW_THRESHOLD = 20 // %
@@ -507,7 +529,10 @@ object FarmerEngine {
     private suspend fun fetchWeather() {
         try {
             val region = Prefs.region(appCtx)
-            val resp = ApiClient.api.weather(region)
+            // GPS 위치가 있으면 좌표 기반(더 정확), 없으면 region 기반
+            val resp = farmLoc?.let {
+                ApiClient.api.weatherByCoords(it.lat, it.lon)
+            } ?: ApiClient.api.weather(region)
             _weatherFactor.value = resp.weatherFactor
             Prefs.setWeatherFactor(appCtx, resp.weatherFactor)
             addLog("[${now()}] 날씨 업데이트: $region ${resp.temp?.let { "${it.toInt()}°C" } ?: "?"} (가중치:${"%.2f".format(resp.weatherFactor)})")
