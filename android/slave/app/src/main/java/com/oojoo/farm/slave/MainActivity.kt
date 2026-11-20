@@ -27,16 +27,6 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
-    override fun onStart() {
-        super.onStart()
-        // 앱이 화면에 보이는 시점에 서비스를 재지시 → FGS camera 타입 재요청 +
-        // 카메라 재바인딩 (부팅/시스템 재시작 직후 백그라운드 시작으로 카메라가
-        // 비활성 상태였던 경우 복구).
-        if (Prefs.isPaired(this)) {
-            FarmerService.start(this)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         AppLocale.initialize(this)
         super.onCreate(savedInstanceState)
@@ -46,10 +36,12 @@ class MainActivity : AppCompatActivity() {
 
         requestRuntimePermissions()
 
-        // 이미 페어링된 기기면 자율 관리 서비스를 즉시 기동 (헤드리스/상시 동작)
-        if (Prefs.isPaired(this)) {
-            FarmerService.start(this)
-        }
+        // 주의: 여기서 FarmerService 를 미리 시작하면 안 된다. 콜드 스타트 시
+        // 메인 스레드가 Compose 첫 프레임으로 혼잡해 FGS 10초 윈도우
+        // (startForegroundService → startForeground) 를 놓쳐 앱이
+        // ForegroundServiceDidNotStartInTimeException 으로 죽는다.
+        // 서비스는 첫 프레임 이후(DashboardScreen LaunchedEffect) 또는
+        // 부팅 후(BootReceiver)에 기동한다.
 
         setContent {
             OojooSlaveTheme {

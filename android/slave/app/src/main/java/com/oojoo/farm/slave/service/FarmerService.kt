@@ -32,22 +32,32 @@ class FarmerService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        // FGS 포그라운드 요건을 인스턴스 생성 즉시 충족. 메인 스레드가 UI 첫
+        // 프레임으로 혼잡한 환경(TCG)에서는 onStartCommand 로 호출하면
+        // 10초 윈도우를 놓쳐 서비스가 "Timeout executing service" 로 종료된다.
+        startForegroundCompat()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForegroundCompat()
         acquireWakeLock()
-        if (intent?.action == ACTION_RECONNECT) {
-            FarmerEngine.stop()
-            ApiClient.setBaseUrl(Prefs.serverUrl(this))
-            ApiClient.setSessionKey(Prefs.sessionKey(this))
-        }
         if (Prefs.isPaired(this)) {
-            FarmerEngine.start(applicationContext)
-            // 카메라는 서비스 라이프사이클에 바인딩 — 앱이 내려가도 관찰·촬영 유지.
-            // (FGS camera 타입이 활성화되지 않은 백그라운드 시작이면 바인딩이
-            //  실패하고, 사용자가 앱을 열어 재호출할 때 재시도된다.)
-            CameraHost.start(applicationContext)
+            val appCtx = applicationContext
+            val reconnect = intent?.action == ACTION_RECONNECT
+            // 엔진 기동(모델 16개 로딩 등)은 메인 스레드에서 벗어나 서비스
+            // 콜백을 즉시 반환 — 느린 환경에서 메인 혼잡과 겹치지 않게.
+            Thread({
+                if (reconnect) {
+                    FarmerEngine.stop()
+                    ApiClient.setBaseUrl(Prefs.serverUrl(appCtx))
+                    ApiClient.setSessionKey(Prefs.sessionKey(appCtx))
+                }
+                FarmerEngine.start(appCtx)
+                // 카메라는 서비스 라이프사이클에 바인딩 — 앱이 내려가도
+                // 관찰·촬영 유지. (FGS camera 타입이 활성화되지 않은
+                // 백그라운드 시작이면 바인딩이 실패하고, 사용자가 앱을 열어
+                // 재호출할 때 재시도된다.)
+                CameraHost.start(appCtx)
+            }, "engine-boot").start()
         }
         // 시스템이 종료해도 재시작되도록 STICKY (24h+ 자율 유지)
         return START_STICKY

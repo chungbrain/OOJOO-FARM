@@ -32,7 +32,8 @@ fun DashboardScreen(nav: NavController) {
     val ctx = LocalContext.current
     val english = LocalConfiguration.current.locales[0].language == "en"
     LaunchedEffect(Unit) {
-        FarmerEngine.start(ctx)
+        // 첫 프레임이 올라온 뒤(메인 스레드 공백 시) 서비스 기동 — FGS
+        // 10초 윈도우 확보. 엔진은 서비스의 engine-boot 스레드가 소유한다.
         FarmerService.start(ctx)
     }
 
