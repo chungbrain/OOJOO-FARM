@@ -65,7 +65,7 @@ class LiveCameraViewModel : ViewModel() {
     var liveLoading by mutableStateOf(false)
     private var liveJob: Job? = null
 
-    fun startLive(slaveId: String, ctx: android.content.Context) {
+    fun startLive(slaveId: String) {
         stopLive()
         liveLoading = true
         liveError = null
@@ -301,7 +301,7 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                     GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                 }
-                OutlineButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.fillMaxWidth())
+                OutlineButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.fillMaxWidth())
                 OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
             }
 
@@ -326,7 +326,7 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                     OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.weight(1f))
+                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
                 }
             }
@@ -364,7 +364,7 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
             // 결과 없이 대기 중일 때도 사진 촬영/실시간 보기로 전환 가능
             if (vm.videoInfo == null && vm.photoUrl == null && vm.liveUrl == null && vm.liveError == null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.weight(1f))
+                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                 }
             }
