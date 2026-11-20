@@ -85,3 +85,42 @@ test('신고 접수', async () => {
   const r = await post('/api/community/report', { reporterId: u.id, postId: 'somepost', reason: '스팸' });
   assert.equal(r.status, 200);
 });
+
+test('피드 반경: 기본 5km, 커스텀 radius, 잘못된 radius 400 (PRD 4.9)', async () => {
+  const u = await mkUser('rad', 'Seoul');
+  const center = { lat: 37.5665, lon: 126.9780 };
+  await post('/api/community/posts', { userId: u.id, type: 'share', title: 'near-post', region: 'Seoul', lat: 37.5765, lon: 126.9780 });   // ~1.1km
+  await post('/api/community/posts', { userId: u.id, type: 'share', title: 'far-post', region: 'Seoul', lat: 37.7465, lon: 126.9780 });    // ~20km
+
+  // 기본 5km: 가까운 것만
+  let feed = await (await get(`/api/community/posts?lat=${center.lat}&lon=${center.lon}`)).json();
+  assert.deepEqual(feed.posts.map(p => p.title).filter(t => t.includes('-post')), ['near-post']);
+
+  // radius=30000: 둘 다
+  feed = await (await get(`/api/community/posts?lat=${center.lat}&lon=${center.lon}&radius=30000`)).json();
+  assert.equal(feed.posts.filter(p => p.title.includes('-post')).length, 2);
+
+  // 잘못된 radius
+  assert.equal((await get('/api/community/posts?lat=1&lon=1&radius=abc')).status, 400);
+  assert.equal((await get('/api/community/posts?lat=1&lon=1&radius=-5')).status, 400);
+  assert.equal((await get('/api/community/posts?lat=1&lon=1&radius=999999')).status, 400);
+});
+
+test('개인정보: 피드/상세/내게시물 응답에 정밀 좌표 없음 (PRD 6.7)', async () => {
+  const u = await mkUser('geo', 'Seoul');
+  const pid = (await (await post('/api/community/posts', { userId: u.id, type: 'share', title: 'geo', region: 'Seoul', lat: 37.5665, lon: 126.9780 })).json()).postId;
+
+  const feed = await (await get('/api/community/posts?region=Seoul')).json();
+  const p1 = feed.posts.find(p => p.id === pid);
+  assert.ok(p1);
+  assert.equal(p1.lat, undefined);
+  assert.equal(p1.lon, undefined);
+  assert.equal(p1.region, 'Seoul');
+
+  const detail = await (await get(`/api/community/posts/${pid}`)).json();
+  assert.equal(detail.post.lat, undefined);
+  assert.equal(detail.post.lon, undefined);
+
+  const mine = await (await get(`/api/community/mine/${u.id}`)).json();
+  assert.equal(mine.posts.find(p => p.id === pid).lat, undefined);
+});

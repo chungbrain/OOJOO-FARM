@@ -31,18 +31,26 @@ function bumpReputation(userId, delta) {
 
 function decorate(rows) {
   return rows.map((p) => {
+    // PRD 6.7 — 정밀 좌표 비공개: 응답에서 lat/lon 을 뺀다 (지역은 region 필드로)
+    const { lat: _lat, lon: _lon, ...rest } = p;
     const rep = db.prepare('SELECT score, deals FROM community_reputation WHERE user_id=?').get(p.user_id);
     const u = db.prepare('SELECT nickname FROM users WHERE id=?').get(p.user_id);
-    return { ...p, author_name: u?.nickname || '이웃', author_score: rep?.score || 0, author_deals: rep?.deals || 0 };
+    return { ...rest, author_name: u?.nickname || '이웃', author_score: rep?.score || 0, author_deals: rep?.deals || 0 };
   });
 }
 
-// 지역 피드 — 위도/경도 기반 500m 반경 필터 + type/검색/차단
+// 지역 피드 — 위도/경도 기반 반경 필터 (기본 5km, PRD 4.9) + type/검색/차단
 r.get('/posts', (req, res) => {
   const { region, type, q, viewerId, lat, lon, radius } = req.query;
   const userLat = lat ? parseFloat(lat) : null;
   const userLon = lon ? parseFloat(lon) : null;
-  const maxDist = radius ? parseFloat(radius) : 500; // 기본 500m
+  let maxDist = 5000; // 기본 5km
+  if (radius != null) {
+    maxDist = parseFloat(radius);
+    if (!Number.isFinite(maxDist) || maxDist <= 0 || maxDist > 50000) {
+      return res.status(400).json({ error: 'radius must be 1..50000 (m)' });
+    }
+  }
 
   let sql = 'SELECT * FROM community_posts';
   const where = [];
@@ -58,7 +66,7 @@ r.get('/posts', (req, res) => {
 
   let rows = db.prepare(sql).all(...args);
 
-  // 500m 반경 필터 (lat/lon이 있는 경우만)
+  // 반경 필터 (lat/lon이 있는 경우만) — 반경 밖 글은 region 매칭으로도 안 보임
   if (userLat != null && userLon != null) {
     rows = rows.filter(p => {
       if (p.lat == null || p.lon == null) return false; // 위치 정보 없는 글 제외
