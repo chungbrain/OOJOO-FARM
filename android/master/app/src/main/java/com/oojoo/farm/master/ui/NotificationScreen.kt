@@ -47,7 +47,7 @@ class NotificationViewModel : ViewModel() {
     init { refresh() }
 }
 
-private fun notiColor(t: String, payload: String?): Color = when (t) {
+fun notiColor(t: String, payload: String?): Color = when (t) {
     "harvest_ready" -> OojooTheme.Amber
     "pest_detected" -> OojooTheme.Red
     "auto_water" -> OojooTheme.Blue

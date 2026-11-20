@@ -22,6 +22,17 @@ object Prefs {
         sp(ctx).edit().putString(K_REGION, region).apply()
     }
 
+    // FCM: 로그인 전 확보한 토큰 일시 보관 (로그인 후 bootstrap 에서 등록)
+    private const val K_PENDING_PUSH_TOKEN = "pendingPushToken"
+
+    fun pendingPushToken(ctx: Context): String? = sp(ctx).getString(K_PENDING_PUSH_TOKEN, null)
+    fun setPendingPushToken(ctx: Context, token: String) {
+        sp(ctx).edit().putString(K_PENDING_PUSH_TOKEN, token).apply()
+    }
+    fun clearPendingPushToken(ctx: Context) {
+        sp(ctx).edit().remove(K_PENDING_PUSH_TOKEN).apply()
+    }
+
     // YAML에서 기본 주소 읽기 → 없으면 에뮬레이터 기본값
     fun defaultServerUrl(ctx: Context): String =
         ServerConfig.serverUrl(ctx) ?: "http://10.0.2.2:4000/"

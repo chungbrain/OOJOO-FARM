@@ -112,6 +112,12 @@
     <string name="noti_manual_water">💧 Manual water</string>
     <string name="noti_water_failed">⚠️ Watering failed (not executed)</string>
     <string name="noti_battery_low">🔋 Low battery</string>
+    <string name="fcm_harvest_ready">🍅 Harvest ready — check it</string>
+    <string name="fcm_pest_detected">🐛 Pest detected — auto response</string>
+    <string name="fcm_water_low">💧 Water stress detected</string>
+    <string name="fcm_health_change">🩺 Plant health changed</string>
+    <string name="fcm_water_failed">⚠️ Watering failed — check hardware</string>
+    <string name="fcm_battery_low">🔋 Low battery (%d%%) — charge it</string>
     <string name="noti_anomaly">⚠️ Anomaly</string>
     <string name="noti_capture">📷 Capture</string>
     <string name="noti_health_change">🌿 Health change</string>

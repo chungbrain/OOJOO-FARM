@@ -609,3 +609,8 @@ data class MessageIdResponse(val messageId: String)
 data class MessagesReadRequest(val userId: String, val peerId: String)
 @Serializable
 data class MessagesReadResponse(val ok: Boolean = false, val marked: Int = 0)
+
+@Serializable
+data class PushTokenRequest(val token: String)
+@Serializable
+data class PushTokenResponse(val ok: Boolean = false, val count: Int = 0)

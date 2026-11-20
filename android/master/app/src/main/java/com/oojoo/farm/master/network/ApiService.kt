@@ -241,4 +241,7 @@ interface ApiService {
 
     @POST("api/notifications/{userId}/read")
     suspend fun markNotificationsRead(@Path("userId") userId: String): OkResponse
+
+    @POST("api/users/{id}/push-token")
+    suspend fun registerPushToken(@Path("id") userId: String, @Body body: PushTokenRequest): PushTokenResponse
 }

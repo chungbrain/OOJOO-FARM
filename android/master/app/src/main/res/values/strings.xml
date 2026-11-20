@@ -112,6 +112,12 @@
     <string name="noti_manual_water">💧 수동 관수</string>
     <string name="noti_water_failed">⚠️ 관수 실패 (미실행)</string>
     <string name="noti_battery_low">🔋 배터리 부족</string>
+    <string name="fcm_harvest_ready">🍅 수확 적기 — 확인하세요</string>
+    <string name="fcm_pest_detected">🐛 해충 감지 — 자동 대응 중</string>
+    <string name="fcm_water_low">💧 수분 부족 감지</string>
+    <string name="fcm_health_change">🩺 식물 건강 상태 변화</string>
+    <string name="fcm_water_failed">⚠️ 관수 실패 — 하드웨어 확인</string>
+    <string name="fcm_battery_low">🔋 배터리 부족 (%d%%) — 충전하세요</string>
     <string name="noti_anomaly">⚠️ 이상 징후</string>
     <string name="noti_capture">📷 캡처</string>
     <string name="noti_health_change">🌿 건강상태 변화</string>

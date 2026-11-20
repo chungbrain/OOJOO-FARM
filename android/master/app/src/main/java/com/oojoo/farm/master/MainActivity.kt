@@ -1,5 +1,8 @@
 package com.oojoo.farm.master
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -54,11 +57,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.oojoo.farm.master.data.AppStringsProvider
-import com.oojoo.farm.master.data.AppLocale
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
+import com.oojoo.farm.master.push.FcmService
 import com.oojoo.farm.master.ui.AuthScreen
 import com.oojoo.farm.master.ui.OojooMasterTheme
 import com.oojoo.farm.master.ui.OojooTheme
@@ -91,11 +94,14 @@ import com.oojoo.farm.master.ui.SubscriptionScreen
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppLocale.initialize(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ApiClient.setBaseUrl(Prefs.serverUrl(this))
         Session.load(this)
+        if (Prefs.isOnboarded(this)) {
+            requestNotificationPermission()
+            FcmService.bootstrap(this, Session.userId)
+        }
         setContent {
             val uiState = remember { mutableStateOf(OojooUiState(
                 cornerRadius = Prefs.cornerRadius(this),
@@ -110,6 +116,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    // Android 13+ 알림 권한 — 계정 있는 기동 시 1회 요청 (시스템 다이얼로그).
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
     }
 }
