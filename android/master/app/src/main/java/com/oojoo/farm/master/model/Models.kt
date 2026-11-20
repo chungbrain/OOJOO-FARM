@@ -54,7 +54,8 @@ data class Slave(
     val owner_id: String? = null,
     val owner_name: String? = null,
     val owner_email: String? = null,
-    val shared: Int = 0
+    val shared: Int = 0,
+    val stream_url: String? = null
 )
 @Serializable
 data class SlavesResponse(val slaves: List<Slave>)

@@ -20,6 +20,7 @@ import androidx.navigation.NavController
 import com.oojoo.farm.master.data.AppStrings
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
+import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.VideoInfoResponse
 import com.oojoo.farm.master.network.ApiClient
@@ -57,6 +58,49 @@ class LiveCameraViewModel : ViewModel() {
     var photoMode by mutableStateOf(false)
     var photoUrl by mutableStateOf<String?>(null)
     var photoTakenAt by mutableStateOf<String?>(null)
+
+    // 실시간 보기 — slave의 MJPEG 스트림에 LAN 직결
+    var liveUrl by mutableStateOf<String?>(null)
+    var liveError by mutableStateOf<String?>(null)
+    var liveLoading by mutableStateOf(false)
+    private var liveJob: Job? = null
+
+    fun startLive(slaveId: String, ctx: android.content.Context) {
+        stopLive()
+        liveLoading = true
+        liveError = null
+        status = "실시간 스트림 준비 중…"
+        liveJob = viewModelScope.launch {
+            try {
+                val slaves = api.slaves(Session.userId).slaves
+                val url = slaves.firstOrNull { it.id == slaveId }?.stream_url
+                withContext(Dispatchers.Main) {
+                    liveLoading = false
+                    if (url.isNullOrBlank()) {
+                        liveError = "이 Farmer는 스트림 주소를 보고하지 않았습니다 (앱 재기동 후 다시 시도)"
+                        status = "실시간 보기 불가"
+                    } else {
+                        liveUrl = url
+                        status = "실시간 스트리밍 중…"
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    liveLoading = false
+                    liveError = e.message
+                    status = "실시간 보기 불가"
+                }
+            }
+        }
+    }
+
+    fun stopLive() {
+        liveJob?.cancel()
+        liveJob = null
+        if (liveUrl != null) status = "실시간 보기 종료"
+        liveUrl = null
+        liveLoading = false
+    }
 
     private var sseJob: Job? = null
 
@@ -221,6 +265,7 @@ class LiveCameraViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         sseJob?.cancel()
+        liveJob?.cancel()
     }
 }
 
@@ -256,6 +301,7 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                     GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                 }
+                OutlineButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.fillMaxWidth())
                 OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
             }
 
@@ -279,12 +325,48 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                     OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                     OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
                 }
-                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
+                }
             }
 
-            // 결과 없이 대기 중일 때도 사진 촬영으로 전환 가능
-            if (vm.videoInfo == null && vm.photoUrl == null) {
-                OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.fillMaxWidth())
+            // 실시간 보기 (slave MJPEG 스트림 LAN 직결 — WebView가 multipart 렌더)
+            if (vm.liveUrl != null || vm.liveLoading || vm.liveError != null) {
+                if (vm.liveLoading) {
+                    Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 2.dp)
+                }
+                vm.liveError?.let { Text("⚠️ ${mapLiveError(it, S)}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                vm.liveUrl?.let { lurl ->
+                    Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                        AndroidView(
+                            factory = { context ->
+                                android.webkit.WebView(context).apply {
+                                    settings.mediaPlaybackRequiresUserGesture = false
+                                    val html = "<html><body style=\"margin:0;background:#000;width:100%;height:100vh\">" +
+                                        "<img src=\"$lurl\" style=\"width:100%;height:100%;object-fit:cover\"/></body></html>"
+                                    loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveStop, onClick = { vm.stopLive() }, modifier = Modifier.weight(1f))
+                        if (vm.videoInfo == null && vm.photoUrl == null) {
+                            OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            // 결과 없이 대기 중일 때도 사진 촬영/실시간 보기로 전환 가능
+            if (vm.videoInfo == null && vm.photoUrl == null && vm.liveUrl == null && vm.liveError == null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId, ctx) }, modifier = Modifier.weight(1f))
+                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -300,7 +382,16 @@ private fun mapStatus(s: String, S: AppStrings): String = when (s) {
     "영상 수신 완료!" -> S.captureDone
     "사진 수신 완료!" -> S.photoDone
     "요청 실패" -> S.captureFailed
+    "실시간 스트림 준비 중…" -> S.liveFetching
+    "실시간 스트리밍 중…" -> S.liveStreaming
+    "실시간 보기 종료" -> S.liveStopped
+    "실시간 보기 불가" -> S.liveUnavailable
     else -> s
+}
+
+private fun mapLiveError(e: String, S: AppStrings): String = when {
+    e.startsWith("이 Farmer") -> S.liveUnsupported
+    else -> e
 }
 
 private fun mapSavedMsg(m: String, S: AppStrings): String = when {
