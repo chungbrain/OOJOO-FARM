@@ -35,6 +35,7 @@ import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 fun won(v: Int): String = "₩" + "%,d".format(v)
@@ -200,8 +201,36 @@ fun ProductDetailScreen(nav: NavController, productId: String, vm: ProductViewMo
 fun CartScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     val S = LocalAppStrings.current
+    val context = LocalContext.current
     var msg by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var paying by remember { mutableStateOf(false) }
+    val checkoutFailMsg = stringResource(R.string.checkout_failed)
+
+    // Toss PG (서버가 approvalUrl 발급): 브라우저에서 결제 → 상태 폴링 (3초 × 40 = 2분).
+    // 카트는 결제 확정 시에만 비운다 — 실패/초기화 시에는 카트를 유지해 재시도 가능.
+    fun startTossPayment(orderId: String, total: Int) {
+        scope.launch {
+            try {
+                paying = true
+                msg = S.paymentWaiting
+                val s = ApiClient.api.tossStart(TossStartRequest(Session.userId, orderId))
+                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(s.approvalUrl))) } catch (_: Exception) {}
+                repeat(40) {
+                    delay(3000)
+                    when (ApiClient.api.tossStatus(TossStatusRequest(Session.userId, orderId)).status) {
+                        "paid" -> { Cart.clear(); msg = "${orderId.take(8)} (${won(total)})"; return@launch }
+                        "canceled" -> { msg = S.paymentCanceled; return@launch }
+                    }
+                }
+                msg = S.paymentTimeout
+            } catch (e: Exception) {
+                msg = e.message ?: checkoutFailMsg
+            } finally {
+                paying = false
+            }
+        }
+    }
     Scaffold(topBar = { TopAppBar(title = { Text(S.cart, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (Cart.lines.isEmpty()) {
@@ -223,8 +252,32 @@ fun CartScreen(nav: NavController) {
                     Text(S.total, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
                     Text(won(Cart.total()), fontWeight = FontWeight.ExtraBold, color = OojooTheme.Green)
                 }
-                val checkoutFailMsg = stringResource(R.string.checkout_failed)
-                GradientButton(text = "${S.checkout} (${won(Cart.total())})", onClick = { loading = true; msg = null; scope.launch { try { val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems())); Cart.clear(); msg = "${r.orderId.take(8)} (${won(r.total)})" } catch (e: Exception) { msg = e.message ?: checkoutFailMsg }; loading = false } }, enabled = !loading, modifier = Modifier.fillMaxWidth())
+                GradientButton(
+                    text = "${S.checkout} (${won(Cart.total())})",
+                    onClick = {
+                        loading = true
+                        msg = null
+                        scope.launch {
+                            try {
+                                val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems()))
+                                if (r.status == "pending_payment") {
+                                    // Toss PG: 서버가 발급한 approvalUrl 로 브라우저 결제 → 폴링
+                                    startTossPayment(r.orderId, r.total)
+                                } else {
+                                    // demo (즉시 paid)
+                                    Cart.clear()
+                                    msg = "${r.orderId.take(8)} (${won(r.total)})"
+                                }
+                            } catch (e: Exception) {
+                                msg = e.message ?: checkoutFailMsg
+                            } finally {
+                                loading = false
+                            }
+                        }
+                    },
+                    enabled = !loading && !paying,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             msg?.let { Text(it, color = OojooTheme.Green, fontSize = 13.sp) }
             OutlineButton(text = S.ordersNav, onClick = { nav.navigate("market_orders") }, modifier = Modifier.fillMaxWidth())

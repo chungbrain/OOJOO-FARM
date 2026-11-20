@@ -244,4 +244,11 @@ interface ApiService {
 
     @POST("api/users/{id}/push-token")
     suspend fun registerPushToken(@Path("id") userId: String, @Body body: PushTokenRequest): PushTokenResponse
+
+    // ---------- Toss PG (서버가 결제 생성/조회 — approvalUrl + 상태 폴링) ----------
+    @POST("api/payments/toss/start")
+    suspend fun tossStart(@Body body: TossStartRequest): TossStartResponse
+
+    @POST("api/payments/toss/status")
+    suspend fun tossStatus(@Body body: TossStatusRequest): TossStatusResponse
 }

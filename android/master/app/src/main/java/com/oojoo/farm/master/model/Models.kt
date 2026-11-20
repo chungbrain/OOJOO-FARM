@@ -614,3 +614,13 @@ data class MessagesReadResponse(val ok: Boolean = false, val marked: Int = 0)
 data class PushTokenRequest(val token: String)
 @Serializable
 data class PushTokenResponse(val ok: Boolean = false, val count: Int = 0)
+
+// Toss PG (서버가 approvalUrl 발급 — 앱에는 Toss 키 없음)
+@Serializable
+data class TossStartRequest(val userId: String, val orderId: String)
+@Serializable
+data class TossStartResponse(val approvalUrl: String)
+@Serializable
+data class TossStatusRequest(val userId: String, val orderId: String)
+@Serializable
+data class TossStatusResponse(val status: String)

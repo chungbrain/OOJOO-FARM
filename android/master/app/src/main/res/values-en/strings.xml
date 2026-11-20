@@ -178,6 +178,9 @@
     <string name="total">Total</string>
     <string name="checkout">Checkout</string>
     <string name="checkout_failed">Checkout failed</string>
+    <string name="payment_waiting">Payment in progress — complete it in the browser</string>
+    <string name="payment_canceled">Payment was canceled</string>
+    <string name="payment_timeout">Payment not completed. Check your order history</string>
     <string name="orders_nav">Orders</string>
     <string name="no_orders">No orders yet</string>
     <string name="order_prefix">Order\u0020</string>
