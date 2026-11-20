@@ -34,6 +34,9 @@ interface ApiService {
     @DELETE("api/pairing/{slaveId}")
     suspend fun unpair(@Path("slaveId") slaveId: String): OkResponse
 
+    @PUT("api/pairing/{slaveId}")
+    suspend fun renameSlave(@Path("slaveId") slaveId: String, @Body body: RenameSlaveRequest): RenameSlaveResponse
+
     @GET("api/policy/{slaveId}")
     suspend fun policy(@Path("slaveId") slaveId: String): PolicyResponse
 

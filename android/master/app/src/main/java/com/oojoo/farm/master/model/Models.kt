@@ -65,8 +65,10 @@ data class PolicyRequest(
     val fanAuto: Boolean? = null,
     val laserApproval: Boolean? = null,
     val captureInterval: Int? = null,
+    val pestInterval: Int? = null,
     val roiInterval: Int? = null,
-    val region: String? = null
+    val region: String? = null,
+    val cameraMount: String? = null
 )
 @Serializable
 data class PolicyResponse(
@@ -75,9 +77,16 @@ data class PolicyResponse(
     val fan_auto: Int = 1,
     val laser_approval: Int = 1,
     val capture_interval: Int = 60,
+    val pest_interval: Int = 15,
     val roi_interval: Int = 20,
-    val region: String? = null
+    val region: String? = null,
+    val camera_mount: String? = null
 )
+
+@Serializable
+data class RenameSlaveRequest(val name: String)
+@Serializable
+data class RenameSlaveResponse(val ok: Boolean = false, val slaveId: String? = null, val name: String? = null)
 
 @Serializable
 data class CreatePlantRequest(

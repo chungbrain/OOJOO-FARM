@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -28,9 +30,11 @@ import com.oojoo.farm.master.R
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
+import com.oojoo.farm.master.model.Command
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.PolicyRequest
 import com.oojoo.farm.master.model.PolicyResponse
+import com.oojoo.farm.master.model.RenameSlaveRequest
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
@@ -45,6 +49,11 @@ class FarmerListViewModel : ViewModel() {
     var policy by mutableStateOf<PolicyResponse?>(null)
     var policyLoading by mutableStateOf(false)
     var policySaving by mutableStateOf(false)
+    var renameTarget by mutableStateOf<Slave?>(null)
+    var renameSaving by mutableStateOf(false)
+    var commandsTarget by mutableStateOf<Slave?>(null)
+    var commands by mutableStateOf<List<Command>>(emptyList())
+    var commandsLoading by mutableStateOf(false)
     fun refresh() { loading = true; viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {}; loading = false } }
     fun pauseSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "pause")); msg = "⏸ 일시정지 지시!" } catch (e: Exception) { msg = e.message } } }
     fun resumeSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "resume")); msg = "▶ 재개 지시!" } catch (e: Exception) { msg = e.message } } }
@@ -62,18 +71,52 @@ class FarmerListViewModel : ViewModel() {
         }
     }
     fun closePolicy() { policyTarget = null; policy = null }
-    fun savePolicy(roiIntervalSec: Int) {
+    fun savePolicy(waterAuto: Boolean, fanAuto: Boolean, laserApproval: Boolean, captureIntervalMin: Int, pestIntervalMin: Int, roiIntervalSec: Int) {
         val target = policyTarget ?: return
         policySaving = true
         viewModelScope.launch {
             try {
-                api.setPolicy(target.id, PolicyRequest(roiInterval = roiIntervalSec))
+                api.setPolicy(target.id, PolicyRequest(
+                    waterAuto = waterAuto,
+                    fanAuto = fanAuto,
+                    laserApproval = laserApproval,
+                    captureInterval = captureIntervalMin,
+                    pestInterval = pestIntervalMin,
+                    roiInterval = roiIntervalSec
+                ))
                 msg = "정책이 저장되었습니다"
                 closePolicy()
             } catch (e: Exception) { msg = e.message }
             policySaving = false
         }
     }
+
+    fun openRename(s: Slave) { renameTarget = s }
+    fun closeRename() { renameTarget = null }
+    fun rename(name: String) {
+        val target = renameTarget ?: return
+        renameSaving = true
+        viewModelScope.launch {
+            try {
+                api.renameSlave(target.id, RenameSlaveRequest(name.trim()))
+                msg = "이름 변경됨"
+                closeRename()
+                refresh()
+            } catch (e: Exception) { msg = e.message }
+            renameSaving = false
+        }
+    }
+
+    fun openCommands(s: Slave) {
+        commandsTarget = s
+        commands = emptyList()
+        commandsLoading = true
+        viewModelScope.launch {
+            try { commands = api.commandHistory(s.id).commands } catch (_: Exception) {}
+            commandsLoading = false
+        }
+    }
+    fun closeCommands() { commandsTarget = null; commands = emptyList() }
     init { refresh() }
 }
 
@@ -131,26 +174,30 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                             val encoded = android.net.Uri.encode(s.name)
                             nav.navigate("live_camera/${s.id}/$encoded")
                         }, modifier = Modifier.fillMaxWidth())
-                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                             TextButton(onClick = { nav.navigate("report/${s.id}") }) { Text(S.reportBtn, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-                             TextButton(onClick = { vm.openPolicy(s) }) { Text(stringResource(R.string.monitoring_settings), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-                             var showUnpairDialog by remember { mutableStateOf(false) }
-                            TextButton(onClick = { showUnpairDialog = true }) { Text("🗑️ ${S.delete}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-                            if (showUnpairDialog) {
-                                AlertDialog(
-                                    onDismissRequest = { showUnpairDialog = false },
-                                    title = { Text(S.deleteFarmerTitle, fontWeight = FontWeight.Bold) },
-                                    text = { Text("'${s.name}'${S.deleteFarmerConfirm}") },
-                                    confirmButton = {
-                                        TextButton(onClick = { vm.unpair(s.id); showUnpairDialog = false }) {
-                                            Text(S.delete, color = OojooTheme.Red, fontWeight = FontWeight.Bold)
-                                        }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { showUnpairDialog = false }) { Text(S.cancel) }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { nav.navigate("report/${s.id}") }, modifier = Modifier.weight(1f)) { Text(S.reportBtn, color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            TextButton(onClick = { vm.openCommands(s) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.btn_commands), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                        }
+                        var showUnpairDialog by remember { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { vm.openPolicy(s) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.monitoring_settings), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            TextButton(onClick = { vm.openRename(s) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.btn_rename), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                            TextButton(onClick = { showUnpairDialog = true }, modifier = Modifier.weight(1f)) { Text("🗑️ ${S.delete}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                        }
+                        if (showUnpairDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showUnpairDialog = false },
+                                title = { Text(S.deleteFarmerTitle, fontWeight = FontWeight.Bold) },
+                                text = { Text("'${s.name}'${S.deleteFarmerConfirm}") },
+                                confirmButton = {
+                                    TextButton(onClick = { vm.unpair(s.id); showUnpairDialog = false }) {
+                                        Text(S.delete, color = OojooTheme.Red, fontWeight = FontWeight.Bold)
                                     }
-                                )
-                            }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showUnpairDialog = false }) { Text(S.cancel) }
+                                }
+                            )
                         }
                     }
                 }
@@ -163,30 +210,67 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
     vm.policyTarget?.let { target ->
         MonitoringPolicyDialog(vm = vm, target = target)
     }
+    vm.renameTarget?.let { target ->
+        RenameDialog(vm = vm, target = target)
+    }
+    vm.commandsTarget?.let { target ->
+        CommandsDialog(vm = vm, target = target)
+    }
 }
 
 @Composable
 private fun MonitoringPolicyDialog(vm: FarmerListViewModel, target: Slave) {
     val S = LocalAppStrings.current
-    var intervalText by remember(vm.policy) { mutableStateOf(vm.policy?.roi_interval?.toString() ?: "") }
+    val p = vm.policy
+    var waterAuto by remember(p) { mutableStateOf((p?.water_auto ?: 1) == 1) }
+    var fanAuto by remember(p) { mutableStateOf((p?.fan_auto ?: 1) == 1) }
+    var laserApproval by remember(p) { mutableStateOf((p?.laser_approval ?: 1) == 1) }
+    var captureText by remember(p) { mutableStateOf(p?.capture_interval?.toString() ?: "60") }
+    var pestText by remember(p) { mutableStateOf(p?.pest_interval?.toString() ?: "15") }
+    var roiText by remember(p) { mutableStateOf(p?.roi_interval?.toString() ?: "20") }
+    val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line)
     AlertDialog(
         onDismissRequest = { if (!vm.policySaving) vm.closePolicy() },
         title = { Text(stringResource(R.string.monitoring_settings), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("'${target.name}' — ${stringResource(R.string.roi_interval_desc)}", fontSize = 13.sp, color = OojooTheme.Muted)
-                if (vm.policyLoading) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("🤖 '${target.name}'", fontSize = 13.sp, color = OojooTheme.Muted, fontWeight = FontWeight.Bold)
+                if (vm.policyLoading || p == null) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
                 } else {
+                    SwitchRow(stringResource(R.string.policy_water_auto), waterAuto) { waterAuto = it }
+                    SwitchRow(stringResource(R.string.policy_fan_auto), fanAuto) { fanAuto = it }
+                    SwitchRow(stringResource(R.string.policy_laser_approval), laserApproval) { laserApproval = it }
                     OutlinedTextField(
-                        value = intervalText,
-                        onValueChange = { v -> intervalText = v.filter { it.isDigit() }.take(4) },
-                        label = { Text(stringResource(R.string.roi_interval_label)) },
-                        placeholder = { Text(stringResource(R.string.roi_interval_hint)) },
+                        value = captureText,
+                        onValueChange = { v -> captureText = v.filter { it.isDigit() }.take(3) },
+                        label = { Text(stringResource(R.string.policy_capture_label)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         shape = OojooTheme.FieldShape,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line),
+                        colors = fieldColors,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(stringResource(R.string.policy_capture_range), fontSize = 11.sp, color = OojooTheme.Muted)
+                    OutlinedTextField(
+                        value = pestText,
+                        onValueChange = { v -> pestText = v.filter { it.isDigit() }.take(3) },
+                        label = { Text(stringResource(R.string.policy_pest_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = OojooTheme.FieldShape,
+                        colors = fieldColors,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(stringResource(R.string.policy_pest_range), fontSize = 11.sp, color = OojooTheme.Muted)
+                    OutlinedTextField(
+                        value = roiText,
+                        onValueChange = { v -> roiText = v.filter { it.isDigit() }.take(4) },
+                        label = { Text(stringResource(R.string.roi_interval_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = OojooTheme.FieldShape,
+                        colors = fieldColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(stringResource(R.string.roi_interval_range), fontSize = 11.sp, color = OojooTheme.Muted)
@@ -194,14 +278,103 @@ private fun MonitoringPolicyDialog(vm: FarmerListViewModel, target: Slave) {
             }
         },
         confirmButton = {
-            val sec = intervalText.toIntOrNull()
+            val cap = captureText.toIntOrNull()
+            val pest = pestText.toIntOrNull()
+            val roi = roiText.toIntOrNull()
             TextButton(
-                onClick = { sec?.let { vm.savePolicy(it.coerceIn(10, 3600)) } },
-                enabled = !vm.policySaving && sec != null && sec >= 10
+                onClick = {
+                    if (cap != null && pest != null && roi != null) {
+                        vm.savePolicy(waterAuto, fanAuto, laserApproval, cap, pest, roi)
+                    }
+                },
+                enabled = !vm.policySaving && p != null && cap != null && pest != null && roi != null
             ) { Text(S.save, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
             TextButton(onClick = { vm.closePolicy() }, enabled = !vm.policySaving) { Text(S.cancel) }
+        }
+    )
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+        Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedTrackColor = OojooTheme.Green, checkedThumbColor = Color.White))
+    }
+}
+
+@Composable
+private fun RenameDialog(vm: FarmerListViewModel, target: Slave) {
+    val S = LocalAppStrings.current
+    var name by remember(target.id) { mutableStateOf(target.name) }
+    AlertDialog(
+        onDismissRequest = { if (!vm.renameSaving) vm.closeRename() },
+        title = { Text(stringResource(R.string.rename_title), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { v -> name = v.take(50) },
+                    label = { Text(stringResource(R.string.rename_label)) },
+                    placeholder = { Text(stringResource(R.string.rename_hint)) },
+                    singleLine = true,
+                    shape = OojooTheme.FieldShape,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { vm.rename(name) }, enabled = !vm.renameSaving && name.isNotBlank()) {
+                Text(S.save, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { vm.closeRename() }, enabled = !vm.renameSaving) { Text(S.cancel) }
+        }
+    )
+}
+
+@Composable
+private fun CommandsDialog(vm: FarmerListViewModel, target: Slave) {
+    val S = LocalAppStrings.current
+    AlertDialog(
+        onDismissRequest = { vm.closeCommands() },
+        title = { Text(stringResource(R.string.commands_title), fontWeight = FontWeight.Bold) },
+        text = {
+            if (vm.commandsLoading) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
+            } else if (vm.commands.isEmpty()) {
+                Text(stringResource(R.string.commands_empty), fontSize = 13.sp, color = OojooTheme.Muted)
+            } else {
+                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    vm.commands.forEach { c ->
+                        val status = when (c.status) {
+                            "queued" -> stringResource(R.string.status_queued)
+                            "done" -> stringResource(R.string.status_done)
+                            "cancelled" -> stringResource(R.string.status_cancelled)
+                            else -> c.status
+                        }
+                        val color = when (c.status) {
+                            "queued" -> OojooTheme.Orange
+                            "done" -> OojooTheme.Teal
+                            else -> OojooTheme.Muted
+                        }
+                        Row(Modifier.fillMaxWidth().clip(OojooTheme.PillShape).background(OojooTheme.GreenBg).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text(c.action, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
+                                val extra = if (c.action == "water") " \u00B7 ${c.amount_ml}ml" else ""
+                                Text((c.created_at ?: "") + extra, fontSize = 11.sp, color = OojooTheme.Muted)
+                            }
+                            Text(status, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = color)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { vm.closeCommands() }) { Text(S.close, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
         }
     )
 }

@@ -378,4 +378,21 @@
     <string name="health_class_light_low">햇빛 부족</string>
     <string name="health_class_pest">해충 발생</string>
     <string name="health_class_heat">온도 더움</string>
+    <string name="btn_commands">명령</string>
+    <string name="btn_rename">이름</string>
+    <string name="rename_title">Farmer 이름 변경</string>
+    <string name="rename_label">새 이름</string>
+    <string name="rename_hint">예: 베란다 파머</string>
+    <string name="commands_title">명령 이력</string>
+    <string name="commands_empty">명령이 없습니다</string>
+    <string name="status_queued">대기</string>
+    <string name="status_done">완료</string>
+    <string name="status_cancelled">취소</string>
+    <string name="policy_water_auto">자동 관수</string>
+    <string name="policy_fan_auto">자동 Fan</string>
+    <string name="policy_laser_approval">Laser 마스터 승인</string>
+    <string name="policy_capture_label">캡처 주기 (분)</string>
+    <string name="policy_capture_range">10~360분 (기본 60분)</string>
+    <string name="policy_pest_label">해충 감지 주기 (분)</string>
+    <string name="policy_pest_range">5~120분 (기본 15분)</string>
 </resources>

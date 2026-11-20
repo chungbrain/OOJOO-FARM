@@ -378,4 +378,21 @@
     <string name="health_class_light_low">Low light</string>
     <string name="health_class_pest">Pest detected</string>
     <string name="health_class_heat">Too hot</string>
+    <string name="btn_commands">Commands</string>
+    <string name="btn_rename">Rename</string>
+    <string name="rename_title">Rename Farmer</string>
+    <string name="rename_label">New name</string>
+    <string name="rename_hint">e.g. Balcony Farmer</string>
+    <string name="commands_title">Command history</string>
+    <string name="commands_empty">No commands</string>
+    <string name="status_queued">Queued</string>
+    <string name="status_done">Done</string>
+    <string name="status_cancelled">Cancelled</string>
+    <string name="policy_water_auto">Auto watering</string>
+    <string name="policy_fan_auto">Auto fan</string>
+    <string name="policy_laser_approval">Laser master approval</string>
+    <string name="policy_capture_label">Capture interval (min)</string>
+    <string name="policy_capture_range">10–360 min (default 60)</string>
+    <string name="policy_pest_label">Pest check interval (min)</string>
+    <string name="policy_pest_range">5–120 min (default 15)</string>
 </resources>
