@@ -217,6 +217,48 @@ test('하트비트 stream_url — 저장/목록 반환/유효성', async () => {
   assert.equal(slaves[0].stream_url, 'https://10.0.0.5:8613/stream.mjpg');
 });
 
+test('하트비트 farmer 위치(lat/lon/region) — 저장/목록 반환/유효성', async () => {
+  const u = await (await post('/api/users', { nickname: 'locmaster', region: 'Seoul' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+  const H = { 'x-session-key': verify.sessionKey };
+
+  // 유효 좌표 + region 보고 → 목록에 노출
+  const ok = await post('/api/pairing/heartbeat', {
+    slaveId: verify.slaveId, battery: 77,
+    lat: 37.5665, lon: 126.978, region: '용인시',
+  }, H);
+  assert.equal(ok.status, 200);
+  let slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].lat, 37.5665);
+  assert.equal(slaves[0].lon, 126.978);
+  assert.equal(slaves[0].region, '용인시');
+
+  // 유효하지 않은 값 → 저장 안 됨 (기존 유지), 요청은 200
+  for (const [badLat, badLon] of [[999, 1], [1, -999], ['x', 1], [1, null]]) {
+    const r = await post('/api/pairing/heartbeat', {
+      slaveId: verify.slaveId, battery: 76, lat: badLat, lon: badLon, region: 'x'.repeat(101),
+    }, H);
+    assert.equal(r.status, 200);
+  }
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].lat, 37.5665);
+  assert.equal(slaves[0].lon, 126.978);
+  assert.equal(slaves[0].region, '용인시');
+
+  // 위치 없는 하트비트 → 기존 좌표 유지 (온라인 갱신은 됨)
+  await post('/api/pairing/heartbeat', { slaveId: verify.slaveId, battery: 75 }, H);
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].lat, 37.5665);
+  assert.equal(slaves[0].battery, 75);
+
+  // 경계값 허용 (±90/±180)
+  await post('/api/pairing/heartbeat', { slaveId: verify.slaveId, lat: -90, lon: 180 }, H);
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].lat, -90);
+  assert.equal(slaves[0].lon, 180);
+});
+
 test('자율 정책 기본값 + 갱신', async () => {
   const u = await (await post('/api/users', { region: 'Daegu' })).json();
   const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;

@@ -245,6 +245,10 @@ ensureColumn('users', 'push_tokens', 'push_tokens TEXT');
 ensureColumn('orders', 'pg_payment_key', 'pg_payment_key TEXT');
 // 실시간 카메라 — slave의 직접 MJPEG 스트림 URL (하트비트로 보고)
 ensureColumn('slaves', 'stream_url', 'stream_url TEXT');
+// farmer(농장) 위치 — 마스터 홈의 "농장 날씨" 조회용 (하트비트로 보고)
+ensureColumn('slaves', 'lat', 'lat REAL');
+ensureColumn('slaves', 'lon', 'lon REAL');
+ensureColumn('slaves', 'region', 'region TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 db.exec(`

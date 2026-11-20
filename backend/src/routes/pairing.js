@@ -59,6 +59,7 @@ r.get('/:userId', (req, res) => {
   const ids = householdMemberIds(req.params.userId);
   const rows = db.prepare(`
     SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.stream_url,
+           s.lat, s.lon, s.region,
            s.user_id AS owner_id,
            u.nickname AS owner_name, u.email AS owner_email
     FROM slaves s
@@ -79,20 +80,35 @@ r.get('/:userId', (req, res) => {
 function cleanStreamUrl(v) {
   return typeof v === 'string' && v.length > 0 && v.length <= 200 && /^https?:\/\//.test(v) ? v : null;
 }
+// farmer(농장) 위치 — 좌표는 유효 범위 검사, region은 짧은 문자열만.
+// 미보고/무효이면 기존 값 유지 (마스터가 farmer 날씨를 조회할 데이터).
+// Number(null)===0 함정 — null/빈 문자열/비숫자 문자열은 num()에서 거부.
+function num(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+  return null;
+}
+function cleanCoords(lat, lon) {
+  const a = num(lat); const b = num(lon);
+  if (a == null || b == null) return null;
+  if (a < -90 || a > 90 || b < -180 || b > 180) return null;
+  return { lat: a, lon: b };
+}
+function cleanRegion(v) {
+  return typeof v === 'string' && v.length > 0 && v.length <= 100 ? v : null;
+}
 r.post('/heartbeat', slaveAuth, (req, res) => {
-  const { slaveId, battery, streamUrl } = req.body;
+  const { slaveId, battery, streamUrl, lat, lon, region } = req.body;
+  const sets = ["online=1", "last_seen=datetime('now')"];
+  const args = [];
+  if (battery != null) { sets.push('battery=?'); args.push(Number(battery)); }
   const stream = cleanStreamUrl(streamUrl);
-  if (battery != null) {
-    if (stream) {
-      db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), battery=?, stream_url=? WHERE id=?").run(Number(battery), stream, slaveId);
-    } else {
-      db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), battery=? WHERE id=?").run(Number(battery), slaveId);
-    }
-  } else if (stream) {
-    db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), stream_url=? WHERE id=?").run(stream, slaveId);
-  } else {
-    db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now') WHERE id=?").run(slaveId);
-  }
+  if (stream) { sets.push('stream_url=?'); args.push(stream); }
+  const coords = cleanCoords(lat, lon);
+  if (coords) { sets.push('lat=?', 'lon=?'); args.push(coords.lat, coords.lon); }
+  const reg = cleanRegion(region);
+  if (reg) { sets.push('region=?'); args.push(reg); }
+  db.prepare(`UPDATE slaves SET ${sets.join(', ')} WHERE id=?`).run(...args, slaveId);
   res.json({ ok: true });
 });
 
