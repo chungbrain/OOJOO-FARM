@@ -168,6 +168,7 @@ class AppStrings internal constructor(private val context: Context) {
     val notiAutoWater: String get() = context.getString(R.string.noti_auto_water)
     val notiManualWater: String get() = context.getString(R.string.noti_manual_water)
     val notiWaterFailed: String get() = context.getString(R.string.noti_water_failed)
+    val notiBatteryLow: String get() = context.getString(R.string.noti_battery_low)
     val notiAnomaly: String get() = context.getString(R.string.noti_anomaly)
     val notiCapture: String get() = context.getString(R.string.noti_capture)
     val notiHealthChange: String get() = context.getString(R.string.noti_health_change)

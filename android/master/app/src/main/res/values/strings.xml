@@ -111,6 +111,7 @@
     <string name="noti_auto_water">💧 자율 관수</string>
     <string name="noti_manual_water">💧 수동 관수</string>
     <string name="noti_water_failed">⚠️ 관수 실패 (미실행)</string>
+    <string name="noti_battery_low">🔋 배터리 부족</string>
     <string name="noti_anomaly">⚠️ 이상 징후</string>
     <string name="noti_capture">📷 캡처</string>
     <string name="noti_health_change">🌿 건강상태 변화</string>

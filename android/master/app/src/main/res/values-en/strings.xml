@@ -111,6 +111,7 @@
     <string name="noti_auto_water">💧 Auto water</string>
     <string name="noti_manual_water">💧 Manual water</string>
     <string name="noti_water_failed">⚠️ Watering failed (not executed)</string>
+    <string name="noti_battery_low">🔋 Low battery</string>
     <string name="noti_anomaly">⚠️ Anomaly</string>
     <string name="noti_capture">📷 Capture</string>
     <string name="noti_health_change">🌿 Health change</string>

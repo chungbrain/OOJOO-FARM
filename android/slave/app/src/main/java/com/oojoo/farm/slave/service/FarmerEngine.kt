@@ -297,9 +297,11 @@ object FarmerEngine {
             while (isActive) {
                 // 하트비트는 자율 정지 상태여도 항상 전송(온라인 표시 유지)
                 try {
-                    ApiClient.api.heartbeat(HeartbeatRequest(slaveId(), batteryLevel()))
+                    val batt = batteryLevel()
+                    ApiClient.api.heartbeat(HeartbeatRequest(slaveId(), batt))
                     _online.value = true
                     flushQueue() // 재연결 시 오프라인 누적 이벤트 동기화
+                    maybeNotifyLowBattery(batt)
                 } catch (_: Exception) { _online.value = false }
                 if (!sseConnected) pollCommands() // SSE 미연결 시 폴링 fallback
                 if (_autoOn.value) tick()
@@ -375,6 +377,27 @@ object FarmerEngine {
         val bm = appCtx.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
     } catch (_: Exception) { null }
+
+    // 배터리 부족 알림 — 임계값 이하로 떨어질 때(하락 엣지) 마스터에 battery_low 이벤트.
+    private val BATTERY_LOW_THRESHOLD = 20 // %
+    private val BATTERY_LOW_COOLDOWN = 60 * 60 * 1000L // 1시간
+    private var lastBatteryBelowThreshold = false
+    private var lastBatteryLowNotify = 0L
+
+    private fun maybeNotifyLowBattery(batt: Int?) {
+        if (batt == null) return
+        val nowMs = System.currentTimeMillis()
+        if (batt > BATTERY_LOW_THRESHOLD) {
+            lastBatteryBelowThreshold = false // 정상 구간 복귀 → 다음 하락 엣지 준비
+            return
+        }
+        if (!lastBatteryBelowThreshold && nowMs - lastBatteryLowNotify >= BATTERY_LOW_COOLDOWN) {
+            lastBatteryBelowThreshold = true
+            lastBatteryLowNotify = nowMs
+            addLog("[${now()}] ⚠️ 배터리 부족 (${batt}%) → 마스터 알림")
+            postEventSafe("battery_low", mapOf("level" to "$batt", "threshold" to "$BATTERY_LOW_THRESHOLD"))
+        }
+    }
 
     private fun loadPlant() {
         scope.launch {

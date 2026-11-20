@@ -53,6 +53,7 @@ private fun notiColor(t: String, payload: String?): Color = when (t) {
     "auto_water" -> OojooTheme.Blue
     "manual_water" -> OojooTheme.Blue
     "water_failed" -> OojooTheme.Orange
+    "battery_low" -> OojooTheme.Orange
     "anomaly" -> OojooTheme.Red
     // F3 — 건강상태 변화: 악화(poor/very_poor)는 주황, 개선은 청록
     "health_change" -> notiHealthColor(payload)
