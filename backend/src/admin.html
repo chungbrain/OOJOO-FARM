@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOJOO-FARM 관리 대시보드</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2d3646;
+  --tx:#e6edf3; --tx2:#8b98a9; --ok:#3fb950; --warn:#d29922; --err:#f85149; --info:#58a6ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0}
+header .sub{color:var(--tx2);font-size:12px}
+header .grow{flex:1}
+button{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px}
+button:hover{border-color:var(--info)}
+main{padding:18px 20px;max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+h2{font-size:15px;margin:0 0 10px;border-left:3px solid var(--info);padding-left:8px}
+h3{font-size:13px;color:var(--tx2);margin:14px 0 6px}
+.cards{display:flex;flex-wrap:wrap;gap:10px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:120px}
+.card .v{font-size:22px;font-weight:700}
+.card .l{color:var(--tx2);font-size:12px}
+.card .v.ok{color:var(--ok)} .card .v.warn{color:var(--warn)} .card .v.err{color:var(--err)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--tx2);text-align:left;font-weight:600;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:5px 8px;border-bottom:1px solid rgba(45,54,70,.5);vertical-align:top;word-break:break-all}
+tr:hover td{background:rgba(88,166,255,.06)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.bar .lbl{width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.bar .track{flex:1;background:var(--panel2);border-radius:4px;height:14px;overflow:hidden}
+.bar .fill{height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);border-radius:4px;min-width:2px}
+.bar .num{width:60px;text-align:right;color:var(--tx2)}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;border:1px solid var(--line)}
+.b-ok{color:var(--ok);border-color:var(--ok)} .b-warn{color:var(--warn);border-color:var(--warn)}
+.b-err{color:var(--err);border-color:var(--err)} .b-info{color:var(--info);border-color:var(--info)}
+.b-dim{color:var(--tx2)}
+#status{color:var(--tx2);font-size:12px}
+#status.err{color:var(--err)}
+pre{margin:4px 0;padding:8px;background:var(--panel2);border-radius:6px;overflow:auto;font-size:11px;max-height:180px}
+.empty{color:var(--tx2);padding:8px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>OOJOO-FARM 관리 대시보드</h1>
+  <span class="sub">백엔드 모니터링 / 15초 자동 새로고침</span>
+  <span class="grow"></span>
+  <span id="status">로드 중…</span>
+  <button id="refresh">새로고침</button>
+</header>
+<main>
+  <section>
+    <h2>개요</h2>
+    <div class="cards" id="ov-cards"></div>
+  </section>
+
+  <section>
+    <h2>마스터 앱 활동</h2>
+    <div class="grid2">
+      <div>
+        <h3>사용자 (마스터)</h3>
+        <table id="tbl-users"></table>
+      </div>
+      <div>
+        <h3>API 도메인 사용량 (상위 10)</h3>
+        <div id="api-bars"></div>
+      </div>
+    </div>
+    <h3>최근 API 요청</h3>
+    <table id="tbl-api"></table>
+  </section>
+
+  <section>
+    <h2>팜어 활동</h2>
+    <div class="cards" id="fm-cards" style="margin-bottom:10px"></div>
+    <table id="tbl-slaves"></table>
+    <div class="grid2">
+      <div>
+        <h3>최근 이벤트</h3>
+        <table id="tbl-events"></table>
+      </div>
+      <div>
+        <h3>최근 급수</h3>
+        <table id="tbl-water"></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>마스터 ↔ 팜어 관계</h2>
+    <div class="grid2">
+      <div>
+        <h3>페어링 코드</h3>
+        <table id="tbl-pair"></table>
+      </div>
+      <div>
+        <h3>가정 (가구) 구성</h3>
+        <table id="tbl-households"></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>마켓 활동</h2>
+    <div class="cards" id="mk-cards"></div>
+    <div class="grid2">
+      <div>
+        <h3>상위 상품 (판매 기준)</h3>
+        <table id="tbl-products"></table>
+      </div>
+      <div>
+        <h3>최근 주문</h3>
+        <table id="tbl-orders"></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>커뮤니티 활동</h2>
+    <div class="cards" id="cm-cards"></div>
+    <div class="grid2">
+      <div>
+        <h3>최근 게시글</h3>
+        <table id="tbl-posts"></table>
+      </div>
+      <div>
+        <h3>평판 상위</h3>
+        <table id="tbl-rep"></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>시스템</h2>
+    <div class="grid2">
+      <div>
+        <h3>시간당 API 호출 (24시간)</h3>
+        <div id="hour-bars"></div>
+      </div>
+      <div>
+        <h3>5xx 오류 (최근 10건)</h3>
+        <table id="tbl-errors"></table>
+      </div>
+    </div>
+    <h3>최근 크래시</h3>
+    <table id="tbl-crashes"></table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = (n) => Number(n || 0).toLocaleString('ko-KR') + '원';
+const ts = (s) => s ? String(s).replace('T', ' ').slice(0, 19) : '-';
+
+function setTable(el, cols, rows) {
+  if (!rows.length) { el.innerHTML = '<tr><td class="empty">데이터 없음</td></tr>'; return; }
+  el.innerHTML = '<tr>' + cols.map((c) => '<th>' + esc(c.label) + '</th>').join('') + '</tr>' +
+    rows.map((row) => '<tr>' + cols.map((c) => {
+      const v = c.render ? c.render(row) : row[c.key];
+      return '<td>' + (v == null ? '-' : v) + '</td>';
+    }).join('') + '</tr>').join('');
+}
+
+function setBars(el, items, fmt) {
+  if (!items.length) { el.innerHTML = '<div class="empty">데이터 없음</div>'; return; }
+  const max = Math.max(...items.map((i) => i.value), 1);
+  el.innerHTML = items.map((i) =>
+    '<div class="bar"><span class="lbl" title="' + esc(i.label) + '">' + esc(i.label) + '</span>' +
+    '<span class="track"><span class="fill" style="width:' + (i.value / max * 100).toFixed(1) + '%"></span></span>' +
+    '<span class="num">' + (fmt ? fmt(i.value) : i.value) + '</span></div>').join('');
+}
+
+function setCards(el, items) {
+  el.innerHTML = items.map((c) =>
+    '<div class="card"><div class="v ' + (c.cls || '') + '">' + (c.value == null ? '-' : c.value) + '</div><div class="l">' + esc(c.label) + '</div></div>').join('');
+}
+
+const badge = (text, cls) => '<span class="badge ' + (cls || 'b-dim') + '">' + esc(text) + '</span>';
+const onlineBadge = (v) => v === 1 ? badge('온라인', 'b-ok') : badge('오프라인', 'b-dim');
+const statusBadge = (s) => {
+  const k = String(s || '');
+  if (['paid', 'used', 'done', 'open', 'active'].includes(k)) return badge(k, 'b-ok');
+  if (['canceled', 'failed'].includes(k)) return badge(k, 'b-err');
+  if (['pending', 'reserved'].includes(k)) return badge(k, 'b-warn');
+  return badge(k, 'b-info');
+};
+const httpBadge = (s) => s >= 500 ? badge(s, 'b-err') : s >= 400 ? badge(s, 'b-warn') : badge(s, 'b-ok');
+
+function render(d) {
+  const o = d.overview;
+  setCards($('ov-cards'), [
+    { label: '마스터 (사용자)', value: o.users },
+    { label: '팜어 (온라인/전체)', value: o.slaves.online + ' / ' + o.slaves.total, cls: o.slaves.online === o.slaves.total && o.slaves.total > 0 ? 'ok' : 'warn' },
+    { label: '식물', value: o.plants },
+    { label: '주문', value: o.orders },
+    { label: '커뮤니티 게시글', value: o.communityPosts },
+    { label: 'API 호출 (24h)', value: o.apiCalls24h.toLocaleString() },
+    { label: '5xx 오류 (24h)', value: o.errors24h, cls: o.errors24h > 0 ? 'err' : 'ok' }
+  ]);
+
+  setTable($('tbl-users'), [
+    { label: 'id', key: 'id' },
+    { label: '닉네임', key: 'nickname' },
+    { label: '지역', key: 'region' },
+    { label: '플랜', key: 'plan' },
+    { label: '팜어', key: 'slaves' },
+    { label: '식물', key: 'plants' },
+    { label: '주문', key: 'orders' },
+    { label: '게시글', key: 'posts' },
+    { label: '가입', key: 'created_at', render: (r) => ts(r.created_at) }
+  ], d.master.users);
+  setBars($('api-bars'), d.master.apiUsage.map((x) => ({ label: x.endpoint, value: x.count })));
+  setTable($('tbl-api'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: 'method', key: 'method' },
+    { label: 'path', key: 'path' },
+    { label: 'status', key: 'status', render: (r) => httpBadge(r.status) },
+    { label: 'ms', key: 'duration' },
+    { label: 'ip', key: 'ip' }
+  ], d.master.recentApi);
+
+  setCards($('fm-cards'), [
+    { label: '팜어 (온라인/전체)', value: d.farmer.slaves.filter((s) => s.online === 1).length + ' / ' + d.farmer.slaves.length },
+    { label: '대기 중 명령', value: d.farmer.pendingCommands, cls: d.farmer.pendingCommands > 0 ? 'warn' : '' },
+    { label: '최근 이벤트 (표시 20건)', value: d.farmer.recentEvents.length }
+  ]);
+  setTable($('tbl-slaves'), [
+    { label: '상태', key: 'online', render: (r) => onlineBadge(r.online) },
+    { label: '이름', key: 'name' },
+    { label: 'id', key: 'id' },
+    { label: '소유 마스터', key: 'user_name' },
+    { label: '배터리', key: 'battery', render: (r) => r.battery == null ? '-' : r.battery + '%' },
+    { label: '이벤트 24h', key: 'events_24h' },
+    { label: '누적 급수', key: 'watered_ml_total', render: (r) => r.watered_ml_total + 'ml' },
+    { label: '마지막 확인', key: 'last_seen', render: (r) => ts(r.last_seen) }
+  ], d.farmer.slaves);
+  setTable($('tbl-events'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: '팜어', key: 'slave_name' },
+    { label: '타입', key: 'type', render: (r) => badge(r.type, 'b-info') },
+    { label: 'payload', key: 'payload', render: (r) => '<pre style="display:inline-block;max-width:280px">' + esc(r.payload) + '</pre>' }
+  ], d.farmer.recentEvents);
+  setTable($('tbl-water'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: '팜어', key: 'slave_name' },
+    { label: '식물', key: 'plant_name' },
+    { label: '양', key: 'amount_ml', render: (r) => r.amount_ml + 'ml' },
+    { label: '출처', key: 'source' }
+  ], d.farmer.recentWaterings);
+  setTable($('tbl-pair'), [
+    { label: '코드', key: 'code' },
+    { label: '마스터', key: 'user_name' },
+    { label: '팜어', key: 'slave_name' },
+    { label: '상태', key: 'status', render: (r) => statusBadge(r.status) },
+    { label: '생성', key: 'created_at', render: (r) => ts(r.created_at) }
+  ], d.relations.pairings);
+  setTable($('tbl-households'), [
+    { label: '가정', key: 'name' },
+    { label: '대표', key: 'owner_name' },
+    { label: '구성원', key: 'members' },
+    { label: '목록', key: 'members_list', render: (r) => (r.members_list || []).map((m) => esc(m.nickname) + '(' + esc(m.role) + ')').join(', ') || '-' },
+    { label: '생성', key: 'created_at', render: (r) => ts(r.created_at) }
+  ], d.relations.households);
+
+  const byStatus = Object.fromEntries(d.market.orders.byStatus.map((x) => [x.status, x]));
+  setCards($('mk-cards'), [
+    { label: '상품 수 (재고 합계)', value: d.market.products.total + ' (' + d.market.products.stock + ')' },
+    { label: '주문 수', value: d.market.orders.total },
+    { label: '매출 (결제완료)', value: money(d.market.orders.revenuePaid) },
+    { label: '매출 (24h)', value: money(d.market.orders.revenue24h) },
+    { label: '대기 결제', value: byStatus.pending_payment ? byStatus.pending_payment.count : 0, cls: byStatus.pending_payment ? 'warn' : '' },
+    { label: '제휴 클릭 (7일)', value: d.market.affiliate.week }
+  ]);
+  setTable($('tbl-products'), [
+    { label: '상품', key: 'name' },
+    { label: '판매 수량', key: 'qty' },
+    { label: '매출', key: 'revenue', render: (r) => money(r.revenue) }
+  ], d.market.topProducts);
+  setTable($('tbl-orders'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: '주문자', key: 'user_name' },
+    { label: '금액', key: 'total', render: (r) => money(r.total) },
+    { label: '상태', key: 'status', render: (r) => statusBadge(r.status) }
+  ], d.market.recentOrders);
+
+  const bt = Object.fromEntries(d.community.posts.byTypeStatus.map((x) => [x.type + ':' + x.status, x.count]));
+  setCards($('cm-cards'), [
+    { label: '게시글 (전체/열려있음)', value: d.community.posts.total + ' / ' + d.community.posts.open },
+    { label: '나눔', value: (bt['share:open'] || 0) + (bt['share:done'] || 0) },
+    { label: '판매', value: (bt['sell:open'] || 0) + (bt['sell:done'] || 0) },
+    { label: '구입', value: (bt['buy:open'] || 0) + (bt['buy:done'] || 0) },
+    { label: '댓글', value: d.community.comments }
+  ]);
+  setTable($('tbl-posts'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: '유형', key: 'type', render: (r) => statusBadge(r.type) },
+    { label: '제목', key: 'title' },
+    { label: '작물', key: 'crop' },
+    { label: '지역', key: 'region' },
+    { label: '작성자', key: 'user_name' },
+    { label: '상태', key: 'status', render: (r) => statusBadge(r.status) }
+  ], d.community.recentPosts);
+  setTable($('tbl-rep'), [
+    { label: '닉네임', key: 'nickname' },
+    { label: '평점', key: 'score' },
+    { label: '거래', key: 'deals' }
+  ], d.community.reputationTop);
+
+  setBars($('hour-bars'), d.system.hourly24h.map((x) => ({ label: x.hour.slice(5), value: x.count })));
+  setTable($('tbl-errors'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: 'method', key: 'method' },
+    { label: 'path', key: 'path' },
+    { label: 'status', key: 'status', render: (r) => httpBadge(r.status) },
+    { label: 'ip', key: 'ip' }
+  ], d.system.recentErrors);
+  setTable($('tbl-crashes'), [
+    { label: '시간', key: 'created_at', render: (r) => ts(r.created_at) },
+    { label: '출처', key: 'source', render: (r) => badge(r.source, 'b-warn') },
+    { label: '기기', key: 'device_id' },
+    { label: '에러', key: 'error_message' }
+  ], d.system.crashes);
+}
+
+let loading = false;
+async function load() {
+  if (loading) return;
+  loading = true;
+  try {
+    const r = await fetch('/api/admin/dashboard', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    render(d);
+    $('status').className = '';
+    $('status').textContent = '최근 업데이트 ' + new Date().toLocaleTimeString('ko-KR') + ' · 서버 가동 ' + d.system.uptimeSec + 's';
+  } catch (e) {
+    $('status').className = 'err';
+    $('status').textContent = '대시보드 로드 실패: ' + e.message + ' (백엔드 실행 중인지 확인)';
+  } finally {
+    loading = false;
+  }
+}
+
+$('refresh').addEventListener('click', load);
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

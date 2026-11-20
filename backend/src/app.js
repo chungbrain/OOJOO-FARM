@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import users from './routes/users.js';
 import pairing from './routes/pairing.js';
 import plants from './routes/plants.js';
@@ -57,6 +60,14 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 app.get('/health', (req, res) => res.json({ ok: true, service: 'oojoo-farm', ts: Date.now() }));
+
+// 모니터링 페이지 — self-contained HTML (CDN 없음), 데이터는 GET /api/admin/dashboard
+const here = path.dirname(fileURLToPath(import.meta.url));
+let adminPage;
+app.get('/admin', (req, res) => {
+  if (!adminPage) adminPage = readFileSync(path.join(here, 'admin.html'));
+  res.type('html').send(adminPage);
+});
 
 app.use('/api/users', users);
 app.use('/api/pairing', pairing);

@@ -125,6 +125,15 @@ npm start
 |--------|------|------|
 | GET | /api/weather/:region | { region, temp, humidity, precipitation, weatherCode, weatherFactor } |
 
+### 관리 / 모니터링
+| 메서드 | 경로 | 응답 |
+|--------|------|------|
+| GET | /api/admin/stats | { devices, apiUsage, crashes, timeSeries } |
+| GET | /api/admin/dashboard | 전체 집계 — overview(개요), master(마스터 앱 활동), farmer(팜어 활동), relations(마스터↔팜어 관계: 페어링/가구), market(주문/매출/상품/제휴), community(게시글/댓글/평판), system(API 트래픽/5xx/크래시) |
+| GET | /admin | self-contained 모니터링 페이지 (CDN 없음, 15초 자동 새로고침) — 위 dashboard JSON 렌더링 |
+
+기존 admin API와 동일한 신뢰 모델 (PRD상 마스터 API 비인증). 운영망에 열지 말 것.
+
 ## 테스트
 ```bash
 npm test    # node:test 통합 테스트 (임시 DB 로 격리)
