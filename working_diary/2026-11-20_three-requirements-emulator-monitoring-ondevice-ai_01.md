@@ -87,7 +87,29 @@
 | 에뮬레이터 | 워처 자동설치로 versionCode 2026112012 (dumpsys) |
 
 ### 남은 작업
-- GitHub push — 사용자 지시 대기 (현재 main이 origin 48 ahead, 미푸시)
+- GitHub push — 사용자 지시 대기 (현재 main이 origin 50 ahead, 미푸시)
 - 인터넷 실사진 eval(`eval_internet.py`) — 웹 차단 호스트에서 불가, 문서화된 알려진 한계
   (synthetic→real 10–25%, 게이트 아님)
 - 에뮬레이터 워처는 세션 백그라운드에서 가동 중 (pid `.dev-run/emulator-watch.pid`)
+
+## wave 후 부록: 에뮬레이터 포트 → 8989 (2026-11-20)
+
+- 요청: "8989로 해줘" (5555 문의 후. 5555는 이 호스트 root `nv-hostengine`(NVIDIA DCGM,
+  6일+ 가동)이 점유 중 — root 프로세스라 종료 불가/비추천).
+- 측정: emulator 37.3.10.0에서 `-port N`은 **ADB 포트 자체** (console = N+1).
+  `-port 8988` → `emulator-8988`. 권장 범위 [5555,5586] 밖이라 WARNING 로그하나
+  transport 등록/동작 정상.
+- 함정 2개:
+  1. 강제 종료된 에뮬레이터의 **유령 transport** (`emulator-5554`)가 adb 서버에
+     남음 (진짜 프로세스 없음) → bare adb "more than one device".
+  2. ADB를 bash **함수**로 바꾸면 호출처의 `"$ADB"` 변수 전개에서 함수명이
+     빈 문자열로 전개됨 (함수명은 변수 아님) — 호출처 12개가 전부 `: command
+     not found`으로 죽을 뻔. 소싱 직후 헬퍼 테스트(`device_ready` rc=1)가 포착 →
+     함수명을 변수에 보관하는 포인터 패턴으로 수정 (호출처 0 변경).
+- 변경: `emulator.env` (`EMU_PORT=8989`/`EMU_SERIAL`, ADB 포인터),
+  `emulator-up.sh` (`-port "$EMU_PORT"`), `docs/builds/2026112012.md` 구동 명령.
+- 검증: `emulator-8989` 기동, device_ready/boot_completed/pkg_info OK,
+  dumpsys master/slave `versionCode=2026112012` (lastUpdateTime 04:08:32/04:07:52
+  유지 — userdata 영속, 재설치 불필요), 양 앱 프로세스 가동.
+- 커밋: `04a75f7` (chore(scripts): pin emulator ADB port 8989, serial-pinned adb).
+  미푸시 (사용자 지시 대기).
