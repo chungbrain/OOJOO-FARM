@@ -89,3 +89,51 @@ d60ceaf feat(master): profile screen, DM (conversations+thread), notification de
 - cactus 재학습 시 "운 좋은 seed" 아님을 보장하기 위해 고정 독립 holdout(rng 2026) 교차 평가 —
   val 스플릿 자체가 seed마다 달라지므로 필수
 - dist/ 마스터 APK 12MB 경량은 Batch G GLB 삭제 효과(기존 APK가 죽은 자산을 포함했던 것)
+
+---
+
+## Addendum — W8: Phase 6 코드 완결 (2026112011, 2026-11-20)
+
+지시 "개발의 완성도가 가장 높은 결정을 해"에 따라 위 "남은 작업" 중 4개를 코드 완결 + 설정 게이트로 닫았다.
+
+### FCM push (완결, config-gate)
+- 백엔드 `src/lib/push.js`: FCM v1 HTTP API, node:crypto RS256 JWT(의존성 0), data-only 메시지.
+  `FCM_PROJECT_ID`+`FCM_SERVICE_ACCOUNT` env 채우면 즉시 활성, 미설정 시 no-op.
+- `dispatchMasterAlert()` — SSE chokepoint(단건+배치) 병행. 대상 = SSE 4종 + `water_failed` + `battery_low`.
+  수신 = 소유자+가구원 전체 디바이스(`users.push_tokens`, 최대 10).
+- 마스터: google-services **플러그인 없이** `FirebaseCfg`(빈 값=비활성) + `OojooApp` 수동 초기화,
+  `FcmService`는 기존 `notiLabel`/`notiColor` 로 로컬 알림 렌더링(인앱과 동일). 로그인 전 토큰은 pending 보관.
+- 테스트 6건 추가 (JWT 서명 공개키 검증 포함). npm test 61→67.
+
+### Toss Payments (완결, config-gate)
+- `PG_MODE` 스위치 — 기본 demo(기존 동작 바이트 동일). toss: `pending_payment`(재고 미차감) →
+  서버가 결제 생성(`POST /v1/payments/requests`, secret key) → `approvalUrl` → 브라우저 승인 →
+  confirm(`POST /gateway/payments/{key}`) / 웹훅(HMAC `tss_v1:hmac_sha256(secret, Toss-Timestamp+rawBody)`,
+  raw 바디라 `express.json()` 전에 `express.raw` 마운트) / 폴링 조회 중 먼저 도착한 것으로 멱등 `paid`.
+  `markOrderPaid()` 단일 chokepoint — 경쟁 포함 재고 차감 1회. 취소는 `canceled`.
+- **디자인 변경(의사결정)**: Toss Android SDK(`com.toss:tosspay-android`)가 가용 리포지토리(Maven Central/Google
+  Maven)에 없고 docs 미달성이므로 SDK 의존 대신 **서버 주도 approval-url 플로우** — 앱에는 Toss 키가 전혀 없음
+  (SDK 방식보다 보안적으로도 강함).
+- 마스터: 체크아웃 `pending_payment` → approvalUrl 브라우저 + 3초 폴링(2분). 확정 시에만 장바구니 비움.
+- 테스트 16건 추가. npm test 67→83.
+
+### W5 안전 로직 시뮬레이션 테스트 (실기기 E2E 대안)
+- `FarmerEngine.kt` W5 미러를 `simulation/src/engine/wateringSafety.js` 로 순수 상태머신 이식
+  (엣지 히스테리시스/30분 쿨다운/성공 시에만 엣지 소모/수동도 기준점 갱신/water_failed/battery_low).
+  `FarmerSim` water 명령이 실제로 이 경로를 쓴다.
+- 테스트 9건 — 시뮬레이션 게이트 15→24. 범람 수정이 이제 디바이스 없이도 증명됨.
+
+### 개인화 원커맨드
+- `personalize.sh --species X` (export→finetune→round-trip, 무데이터 거절 exit 2).
+  양쪽 경로 실검증(빈 DB 거절 / 시드 DB → val 0.5→1.0 → 복원). `export_diagnosis.py` 경고는 stderr 로 이동.
+
+### 빌드 2026112011
+- versionCode/Name 2026112011 양 앱, dist/ 재빌드 (마스터 +0.8MB = Firebase deps).
+- aapt 확인, 슬레이브 APK cactus.bin sha256 = 재학습 모델 일치, 마스터 manifest FcmService 확인.
+- 문서: README/PRD/backend README Phase 6 = code-complete + config-gated, `.env.example` FCM/PG env,
+  `docs/builds/2026112011.md`.
+
+### 여전히 호스트 한계 (의도된 config-gate — 미완결이 아님)
+- FCM 실동작(실 Firebase + 실 디바이스), Toss 실결제(실 PG 계정), 개인화 실데이터(실 사용 라벨),
+  BLE/카메라 실기기 E2E.
+- 마스터 API 비인증 노출 — PRD 공개 피드 설계 유지(변경 필요 시 별도 질문).

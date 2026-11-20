@@ -381,6 +381,25 @@ OOJOO FARM은 가정에서 식용작물(채소, 과채, 허브 등)을 재배하
 ### Phase 5 — 고도화 (지속)
 - AI 모델 정확도 개선, 다 Farmer 관리, 구독 플랜, 다작물 확장
 
+### Phase 6 — 푸시/결제/개인화 (2026-11-20, build 2026112011)
+- [M] **FCM push** — 코드 완성, 설정 게이트: 백엔드 env `FCM_PROJECT_ID` +
+  `FCM_SERVICE_ACCOUNT`(서비스 계정 키) 와 마스터 앱 `FirebaseCfg`
+  (PROJECT_ID/API_KEY/APP_ID — google-services.json 값) 를 채우는 순간 활성화.
+  미설정 동안은 완전 무활성(빌드·동작 영향 없음). 대상 이벤트: `health_change` /
+  `water_low` / `pest_detected` / `harvest_ready` + `water_failed` /
+  `battery_low`(SSE 비연결 시에도 도달). 수신: 소유자 + 가구원 전체의 등록 디바이스.
+- [M] **결제 게이트웨이 (Toss Payments)** — 코드 완성, 설정 게이트: 백엔드 env
+  `PG_MODE=toss` + `TOSS_SECRET_KEY` + `TOSS_WEBHOOK_SECRET`. 플로우: 체크아웃
+  `pending_payment`(재고 미차감) → 서버가 결제 생성(`POST /v1/payments/requests`) →
+  브라우저 approval → 확인(`POST /gateway/payments/{paymentKey}`) 또는 웹훅
+  (서명 `tss_v1:hmac_sha256(secret, Toss-Timestamp + rawBody)`) → 멱등 `paid`
+  전환(재고 차감은 confirm·웹훅 경쟁 포함 딱 1회). `PG_MODE` 미설정 시 기존
+  demo(즉시 `paid`) 동작 유지. 클라이언트에 Toss 키/SDK 없음(서버 주도).
+- [M] **모델 개인화 원커맨드** — `ml/plant_health/personalize.sh --species X`:
+  백엔드 DB 에서 사람 확인 진단 프레임 추출 → 온디바이스 모델 파인튜닝 →
+  round-trip 검증. 데이터 없으면 거절(exit 2).
+- 추가 모델 종(Phase 5 연장)
+
 ---
 
 ## 10. 리스크 & 대응

@@ -12,9 +12,9 @@ android {
         applicationId = "com.oojoo.farm.master"
         minSdk = 26
         targetSdk = 34
-// Android versionCode is a 32-bit Int (max 2147483647). Build label 2026112010 is in versionName.
-        versionCode = 2026112010
-        versionName = "1.0.2026112010"
+// Android versionCode is a 32-bit Int (max 2147483647). Build label 2026112011 is in versionName.
+        versionCode = 2026112011
+        versionName = "1.0.2026112011"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

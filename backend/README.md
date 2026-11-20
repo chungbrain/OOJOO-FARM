@@ -20,6 +20,14 @@ npm start
 ```
 개발(자동 재시작): `npm run dev`
 
+## 선택 환경변수 (Phase 6 — 미설정 시 해당 기능 off)
+
+| 변수 | 효과 |
+|---|---|
+| `FCM_PROJECT_ID` + `FCM_SERVICE_ACCOUNT` | FCM push 활성화 (서비스 계정 키 JSON 경로 또는 인라인 JSON). 마스터 앱 `FirebaseCfg.kt` 도 함께 채워야 디바이스까지 도달. 대상: `health_change`/`water_low`/`pest_detected`/`harvest_ready` + `water_failed`/`battery_low`, 수신: 소유자+가구원 전체의 `POST /api/users/:id/push-token` 등록 디바이스. |
+| `PG_MODE=toss` + `TOSS_SECRET_KEY` | 마켓 체크아웃 → `pending_payment` (재고 미차감) → 서버가 Toss 결제 생성/확인. 미설정 시 기존 데모(즉시 `paid`). |
+| `TOSS_WEBHOOK_SECRET` | Toss 웹훅(`POST /api/payments/toss/webhook`) HMAC 검증 키 — 포털에 웹훅 등록 시 사용. |
+
 ## 인증 (세션키)
 
 슬레이브 전용 엔드포인트는 페어링 `verify` 로 발급받은 `sessionKey` 를

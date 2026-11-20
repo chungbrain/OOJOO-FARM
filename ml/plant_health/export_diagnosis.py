@@ -16,6 +16,7 @@ import argparse
 import json
 import shutil
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -60,7 +61,7 @@ def export(species_id: str, db_path: Path, diagnosis_dir: Path, out_dir: Path) -
     try:
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {"diagnosis_sessions", "diagnosis_frames", "plants"} <= tables:
-            print(f"warning: diagnosis tables not found in {db_path} — nothing to export")
+            print(f"warning: diagnosis tables not found in {db_path} — nothing to export", file=sys.stderr)
             return {
                 "exported": 0, "skipped_missing": 0, "train": 0, "val": 0,
                 "sessions": 0, "species": species_id,

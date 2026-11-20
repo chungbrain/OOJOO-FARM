@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-Material3-42A5F5?logo=jetpackcompose&logoColor=white" />
   <img src="https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/AI-On--device%20CNN%20(OJP1)-FF6F00" />
-  <img src="https://img.shields.io/badge/release-1.0.2026112010-blue" />
+  <img src="https://img.shields.io/badge/release-1.0.2026112011-blue" />
 </p>
 
 <p align="center">
@@ -46,6 +46,14 @@ Instead of expensive IoT controllers, OOJOO FARM re-purposes any old or low-cost
 The two devices are linked by a randomly generated pairing code — no complex setup. Invite family and friends with a 6-digit household code to share the garden together.
 
 ---
+
+## What's New (Build 2026112011)
+
+- **FCM push notifications (code-complete, config-gated)** — Slave alerts (`health_change`, `water_low`, `pest_detected`, `harvest_ready`, plus `water_failed` and `battery_low` so they arrive even when the SSE channel is down) now also go out over Firebase Cloud Messaging to the owner and every household member's registered devices. Backend uses the FCM v1 HTTP API with a service-account JWT (zero new dependencies); the Master renders pushes through the same label/color mapping as in-app alerts. No `google-services.json` needed to build — fill in the backend env (`FCM_PROJECT_ID`, `FCM_SERVICE_ACCOUNT`) and the app's `FirebaseCfg` and push is live with zero code changes.
+- **Toss Payments adapter (code-complete, config-gated)** — Marketplace checkout can now run on a real payment gateway behind `PG_MODE=toss` (+ `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`). Orders start as `pending_payment` (no stock decrement); the server creates the payment and hands the client an approval URL, then closes the loop via server-side confirm, Toss webhook (HMAC-verified over the raw body), or client status polling — whichever lands first. Marking an order paid is idempotent: confirm and webhook firing together still decrement stock exactly once. Without `PG_MODE`, checkout is the instant-pay demo, byte-for-byte as before.
+- **W5 safety, now proven by tests** — The anti-flood watering state machine (rising-edge hysteresis, 30-min cooldown, `water_failed` on offline valve, `battery_low` falling edge) is ported to the PC simulation (`simulation/src/engine/wateringSafety.js`) as an exact mirror of `FarmerEngine.kt` and covered by 9 deterministic tests (24/24 simulation gate green) — the flood fix is verified without a physical device.
+- **Personalization one-command** — `ml/plant_health/personalize.sh --species basil` runs the whole loop (backend DB → human-confirmed diagnosis frames → on-device model fine-tune → round-trip verify) and refuses to run when there are no confirmed frames.
+- **Test growth** — Backend integration tests 61 → 83 (FCM 6, payments 16), simulation tests 15 → 24; all green.
 
 ## What's New (Build 2026112010)
 
@@ -190,6 +198,7 @@ ml/plant_health/
 ├── eval_internet.py       # Evaluate on held-out web photos
 ├── export_diagnosis.py    # Export human-confirmed diagnosis frames (personalization)
 ├── finetune_diagnosis.py  # Fine-tune a model on user-confirmed diagnosis frames
+├── personalize.sh         # One-command personalization: export -> finetune -> verify (refuses without confirmed data)
 ├── test_personalization.py# E2E test: seed DB -> export -> finetune (16 asserts)
 ├── label_web/             # Browser-based labeling tool (server.py + web UI)
 ├── test_internet/         # Held-out web test set manifest & split
@@ -203,6 +212,7 @@ cd ml/plant_health
 py -3 train.py --species cherry_tomato   # one species
 py -3 train_all.py                        # all species
 py -3 eval_internet.py                    # held-out web evaluation
+bash personalize.sh --species basil       # personalization loop (needs confirmed diagnosis frames in the backend DB)
 ```
 
 ---
@@ -414,9 +424,9 @@ Both apps default to Korean and can be switched to English in **Settings**; the 
 | **Phase 3** | Location-based community (share/sell/buy), comments, reputation, moderation | ✅ Done |
 | **Phase 4** | Marketplace, cart/checkout, affiliate links, subscription plans | ✅ Done |
 | **Phase 5** | On-device CNN health models (8 species, OJP1), household sharing, growth clips, email/password auth, ko/en localization, multi-Farmer/crop | ✅ Done |
-| Phase 6 | FCM push notifications, more species models, in-app personalization loop (ML tooling already shipped in `ml/plant_health`) | Planned |
+| Phase 6 | FCM push (config-gated), Toss Payments adapter (`PG_MODE`, config-gated), personalization one-command (`personalize.sh`), more species models | 🔶 Code-complete (config-gated) |
 
-> FCM push requires a Firebase `google-services.json`. On-device inference already uses real trained CNNs (custom `OJP1` format) — no cloud required.
+> **Phase 6 is code-complete and config-gated**: FCM activates the moment the backend env (`FCM_PROJECT_ID`, `FCM_SERVICE_ACCOUNT`) and the master app's `FirebaseCfg` (the `google-services.json` values) are filled in — until then it is inert with zero build impact. Toss Payments activates with `PG_MODE=toss` + `TOSS_SECRET_KEY` (+ `TOSS_WEBHOOK_SECRET`); the default stays the instant-pay demo checkout. On-device inference uses real trained CNNs (custom `OJP1` format) — no cloud required.
 
 See [`docs/prd.md`](docs/prd.md) for the full product requirements document and [`docs/builds/`](docs/builds/) for per-build release notes.
 
