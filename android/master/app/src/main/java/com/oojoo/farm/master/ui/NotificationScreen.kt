@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Notification
@@ -30,7 +33,17 @@ class NotificationViewModel : ViewModel() {
     private val api get() = ApiClient.api
     var items by mutableStateOf<List<Notification>>(emptyList())
     var loading by mutableStateOf(false)
-    fun refresh() { loading = true; viewModelScope.launch { try { items = api.notifications(Session.userId).notifications } catch (_: Exception) {}; loading = false } }
+    var unreadCount by mutableStateOf(0)
+    var markingRead by mutableStateOf(false)
+    fun refresh() { loading = true; viewModelScope.launch { try { val r = api.notifications(Session.userId); items = r.notifications; unreadCount = r.unreadCount } catch (_: Exception) {}; loading = false } }
+    fun markAllRead() {
+        if (unreadCount == 0) return
+        markingRead = true
+        viewModelScope.launch {
+            try { api.markNotificationsRead(Session.userId); unreadCount = 0 } catch (_: Exception) {}
+            markingRead = false
+        }
+    }
     init { refresh() }
 }
 
@@ -75,7 +88,7 @@ private fun notiHealthDetail(payload: String?): String? {
 fun NotificationScreen(nav: NavController, vm: NotificationViewModel = viewModel()) {
     val S = LocalAppStrings.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text(S.notificationCenter, color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text(S.notificationCenter, color = Color.White, fontWeight = FontWeight.Black) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) } }, actions = { TextButton(onClick = { vm.markAllRead() }, enabled = !vm.markingRead && vm.unreadCount > 0) { Text(stringResource(R.string.mark_all_read) + (if (vm.unreadCount > 0) " (${vm.unreadCount})" else ""), color = Color.White, fontWeight = FontWeight.Bold) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -84,7 +97,14 @@ fun NotificationScreen(nav: NavController, vm: NotificationViewModel = viewModel
                 item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Column(Modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("📭", fontSize = 56.sp); Spacer(Modifier.height(14.dp)); Text(S.noNotifications, color = OojooTheme.Muted, fontWeight = FontWeight.Bold) } } }
             }
             items(vm.items) { n ->
-                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffsetSm, RoundedCornerShape(18.dp)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(18.dp)), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = notiColor(n.type, n.payload))) {
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffsetSm, RoundedCornerShape(18.dp)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(18.dp)).clickable {
+                    // deep link: 식물 상세 → Farmer 상세 → Farmer 목록 (가용 정보 순)
+                    when {
+                        n.plant_id != null -> nav.navigate("plant_detail/${n.plant_id}")
+                        n.slave_id != null -> nav.navigate("report/${n.slave_id}")
+                        else -> nav.navigate("farmers")
+                    }
+                }, shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = notiColor(n.type, n.payload))) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(notiLabel(n.type, S), fontWeight = FontWeight.ExtraBold, color = OojooTheme.Ink, fontSize = 15.sp)
                         // F3 — health_change 전이 상세 (예: "건강 → 나쁨 · 🐛 심각발생")

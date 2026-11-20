@@ -221,4 +221,24 @@ interface ApiService {
 
     @GET("api/harvests/user/{userId}")
     suspend fun harvestsByUser(@Path("userId") userId: String): HarvestsResponse
+
+    // ---------- 프로필 (PRD 4.9) ----------
+    @PUT("api/users/{id}")
+    suspend fun updateProfile(@Path("id") id: String, @Body body: ProfileUpdateRequest): User
+
+    // ---------- 쪽지/DM (PRD 4.9) ----------
+    @GET("api/messages/conversations")
+    suspend fun conversations(@Query("userId") userId: String): ConversationsResponse
+
+    @GET("api/messages/thread")
+    suspend fun messageThread(@Query("userId") userId: String, @Query("peerId") peerId: String): MessagesResponse
+
+    @POST("api/messages")
+    suspend fun sendMessage(@Body body: SendMessageRequest): MessageIdResponse
+
+    @POST("api/messages/read")
+    suspend fun markMessagesRead(@Body body: MessagesReadRequest): MessagesReadResponse
+
+    @POST("api/notifications/{userId}/read")
+    suspend fun markNotificationsRead(@Path("userId") userId: String): OkResponse
 }

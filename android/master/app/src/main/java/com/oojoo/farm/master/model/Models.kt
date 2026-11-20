@@ -207,7 +207,11 @@ data class Notification(
     val plant_name: String? = null
 )
 @Serializable
-data class NotificationsResponse(val notifications: List<Notification>)
+data class NotificationsResponse(
+    val notifications: List<Notification>,
+    val unreadCount: Int = 0,
+    val lastReadAt: String? = null
+)
 
 // ---------- 마켓플레이스 ----------
 @Serializable
@@ -555,3 +559,53 @@ data class Harvest(
 )
 @Serializable
 data class HarvestsResponse(val harvests: List<Harvest> = emptyList())
+
+// ---------- 프로필 (PRD 4.9) ----------
+@Serializable
+data class ProfileUpdateRequest(
+    val nickname: String? = null,
+    val region: String? = null,
+    val interests: List<String>? = null
+)
+
+// ---------- 쪽지/DM (PRD 4.9) ----------
+@Serializable
+data class MessageInfo(
+    val id: String,
+    val body: String,
+    val created_at: String? = null,
+    val fromMe: Boolean = false
+)
+@Serializable
+data class Conversation(
+    val peerId: String,
+    val lastAt: String? = null,
+    val unread: Int = 0,
+    val lastMessage: MessageInfo? = null
+)
+@Serializable
+data class ConversationsResponse(val conversations: List<Conversation> = emptyList())
+@Serializable
+data class ThreadMessage(
+    val id: String,
+    val sender_id: String? = null,
+    val recipient_id: String? = null,
+    val body: String,
+    val created_at: String? = null,
+    val read_at: String? = null,
+    val fromMe: Boolean = false
+)
+@Serializable
+data class MessagesResponse(val messages: List<ThreadMessage> = emptyList())
+@Serializable
+data class SendMessageRequest(
+    val senderId: String,
+    val recipientId: String,
+    val body: String
+)
+@Serializable
+data class MessageIdResponse(val messageId: String)
+@Serializable
+data class MessagesReadRequest(val userId: String, val peerId: String)
+@Serializable
+data class MessagesReadResponse(val ok: Boolean = false, val marked: Int = 0)

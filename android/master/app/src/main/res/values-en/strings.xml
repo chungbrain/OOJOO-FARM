@@ -407,4 +407,18 @@
     <string name="harvest_empty">No harvest records yet</string>
     <string name="btn_confirm">Confirm</string>
     <string name="retry">Retry</string>
+    <string name="mark_all_read">Mark all read</string>
+    <string name="profile_title">Profile</string>
+    <string name="profile_nickname_label">Nickname</string>
+    <string name="profile_region_label">Growing region</string>
+    <string name="profile_interests_label">Crops of interest</string>
+    <string name="profile_interests_empty">No crops of interest yet</string>
+    <string name="profile_interest_add">Add</string>
+    <string name="profile_interest_ph">e.g. Strawberry</string>
+    <string name="profile_saved">Profile saved</string>
+    <string name="messages_title">Messages</string>
+    <string name="messages_empty">Your message box is empty</string>
+    <string name="message_thread_empty">No conversation yet. Send the first message</string>
+    <string name="message_send">Send</string>
+    <string name="message_draft_ph">Type a message</string>
 </resources>

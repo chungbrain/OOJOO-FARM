@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,7 +61,7 @@ class CommunityViewModel : ViewModel() {
 fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
     val S = LocalAppStrings.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text("${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { IconButton(onClick = { nav.navigate("messages") }) { Icon(Icons.Default.Message, contentDescription = stringResource(R.string.messages_title), tint = Color.White) }; TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.writePost) } },
         containerColor = OojooTheme.Bg
     ) { p ->

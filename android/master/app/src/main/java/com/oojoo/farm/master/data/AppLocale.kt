@@ -199,6 +199,7 @@ class AppStrings internal constructor(private val context: Context) {
     val deleteFarmerConfirm: String get() = context.getString(R.string.delete_farmer_confirm)
     val notificationCenter: String get() = context.getString(R.string.notification_center)
     val noNotifications: String get() = context.getString(R.string.no_notifications)
+    val profileTitle: String get() = context.getString(R.string.profile_title)
     val marketTitle: String get() = context.getString(R.string.market_title)
     val searchProducts: String get() = context.getString(R.string.search_products)
     val recommendTitle: String get() = context.getString(R.string.recommend_title)

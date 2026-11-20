@@ -34,7 +34,12 @@ internal fun localizeMasterMessage(message: String, strings: AppStrings): String
         "주의 (황변 의심)" to "Caution (possible yellowing)",
         "이상 (색상 심각)" to "Abnormal (severe color issue)",
         "진단 요청 전송 중…" to "Sending diagnosis request…",
-        "진단 요청 전송 완료" to "Diagnosis request sent"
+        "진단 요청 전송 완료" to "Diagnosis request sent",
+        "프로필이 저장되었습니다" to "Profile saved",
+        "닉네임을 입력하세요" to "Enter a nickname",
+        "이름 변경됨" to "Renamed",
+        "수량을 숫자로 입력하세요" to "Enter a quantity as a number",
+        "수확 기록이 저장되었습니다" to "Harvest recorded"
     )
     return replacements.fold(message) { result, (source, target) -> result.replace(source, target) }
 }

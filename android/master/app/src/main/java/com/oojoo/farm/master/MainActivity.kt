@@ -73,6 +73,8 @@ import com.oojoo.farm.master.ui.CommunityScreen
 import com.oojoo.farm.master.ui.CommunityWriteScreen
 import com.oojoo.farm.master.ui.HomeScreen
 import com.oojoo.farm.master.ui.MarketScreen
+import com.oojoo.farm.master.ui.MessageThreadScreen
+import com.oojoo.farm.master.ui.MessagesScreen
 import com.oojoo.farm.master.ui.NotificationScreen
 import com.oojoo.farm.master.ui.OnboardingScreen
 import com.oojoo.farm.master.ui.OrdersScreen
@@ -81,6 +83,7 @@ import com.oojoo.farm.master.ui.PairingScreen
 import com.oojoo.farm.master.ui.PlantDetailScreen
 import com.oojoo.farm.master.ui.PlantListScreen
 import com.oojoo.farm.master.ui.PlantRegistrationScreen
+import com.oojoo.farm.master.ui.ProfileScreen
 import com.oojoo.farm.master.ui.LiveCameraScreen
 import com.oojoo.farm.master.ui.DiagnosisReviewScreen
 import com.oojoo.farm.master.ui.GalleryScreen
@@ -175,6 +178,11 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
             composable("subscription") { SubscriptionScreen(nav) }
             composable("theme_editor") { ThemeEditorScreen(nav, uiState) }
             composable("family") { FamilyScreen(nav) }
+            composable("profile") { ProfileScreen(nav) }
+            composable("messages") { MessagesScreen(nav) }
+            composable("message_thread/{peerId}/{peerName}") { b ->
+                MessageThreadScreen(nav, b.arguments?.getString("peerId") ?: "", b.arguments?.getString("peerName") ?: "")
+            }
         }
 
         if (showBottomBar) {

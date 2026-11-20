@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -223,6 +224,9 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
             CartoonAppBar(
                 title = "🏡 ${S.appName}",
                 actions = {
+                    IconButton(onClick = { nav.navigate("profile") }) {
+                        Icon(Icons.Default.Person, contentDescription = S.profileTitle, tint = Color.White)
+                    }
                     IconButton(onClick = { nav.navigate("theme_editor") }) {
                         Icon(Icons.Default.Settings, contentDescription = S.uiCustomize, tint = Color.White)
                     }
