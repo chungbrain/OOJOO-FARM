@@ -1,0 +1,43 @@
+{
+  "species": "cherry_tomato",
+  "korean": "\ubc29\uc6b8\ud1a0\ub9c8\ud1a0",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:03:18+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "1018d0fa39761b5b2fc7b852669d14fb8e0123fc6db96083f9e6821b6f8b13a1"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "f93ac360ebd3aff3376816ad84f1522bcd2c3f6a86881ea339c5a1a69923d4a6"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "acf05b187983224235fb9217b9e671497f430ab65f7235b3a6df31ced150c561"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "bbcfc5fa25fe91ddafef0becf391a2af52b82420a518deabc99420afb8b12043"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "deae835578e0f3f754cdc1caf83e6994bbf3ca788512ad82b1c8c8f3cef1e74c"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "002e89a3e93431cc4484f4ba561f97de2a3f854dd0ca96fbe18f37b606fc4fc8"
+    }
+  }
+}

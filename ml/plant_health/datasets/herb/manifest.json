@@ -1,0 +1,43 @@
+{
+  "species": "herb",
+  "korean": "\ud5c8\ube0c",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:04:25+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "b7098eba9d16de4553f9bd3a372598ee461909affc500c9b810ae36d08a4ee4b"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "61a0924d97d678ed45778bccac6780354a77c41f44b81fa69087944265e6967f"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "f16eeca87001bce8f832944ea2e96393e4ab53c2965f0335de76ff00080f8fc8"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "dcf9c89ec5782dc01115021b3c3942aed0695f1563755eca22a6e8fd3af95efd"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "1e49cb31ac2718ab7ce31d20f4a604efd6ee778e04495c7ef0101a9a550395d3"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "c2d431ea2ab190421c87503a4c12b80580f0d1dfcb1cfa3ebaf3dbb9afbdb311"
+    }
+  }
+}

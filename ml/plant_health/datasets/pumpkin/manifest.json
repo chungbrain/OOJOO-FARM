@@ -1,0 +1,43 @@
+{
+  "species": "pumpkin",
+  "korean": "\ud638\ubc15",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:05:16+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "209f4f8ccbf5c9241db70068d0ba1f435d515901ac9110cc64d50fe1f3901999"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "9536839feb564ad4d40871a8d189c401c056f15af33a9133359dca07a77dade6"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "2cdc29de528733bf8e561dc95856ee086d0dcab6ad588c19065c13a9ddec30b1"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "1afd09542bc9e8c781de3c0532424cc09210df653b4d00a90ed37e976ab154db"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "6afb4ad423a1113151d0a650d952eecc417a7ab5a88d96559d3e9d9ee45e2f34"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "69a56f51e022578ac168c72eec3ffd6164a1d195b3aed9d4d2591005594520ac"
+    }
+  }
+}

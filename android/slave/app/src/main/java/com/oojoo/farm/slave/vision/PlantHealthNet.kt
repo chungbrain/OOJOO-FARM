@@ -15,32 +15,38 @@ data class HealthDiagnosis(
 )
 
 /**
- * ì‹ë¬¼ë³„ ë…ë¦½ tiny CNN (conv8-16-24 + GAP + dense6).
- * ê°€ì¤‘ì¹˜ëŠ” `assets/models/<species>.bin` (OJP1) â€” íŒŒì‹±/forward ëŠ” ê³µìœ  ëŸ°íƒ€ìž„
- * Ojp1.kt ë¥¼ ì‚¬ìš©í•œë‹¤ (ê±´ê°•ë“±ê¸‰/í•´ì¶© ëª¨ë¸ê³¼ ë™ì¼ ëŸ°íƒ€ìž„).
+ * 종별 6클래스 tiny CNN (conv8-16-24 + GAP + dense6).
+ * 가중치는 `assets/models/<species>.bin` (OJP1) — 파싱/forward 는 공용 런타임
+ * Ojp1.kt 를 사용한다 (건강등급/해충 모델과 동일 포맷).
  */
 object PlantHealthNet {
     const val SIZE = 48
     val LABELS = listOf("healthy", "water_low", "water_high", "light_low", "pest", "heat")
     private val LABEL_KO = mapOf(
-        "healthy" to "ê±´ê°•",
-        "water_low" to "ë¬¼ ë¶€ì¡±",
-        "water_high" to "ë¬¼ ê³¼ë‹¤",
-        "light_low" to "í–‡ë¹› ë¶€ì¡±",
-        "pest" to "í•´ì¶© ë°œìƒ",
-        "heat" to "ì˜¨ë„ ë”ì›€"
+        "healthy" to "건강",
+        "water_low" to "물 부족",
+        "water_high" to "물 과다",
+        "light_low" to "햇빛 부족",
+        "pest" to "해충 발생",
+        "heat" to "온도 더움"
     )
 
     private val ALIAS = mapOf(
-        "ë°©ìš¸í† ë§ˆí† " to "cherry_tomato", "í† ë§ˆí† " to "cherry_tomato", "tomato" to "cherry_tomato",
+        "방울토마토" to "cherry_tomato", "토마토" to "cherry_tomato", "tomato" to "cherry_tomato",
         "cherrytomato" to "cherry_tomato", "cherry tomato" to "cherry_tomato",
-        "ë°”ì§ˆ" to "basil", "basil" to "basil",
-        "ì„ ì¸ìž¥" to "cactus", "cactus" to "cactus",
-        "í—ˆë¸Œ" to "herb", "herb" to "herb", "ë¡œì¦ˆë§ˆë¦¬" to "herb", "rosemary" to "herb",
-        "ë”¸ê¸°" to "strawberry", "strawberry" to "strawberry",
-        "ê³ ì¶”" to "pepper", "chili" to "pepper", "pepper" to "pepper",
-        "í˜¸ë°•" to "pumpkin", "pumpkin" to "pumpkin",
-        "ì• í˜¸ë°•" to "zucchini", "zucchini" to "zucchini", "squash" to "zucchini"
+        "바질" to "basil", "basil" to "basil",
+        "선인장" to "cactus", "cactus" to "cactus",
+        "허브" to "herb", "herb" to "herb", "로즈마리" to "herb", "rosemary" to "herb",
+        "딸기" to "strawberry", "strawberry" to "strawberry",
+        "고추" to "pepper", "chili" to "pepper", "pepper" to "pepper",
+        "호박" to "pumpkin", "pumpkin" to "pumpkin",
+        "애호박" to "zucchini", "zucchini" to "zucchini", "squash" to "zucchini",
+        "상추" to "lettuce", "lettuce" to "lettuce",
+        "깻잎" to "perilla", "perilla" to "perilla", "shiso" to "perilla",
+        "대파" to "green_onion", "파" to "green_onion", "greenonion" to "green_onion", "green onion" to "green_onion",
+        "고구마" to "sweet_potato", "sweetpotato" to "sweet_potato", "sweet potato" to "sweet_potato",
+        "감자" to "potato", "potato" to "potato",
+        "양파" to "onion", "onion" to "onion"
     )
 
     @Volatile private var appCtx: Context? = null
@@ -98,9 +104,9 @@ object PlantHealthNet {
     }
 
     /**
-     * ROI ëª¨ë‹ˆí„°ë§ìš© â€” ëª¨ë¸ì„ ì§ì ‘ ì§€ì •í•´ ì§„ë‹¨.
-     * ê°™ì€ í”„ë ˆìž„ì˜ ì„œë¡œ ë‹¤ë¥¸ ROIë¥¼ ê° ì‹ë¬¼ì˜ ëª¨ë¸ë¡œ íŒì •í•œë‹¤.
-     * í”„ë ˆìž„ ìŠ¤í‚µ(last ìž¬ì‚¬ìš©) ì—†ì´ í•­ìƒ ì¶”ë¡ í•œë‹¤.
+     * ROI 모니터링용 — 모델을 직접 지정해 진단.
+     * 같은 프레임의 서로 다른 ROI를 각 식물의 모델로 판정한다.
+     * 프레임 스킵(last 저장용) 없이 항상 실행한다.
      */
     fun diagnoseWithModel(modelId: String, bitmap: Bitmap): HealthDiagnosis? {
         if (!available(modelId)) return null
@@ -108,7 +114,7 @@ object PlantHealthNet {
         return infer(modelId, model.bitmapToRgb48(bitmap))
     }
 
-    /** ì‹ë¬¼ ì¢…ëª… â†’ ëª¨ë¸ id í•´ì„ (ë§¤í•‘ ì—†ìœ¼ë©´ null). */
+    /** 식물 이름 → 모델 id 해석 (모델 없으면 null). */
     fun modelIdFor(raw: String?): String? {
         val id = resolve(raw) ?: return null
         return if (available(id)) id else null

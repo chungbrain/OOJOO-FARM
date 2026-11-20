@@ -1,0 +1,43 @@
+{
+  "species": "basil",
+  "korean": "\ubc14\uc9c8",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:03:34+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "5c3e1296b6a0d5012429eb09668083414136a1f5f15bc6d1ed35eaeeedc69504"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "a4061e8d2049d3ce8a83931b2b991ab6277647f88069318def4828ffba182087"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "ce687c8bdffbe49a93ebee343bdd2f0e621ac347b38a7ae265110bbe62876b67"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "9ed5609fdbea8f451a32191228d1ca93e3dc175a21d40ef43e0e5b497071603f"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "2862cb4e67b0cfb80a792e1f3f2928ca1485afa2573c602a9b70cd45c623d727"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "922aafc944ec8c2fe279a2f1c617697fd77262f540ae66027533142a50c6f4c5"
+    }
+  }
+}

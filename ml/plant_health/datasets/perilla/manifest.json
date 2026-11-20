@@ -1,0 +1,43 @@
+{
+  "species": "perilla",
+  "korean": "\uae7b\uc78e",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:06:09+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "b89d8e8f9c74b9fb5795047a5a69a8b69a56f952e49ac04774510e4b90a9e6cc"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "e6793ed7325bb214fa46d89af2f203242fe20f2fa020127b6423af5bed0fda14"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "a037276b6b1293f71975827ed17856136151adce9fa3e61e68da5280210bd8d4"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "76b8d8959ff8784b86ecd0a1542a133aaf4277e8d813a8258c7db2ceb0b85a1b"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "6188436e881072994a65c64575a871610c5c985c519cca84ff553c70c9b61cd1"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "33439d4245acea50abd3330cb584966c3931ef872a94663b7b469ef75d355e78"
+    }
+  }
+}

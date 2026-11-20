@@ -34,6 +34,11 @@ Thumbs.db
 *.pyc
 ml/plant_health/test_internet/images/
 
+# ml datasets: 전체 생성 세트(2-tier: <species>/<label>/*.png)는 로컬에만,
+# 샘플(1-tier: <species>/sample/*.png)+manifest 만 커밋
+ml/plant_health/datasets/*/*/*.png
+!ml/plant_health/datasets/*/sample/*.png
+
 # tooling / automation
 .tools/
 .opencode/*

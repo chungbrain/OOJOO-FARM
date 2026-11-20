@@ -1,0 +1,43 @@
+{
+  "species": "sweet_potato",
+  "korean": "\uace0\uad6c\ub9c8",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:06:43+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "5c887304034087e72a2b463c1ec59e4b13e5f9eaf326e1539af8c6aebbf8eed0"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "e8af37bd9addf267ec88823ef4e8991ef889be2bf9e9e5b257b59730c2b8df8c"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "b1ccc558e129a472ecdccb91ed34a5d478cc54dc93838edee9c7766b7e139863"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "7d20fb61f0bb957123b674edfec236a1ef0717c9ddafe53b5ca3b15f3a2145d2"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "7fa5b9bd885f06fd2bd7781227ec84f8e4012737e56d8a09f4d45adf8879ecec"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "f2ec1c2e8e054a328d0f1b74cd065e231fa250d65d024f6896bffc86995e9fc6"
+    }
+  }
+}

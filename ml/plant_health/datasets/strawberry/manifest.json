@@ -1,0 +1,43 @@
+{
+  "species": "strawberry",
+  "korean": "\ub538\uae30",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:04:42+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "9351ecb3f3420978e5678ee3503d302a542b252d46209b44029e7c7912c4b9a3"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "a07d149a1920e643a7ae164e3ee5d42d50219757d3dca7a83dffba9e3b9c8f33"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "66f22628eca6820ee6b28bad1defe81a3ac2088902d506941eaecfed40dc1bc8"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "4249cbbf2bd1b855984a3128987de0559581bffb3bdaaa6a65cd5e64af4b2633"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "9f42dbb0eb25c77578a6312f5cc3830c382fab05e272d8bdffe873f6256197fe"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "7f7862d485e4a42b6049271f45a72db18df48666404b14b853585bee3dc85311"
+    }
+  }
+}

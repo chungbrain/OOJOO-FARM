@@ -1,0 +1,43 @@
+{
+  "species": "cactus",
+  "korean": "\uc120\uc778\uc7a5",
+  "seed": 99,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:03:51+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "d9b3c14209fdb63812e68b0148137c21b055a62ddeb5abbb1b8256589689e825"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "b0360fc3f55a494355e2a8040486068e1d740a7dab19627bb7e87a802a3c5418"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "1483ee86810f1edff1fb4a0199ef84044fdc095ae0e32a805e28004cdee3bddf"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "12598ae406797176d36a197f69ce82ca60a52ce5e1c2057657776728c6e15b8a"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "029f87b14b7f61f9f2c6c3390160e5d9a88c00073d085ddbbb6de24861a735aa"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "69f09fa1f08ed4e480620b577d4c6541551d606d2d4bc6bc76db892f7933383f"
+    }
+  }
+}

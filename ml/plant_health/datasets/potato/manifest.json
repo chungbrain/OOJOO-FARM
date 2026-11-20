@@ -1,0 +1,43 @@
+{
+  "species": "potato",
+  "korean": "\uac10\uc790",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:07:01+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "e13b49639acf22ef56bcb0cd277ecc8fa436686c9a02b081e499afdc27b981a3"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "b9afd655bf40687f09ee7ebe0668f8da2254007f0bf2022600d8a7859e5a7bbb"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "b3387be44752e236adcbcbbfeb5d861727a8edcf546da6589f469b2d626be081"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "70773197bb862cca57921b954a4c4ff6e7ce593a1759c1c77aa27e08abfe0043"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "899d2f63571ff7e6425a4a4405c15009f8f611e76ff3ecb6399285cebe8a278e"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "6105fd3f159a1ea6bd3b3d7fa2e2f032b5ac5fde52acbcefd189dc05e8118f6c"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "species": "pepper",
+  "korean": "\uace0\ucd94",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:04:59+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "f74e29bef0a537c381c13e716b071073c3afd798ea2b1bf34e69d91bd61ea544"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "eafa447d700b28d40becae261fcba50ebaf0815b9eb393bc8005774509ad031e"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "fb5765ac6a320ed269eb6d67135a6db6acef2d89a7f1912f665e878eba5f89ec"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "7de48d69fd56dc43b95c2345e88b2ab496073b74af85d134d6a789afaa0b2b65"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "a556264648dc74c5b436969ca614d98c57f5b267d016837bfd10bac63f1f104a"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "c0fac998d78a237876a810c7c43e29ed43b3be737be06b1e2c92ef2f22bb054b"
+    }
+  }
+}

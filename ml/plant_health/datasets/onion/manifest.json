@@ -1,0 +1,43 @@
+{
+  "species": "onion",
+  "korean": "\uc591\ud30c",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:07:18+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "799c1d6cc3002850c44926653ab9608ce1c5292968fa9aee998d8ad00c75d005"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "4392dbc88ea7a639a2d0cb1f5f32007eb8e40dee9aea5584c3ffc6ffb572838d"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "f940e85782a835e7355e8b2fc4ac8d1ddebafd8236ddf2ae2db7bebade8b9d87"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "339e03cec386181ee8b4e422cb3593dd64140703158dcaf5e251dcba4034ef7d"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "7f67268b9a990c0c5e1d6d2cfaab6f304d4934de8829af271c70ab5b4e7ef704"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "e1c002c7b13900a0fee0352dbe2bef667273a8250ac386cb2a302cf34e9a932e"
+    }
+  }
+}

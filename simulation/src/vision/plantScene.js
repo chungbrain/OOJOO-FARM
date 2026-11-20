@@ -21,6 +21,12 @@ export const SPECIES = {
   pepper: { ko: '고추', leaf: [28, 110, 42], vein: [18, 72, 30], fruit: [200, 36, 32], soil: [86, 60, 40], shape: 'long' },
   pumpkin: { ko: '호박', leaf: [70, 148, 48], vein: [48, 100, 32], fruit: [230, 140, 30], soil: [94, 66, 40], shape: 'lobe' },
   zucchini: { ko: '애호박', leaf: [86, 160, 62], vein: [50, 110, 40], fruit: [150, 180, 60], soil: [90, 64, 42], shape: 'lobe' },
+  lettuce: { ko: '상추', leaf: [118, 178, 92], vein: [76, 128, 58], fruit: [150, 196, 120], soil: [98, 72, 48], shape: 'rosette' },
+  perilla: { ko: '깻잎', leaf: [92, 112, 84], vein: [64, 78, 74], fruit: [128, 100, 150], soil: [84, 62, 44], shape: 'round' },
+  green_onion: { ko: '대파', leaf: [128, 176, 88], vein: [88, 130, 60], fruit: [235, 235, 225], soil: [76, 60, 44], shape: 'blade', base: [235, 235, 225] },
+  sweet_potato: { ko: '고구마', leaf: [100, 144, 72], vein: [66, 100, 48], fruit: [196, 110, 54], soil: [88, 62, 40], shape: 'sprout', bulb: true },
+  potato: { ko: '감자', leaf: [78, 126, 56], vein: [50, 88, 38], fruit: [178, 148, 88], soil: [70, 54, 38], shape: 'sprout', bulb: true },
+  onion: { ko: '양파', leaf: [108, 152, 96], vein: [70, 104, 66], fruit: [206, 178, 100], soil: [82, 60, 42], shape: 'sprout', bulb: true },
 };
 
 // grade_paint.py GRADE_STYLE / PEST_STYLE (동일 값 — 반드시 Python 과 함께 갱신)
@@ -41,7 +47,7 @@ const PEST_STYLE = {
 // 색 공간을 완전히 분리 (grade_paint.py PEST_HOLE_COLORS 와 동일 값).
 const PEST_HOLE_COLORS = [[16, 13, 11], [10, 9, 8]];
 const PEST_BUG_COLOR = [12, 10, 8];
-const LEAF_COUNT = { column: 1, needle: 14, leaflet: 7, round: 6, serrated: 5, long: 6, lobe: 4 };
+const LEAF_COUNT = { column: 1, needle: 14, leaflet: 7, round: 6, serrated: 5, long: 6, lobe: 4, rosette: 6, blade: 8, sprout: 8 };
 
 const SKY_PALETTES = [
   [138, 176, 214], [210, 200, 180], [90, 100, 110], [40, 48, 58], [176, 196, 148],
@@ -141,6 +147,7 @@ export function renderScene({ species = 'basil', width, height, grade, pest = 'n
     }
   };
 
+  const leafCenters = [];
   for (let li = 0; li < nLeaves; li++) {
     let cx, cy, ry, rx;
     if (shape === 'column') {
@@ -155,6 +162,26 @@ export function renderScene({ species = 'basil', width, height, grade, pest = 'n
       cy = rng.uniform(0.25, 0.6) * height + st.wilt * s;
       ry = rng.uniform(6, 11) * st.leafScale * s;
       rx = rng.uniform(1.6, 2.8) * s;
+    } else if (shape === 'rosette') {
+      // 잎이 바닥에서 바깥으로 퍼진 로제트 (상추류)
+      const ang = (li / nLeaves) * 2 * Math.PI;
+      cx = width * 0.5 + Math.cos(ang) * width * 0.16;
+      cy = height * 0.58 + Math.sin(ang) * height * 0.12 + st.wilt * 0.5 * s;
+      ry = rng.uniform(5, 8) * st.leafScale * s;
+      rx = rng.uniform(4, 7) * s;
+    } else if (shape === 'blade') {
+      // 바닥에서 뻗은 잎줄기 (대파류) — 폭을 키워 증상 신호를 명확히
+      cx = rng.uniform(0.28, 0.72) * width;
+      ry = rng.uniform(13, 19) * st.leafScale * s;
+      rx = rng.uniform(2.5, 4.5) * s;
+      cy = height * 0.52 + st.wilt * 0.4 * s;
+      if (cy - ry < 2) cy = ry + 2;
+    } else if (shape === 'sprout') {
+      // 흙 표면 위의 새싹 (고구마/감자/양파) — 잎을 키워 GAP 희석 방지
+      cx = rng.uniform(0.24, 0.76) * width;
+      cy = rng.uniform(0.48, 0.66) * height + st.wilt * 0.5 * s;
+      ry = rng.uniform(5, 8) * st.leafScale * s;
+      rx = rng.uniform(5, 7) * s;
     } else {
       cx = rng.uniform(0.22, 0.78) * width;
       cy = rng.uniform(0.18, 0.58) * height + st.wilt * s;

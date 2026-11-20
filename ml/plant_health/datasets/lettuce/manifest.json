@@ -1,0 +1,43 @@
+{
+  "species": "lettuce",
+  "korean": "\uc0c1\ucd94",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:05:53+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "2cf2a6e6b94647de69105efe4c389842c096d3a9ac90682f94c589ee140aa6f2"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "ac1ccd0396bbb331ef75baaacd6fe245573c23461acb9c0573a0650ffacf6a70"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "fa7a715b2b37c58fa9cfd1104cc864b380c99b51b5dbcd5e50a85d03ac30fdc9"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "1c48ebe4b4430eb3f9b417a5d639ecf35bb611bb601b684c3acc8bde90c666dd"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "beb5d3ee3fec081ccaffc1b121b04b7d5fa3e958f99c0ce0cfbabc22a18980aa"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "df7e8f1a78d750a25de4261e8c12db584981f0566463b7b0876c2aa5eb8aa2f8"
+    }
+  }
+}

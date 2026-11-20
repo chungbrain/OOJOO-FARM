@@ -1,0 +1,43 @@
+{
+  "species": "zucchini",
+  "korean": "\uc560\ud638\ubc15",
+  "seed": 7,
+  "per_class": 100,
+  "size": 48,
+  "labels": [
+    "healthy",
+    "water_low",
+    "water_high",
+    "light_low",
+    "pest",
+    "heat"
+  ],
+  "generator": "gen_dataset.py",
+  "generated_at": "2026-11-20T04:05:32+00:00",
+  "classes": {
+    "healthy": {
+      "count": 100,
+      "digest": "a353e621fbb5b3f32bc30cfc5f74f9de3d7c1e35c830e859488eb4222ca05f8a"
+    },
+    "water_low": {
+      "count": 100,
+      "digest": "384fa28ec8617a6079ce889df1013423a95e006258d468d4fa33842c49d1b670"
+    },
+    "water_high": {
+      "count": 100,
+      "digest": "bdd21299b707d835a245d888a630f5d9dddf03ff855926070261729068928395"
+    },
+    "light_low": {
+      "count": 100,
+      "digest": "9ff7b93f91a99a792f8f7acb9be78fdcfafb27945da821f70e471273ce89e8cf"
+    },
+    "pest": {
+      "count": 100,
+      "digest": "f76d519b44c45d74c7067599efdc29212fa174102fb35b06b8162df83c819dd2"
+    },
+    "heat": {
+      "count": 100,
+      "digest": "a096302592382c7591a3c870f5b961df4a4881e37df6112b1ba688e212b2b54d"
+    }
+  }
+}

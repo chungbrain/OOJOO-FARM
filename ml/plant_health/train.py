@@ -57,9 +57,11 @@ def paint_plant(spec: dict, label: str, rng: np.random.Generator) -> np.ndarray:
     shape = spec["shape"]
     wilt = 12 if label == "water_low" else 0
     stretch = 1.35 if label == "light_low" else 1.0
-    n_leaves = {"column": 1, "needle": 14, "leaflet": 7, "round": 6, "serrated": 5, "long": 6, "lobe": 4}.get(shape, 6)
+    n_leaves = {"column": 1, "needle": 14, "leaflet": 7, "round": 6, "serrated": 5, "long": 6, "lobe": 4,
+                "rosette": 6, "blade": 8, "sprout": 8}.get(shape, 6)
     leaf_mask = np.zeros((SIZE, SIZE), bool)
-    for _ in range(n_leaves):
+    leaf_centers = []
+    for li in range(n_leaves):
         if shape == "column":
             cx, cy = SIZE * 0.5, SIZE * 0.42 + wilt * 0.3
             ry, rx = SIZE * 0.32 * stretch, SIZE * 0.14
@@ -67,6 +69,25 @@ def paint_plant(spec: dict, label: str, rng: np.random.Generator) -> np.ndarray:
             cx = rng.uniform(0.2, 0.8) * SIZE
             cy = rng.uniform(0.25, 0.6) * SIZE + wilt
             ry, rx = rng.uniform(6, 11) * stretch, rng.uniform(1.6, 2.8)
+        elif shape == "rosette":
+            # 잎이 바닥에서 바깥으로 퍼진 로제트 (상추류)
+            ang = li / n_leaves * 2 * math.pi
+            cx = SIZE * 0.5 + math.cos(ang) * SIZE * 0.16
+            cy = SIZE * 0.58 + math.sin(ang) * SIZE * 0.12 + wilt * 0.5
+            ry, rx = rng.uniform(5, 8) * stretch, rng.uniform(4, 7)
+        elif shape == "blade":
+            # 바닥에서 뻗은 잎줄기 (대파류) — 폭을 키워 증상 신호를 명확히
+            cx = rng.uniform(0.28, 0.72) * SIZE
+            ry = rng.uniform(13, 19) * stretch
+            rx = rng.uniform(2.5, 4.5)
+            cy = SIZE * 0.52 + wilt * 0.4
+            if cy - ry < 2:
+                cy = ry + 2
+        elif shape == "sprout":
+            # 흙 표면 위의 새싹 (고구마/감자/양파) — 잎을 키워 GAP 희석 방지
+            cx = rng.uniform(0.24, 0.76) * SIZE
+            cy = rng.uniform(0.48, 0.66) * SIZE + wilt * 0.5
+            ry, rx = rng.uniform(5, 8) * stretch, rng.uniform(5, 7)
         else:
             cx = rng.uniform(0.22, 0.78) * SIZE
             cy = rng.uniform(0.18, 0.58) * SIZE + wilt
@@ -78,6 +99,7 @@ def paint_plant(spec: dict, label: str, rng: np.random.Generator) -> np.ndarray:
             if shape == "lobe":
                 ry, rx = rng.uniform(10, 16) * stretch, rng.uniform(10, 16)
         mask = _disk(SIZE, SIZE, cy, cx, ry, rx)
+        leaf_centers.append(cx)
         tint = leaf + rng.normal(0, 7, 3)
         if label == "water_low":
             tint = tint * np.array([0.95, 0.62, 0.4], np.float32) + np.array([22, 8, 0], np.float32)
@@ -102,6 +124,20 @@ def paint_plant(spec: dict, label: str, rng: np.random.Generator) -> np.ndarray:
             fy, fx = rng.uniform(0.35, 0.62) * SIZE, rng.uniform(0.3, 0.7) * SIZE
             fr = rng.uniform(2.2, 4.2)
             img[_disk(SIZE, SIZE, fy, fx, fr, fr)] = fruit
+
+    # 흰색 줄기 밑동 (대파류) / 땅속 구근 표시 (고구마/감자/양파)
+    if spec.get("base") and leaf_centers:
+        base_c = np.array(spec["base"], np.float32)
+        ys_axis = np.arange(SIZE)
+        for cx in leaf_centers:
+            by = max(horizon - 2, 1)
+            m2 = _disk(SIZE, SIZE, by, cx, 3.0, 4.0) & (ys_axis[:, None] >= horizon - 3)
+            img[m2] = base_c
+    if spec.get("bulb") and horizon < SIZE - 2:
+        for _ in range(int(rng.integers(1, 3))):
+            bx = rng.uniform(0.3, 0.7) * SIZE
+            by = horizon + rng.uniform(0.5, 2.5)
+            img[_disk(SIZE, SIZE, by, bx, 2.2, 2.2)] = fruit
 
     if label == "water_low":
         if leaf_mask.any():
@@ -162,6 +198,25 @@ def dataset(spec: dict, per_class: int):
     for yi, lab in enumerate(LABELS):
         for _ in range(per_class):
             xs.append(paint_plant(spec, lab, RNG))
+            ys.append(yi)
+    x = np.stack(xs)
+    y = np.array(ys, np.int64)
+    idx = RNG.permutation(len(y))
+    return x[idx], y[idx]
+
+
+def load_dataset(spec_id: str):
+    """gen_dataset.py 로 생성된 디스크 데이터셋(PNG)을 학습용 배열로 로드."""
+    from PIL import Image
+
+    root = Path(__file__).resolve().parent / "datasets" / spec_id
+    xs, ys = [], []
+    for yi, lab in enumerate(LABELS):
+        cdir = root / lab
+        if not cdir.is_dir():
+            raise SystemExit(f"dataset dir missing: {cdir} (gen_dataset.py 먼저 실행)")
+        for f in sorted(cdir.glob("*.png")):
+            xs.append(np.asarray(Image.open(f).convert("RGB"), np.float32) / 255.0)
             ys.append(yi)
     x = np.stack(xs)
     y = np.array(ys, np.int64)
@@ -243,9 +298,13 @@ def snapshot(p):
     return {k: v.copy() for k, v in p.items()}
 
 
-def train_one(spec_id: str, per_class: int, epochs: int, lr: float) -> dict:
+def train_one(spec_id: str, per_class: int, epochs: int, lr: float,
+              from_dataset: bool = False, recipe: str = "") -> dict:
     spec = SPECIES[spec_id]
-    x, y = dataset(spec, per_class)
+    if from_dataset:
+        x, y = load_dataset(spec_id)
+    else:
+        x, y = dataset(spec, per_class)
     val_idx = []
     train_idx = []
     for c in range(6):
@@ -351,6 +410,8 @@ def main():
     ap.add_argument("--lr", type=float, default=0.03)
     ap.add_argument("--seed", type=int, default=7,
                     help="RNG seed for init/data/augment/split (default 7 = historical)")
+    ap.add_argument("--from-dataset", action="store_true",
+                    help="gen_dataset.py 의 디스크 데이터셋(PNG)으로 학습 (인메모리 합성 대신)")
     args = ap.parse_args()
     global RNG
     RNG = np.random.default_rng(args.seed)
@@ -358,7 +419,10 @@ def main():
     out_dir = root / "android" / "slave" / "app" / "src" / "main" / "assets" / "models"
     metrics_dir = root / "ml" / "plant_health" / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
-    result = train_one(args.species, args.per_class, args.epochs, args.lr)
+    recipe = "on-disk synthetic (gen_dataset.py PNG, pot-invariant)" if args.from_dataset \
+        else "pot-invariant synthetic + geometric symptoms + augment"
+    result = train_one(args.species, args.per_class, args.epochs, args.lr,
+                       from_dataset=args.from_dataset, recipe=recipe)
     save_bin(out_dir / f"{args.species}.bin", result["params"])
     (out_dir / "labels.json").write_text(json.dumps(LABELS, indent=2), encoding="utf-8")
     meta = {
@@ -371,7 +435,7 @@ def main():
         "n_val": result["n_val"],
         "input": SIZE,
         "arch": "conv8-16-24 + GAP + dense6",
-        "train_recipe": "pot-invariant synthetic + geometric symptoms + augment",
+        "train_recipe": recipe,
         "seed": args.seed,
     }
     (metrics_dir / f"{args.species}.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
