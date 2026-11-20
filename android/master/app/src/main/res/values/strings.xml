@@ -395,4 +395,15 @@
     <string name="policy_capture_range">10~360분 (기본 60분)</string>
     <string name="policy_pest_label">해충 감지 주기 (분)</string>
     <string name="policy_pest_range">5~120분 (기본 15분)</string>
+    <string name="water_confirm_title">빠른 관수 확인</string>
+    <string name="water_confirm_msg">Farmer에게 %1$dml 관수를 지시할까요? (날씨 보정 ×%2$s)</string>
+    <string name="harvest_btn">🍓 수확 기록</string>
+    <string name="harvest_title">수확 기록</string>
+    <string name="harvest_qty_label">수량</string>
+    <string name="harvest_unit_label">단위 (g/kg/개)</string>
+    <string name="harvest_note_label">메모 (선택)</string>
+    <string name="harvest_date_label">날짜 (선택, YYYY-MM-DD)</string>
+    <string name="harvest_history">수확 이력</string>
+    <string name="harvest_empty">아직 수확 기록이 없습니다</string>
+    <string name="btn_confirm">확인</string>
 </resources>

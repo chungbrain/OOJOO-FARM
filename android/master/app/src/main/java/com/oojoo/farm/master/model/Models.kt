@@ -527,3 +527,31 @@ data class DiagnosisSession(
 data class DiagnosisSessionsResponse(val sessions: List<DiagnosisSession> = emptyList())
 @Serializable
 data class DiagnosisConfirmRequest(val humanLabel: String, val confirmedBy: String)
+
+// ---------- 수확 기록 (PRD 4.7) ----------
+@Serializable
+data class HarvestRequest(
+    val userId: String,
+    val plantId: String,
+    val slaveId: String? = null,
+    val quantity: Double,
+    val unit: String? = null,
+    val note: String? = null,
+    val photo: String? = null,
+    val date: String? = null
+)
+@Serializable
+data class Harvest(
+    val id: String,
+    val user_id: String? = null,
+    val slave_id: String? = null,
+    val plant_id: String? = null,
+    val quantity: Double,
+    val unit: String? = null,
+    val note: String? = null,
+    val photo: String? = null,
+    val created_at: String? = null,
+    val plant_name: String? = null
+)
+@Serializable
+data class HarvestsResponse(val harvests: List<Harvest> = emptyList())

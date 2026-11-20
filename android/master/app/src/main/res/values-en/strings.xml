@@ -395,4 +395,15 @@
     <string name="policy_capture_range">10–360 min (default 60)</string>
     <string name="policy_pest_label">Pest check interval (min)</string>
     <string name="policy_pest_range">5–120 min (default 15)</string>
+    <string name="water_confirm_title">Confirm Quick Water</string>
+    <string name="water_confirm_msg">Send a %1$dmL watering command? (weather factor ×%2$s)</string>
+    <string name="harvest_btn">🍓 Record Harvest</string>
+    <string name="harvest_title">Record Harvest</string>
+    <string name="harvest_qty_label">Quantity</string>
+    <string name="harvest_unit_label">Unit (g/kg/pcs)</string>
+    <string name="harvest_note_label">Note (optional)</string>
+    <string name="harvest_date_label">Date (optional, YYYY-MM-DD)</string>
+    <string name="harvest_history">Harvest History</string>
+    <string name="harvest_empty">No harvest records yet</string>
+    <string name="btn_confirm">Confirm</string>
 </resources>

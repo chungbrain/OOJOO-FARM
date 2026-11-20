@@ -211,4 +211,14 @@ interface ApiService {
 
     @GET("api/videos/{videoId}")
     suspend fun videoInfo(@Path("videoId") videoId: String): VideoInfoResponse
+
+    // ---------- 수확 기록 (PRD 4.7) ----------
+    @POST("api/harvests")
+    suspend fun saveHarvest(@Body body: HarvestRequest): OkResponse
+
+    @GET("api/harvests/plant/{plantId}")
+    suspend fun harvestsByPlant(@Path("plantId") plantId: String): HarvestsResponse
+
+    @GET("api/harvests/user/{userId}")
+    suspend fun harvestsByUser(@Path("userId") userId: String): HarvestsResponse
 }

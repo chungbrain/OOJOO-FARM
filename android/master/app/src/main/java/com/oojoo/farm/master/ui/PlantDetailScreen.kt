@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,6 +68,13 @@ class PlantDetailViewModel : ViewModel() {
     var editing by mutableStateOf(false)
     var saving by mutableStateOf(false)
     var diagSending by mutableStateOf(false)
+    var harvests by mutableStateOf<List<Harvest>>(emptyList())
+    var harvestDialog by mutableStateOf(false)
+    var harvestSaving by mutableStateOf(false)
+    var hQuantity by mutableStateOf("")
+    var hUnit by mutableStateOf("g")
+    var hNote by mutableStateOf("")
+    var hDate by mutableStateOf("")
     var editName by mutableStateOf("")
     var editSpecies by mutableStateOf("")
     var editPlantedAt by mutableStateOf("")
@@ -84,6 +93,7 @@ class PlantDetailViewModel : ViewModel() {
                     if (p.slave_id != null) try { events = api.events(p.slave_id).events } catch (_: Exception) {}
                     try { latestAnalysis = api.latestAnalysis(p.id) } catch (_: Exception) {}
                     try { photos = api.plantPhotos(p.id).photos } catch (_: Exception) {}
+                    try { harvests = api.harvestsByPlant(p.id).harvests } catch (_: Exception) {}
                     try { growthClip = api.plantVideos(p.id, "growth").videos.firstOrNull() } catch (_: Exception) {}
                 }
                 try { slaves = api.slaves(Session.userId).slaves } catch (_: Exception) {}
@@ -236,6 +246,38 @@ class PlantDetailViewModel : ViewModel() {
         }
     }
 
+    /** 빠른 관수 시 전송될 실제 용량 (기초 300ml × 날씨 보정). 확인 다이얼로그 표시용. */
+    fun quickWaterMl(): Int = (300 * (weather?.weatherFactor ?: 1.0)).toInt()
+
+    fun openHarvestDialog() {
+        hQuantity = ""; hUnit = "g"; hNote = ""; hDate = ""
+        harvestDialog = true
+    }
+    fun closeHarvestDialog() { harvestDialog = false }
+    fun saveHarvest() {
+        val p = plant ?: return
+        val q = hQuantity.toDoubleOrNull()
+        if (q == null || q <= 0) { msg = "수량을 숫자로 입력하세요"; return }
+        harvestSaving = true
+        viewModelScope.launch {
+            try {
+                api.saveHarvest(HarvestRequest(
+                    userId = Session.userId,
+                    plantId = p.id,
+                    slaveId = p.slave_id,
+                    quantity = q,
+                    unit = hUnit.trim().ifBlank { null },
+                    note = hNote.trim().ifBlank { null },
+                    date = hDate.trim().ifBlank { null }
+                ))
+                msg = "수확 기록이 저장되었습니다"
+                closeHarvestDialog()
+                load(p.id)
+            } catch (e: Exception) { msg = e.message }
+            harvestSaving = false
+        }
+    }
+
     /** 영상 건강진단 요청 — diagnose_video 커맨드 전송 후 진단 리뷰 화면으로 이동. */
     fun requestDiagnosis(onReady: () -> Unit) {
         val p = plant ?: return
@@ -304,7 +346,21 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
             }
 
             item {
-                GradientButton(text = S.quickWater, onClick = { vm.quickWater() }, enabled = vm.plant?.slave_id != null, modifier = Modifier.fillMaxWidth())
+                var showWaterConfirm by remember { mutableStateOf(false) }
+                GradientButton(text = S.quickWater, onClick = { showWaterConfirm = true }, enabled = vm.plant?.slave_id != null, modifier = Modifier.fillMaxWidth())
+                if (showWaterConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showWaterConfirm = false },
+                        title = { Text(stringResource(R.string.water_confirm_title), fontWeight = FontWeight.Bold) },
+                        text = { Text(stringResource(R.string.water_confirm_msg, vm.quickWaterMl(), "%.2f".format(vm.weather?.weatherFactor ?: 1.0))) },
+                        confirmButton = {
+                            TextButton(onClick = { vm.quickWater(); showWaterConfirm = false }) { Text(stringResource(R.string.btn_confirm), color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showWaterConfirm = false }) { Text(S.cancel) }
+                        }
+                    )
+                }
             }
 
             item {
@@ -314,6 +370,40 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                     enabled = !vm.diagSending && vm.plant?.slave_id != null,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            item {
+                GradientButton(
+                    text = stringResource(R.string.harvest_btn),
+                    onClick = { vm.openHarvestDialog() },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item {
+                Text(stringResource(R.string.harvest_history), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
+                Spacer(Modifier.height(4.dp))
+                if (vm.harvests.isEmpty()) {
+                    Text(stringResource(R.string.harvest_empty), color = OojooTheme.Muted, fontSize = 13.sp)
+                } else {
+                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
+                        Column(Modifier.padding(16.dp)) {
+                            vm.harvests.take(20).forEachIndexed { index, h ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        val qty = if (h.quantity % 1.0 == 0.0) h.quantity.toLong().toString() else h.quantity.toString()
+                                        Text("$qty${h.unit ?: ""}", fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 15.sp)
+                                        if (!h.note.isNullOrBlank()) {
+                                            Text(h.note, color = OojooTheme.Muted, fontSize = 12.sp, maxLines = 2)
+                                        }
+                                    }
+                                    Text(h.created_at ?: "", color = OojooTheme.Muted, fontSize = 11.sp)
+                                }
+                                if (index != vm.harvests.take(20).lastIndex) HorizontalDivider(color = OojooTheme.Line)
+                            }
+                        }
+                    }
+                }
             }
 
             item {
@@ -537,6 +627,10 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
             }
         }
     }
+
+    if (vm.harvestDialog) {
+        HarvestDialog(vm = vm)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -620,6 +714,67 @@ private fun PlantEditCard(vm: PlantDetailViewModel) {
             }
         }
     }
+}
+
+@Composable
+private fun HarvestDialog(vm: PlantDetailViewModel) {
+    val S = LocalAppStrings.current
+    val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OojooTheme.Green, unfocusedBorderColor = OojooTheme.Line)
+    AlertDialog(
+        onDismissRequest = { if (!vm.harvestSaving) vm.closeHarvestDialog() },
+        title = { Text(stringResource(R.string.harvest_title), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = vm.hQuantity,
+                        onValueChange = { v -> vm.hQuantity = v.filter { it.isDigit() || it == '.' }.take(10) },
+                        label = { Text(stringResource(R.string.harvest_qty_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = OojooTheme.FieldShape,
+                        colors = fieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = vm.hUnit,
+                        onValueChange = { v -> vm.hUnit = v.take(8) },
+                        label = { Text(stringResource(R.string.harvest_unit_label)) },
+                        singleLine = true,
+                        shape = OojooTheme.FieldShape,
+                        colors = fieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = vm.hNote,
+                    onValueChange = { v -> vm.hNote = v.take(200) },
+                    label = { Text(stringResource(R.string.harvest_note_label)) },
+                    singleLine = true,
+                    shape = OojooTheme.FieldShape,
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = vm.hDate,
+                    onValueChange = { v -> vm.hDate = v.take(10) },
+                    label = { Text(stringResource(R.string.harvest_date_label)) },
+                    singleLine = true,
+                    shape = OojooTheme.FieldShape,
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { vm.saveHarvest() }, enabled = !vm.harvestSaving && vm.hQuantity.isNotBlank()) {
+                Text(S.save, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { vm.closeHarvestDialog() }, enabled = !vm.harvestSaving) { Text(S.cancel) }
+        }
+    )
 }
 
 fun notiLabel(t: String, S: com.oojoo.farm.master.data.AppStrings): String = when (t) {
