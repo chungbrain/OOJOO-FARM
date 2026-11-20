@@ -764,6 +764,13 @@ object FarmerEngine {
                         roiLastNotify[roi.plantId] = nowMs
                         addLog("[${now()}] ROI 진단 [${roi.plantName}]: ${result.healthStatus} → 물 부족")
                         postEventSafe("water_low", mapOf("health" to result.healthStatus), roi.plantId)
+                        // 식물별 자동 관수 — 물이 필요한 해당 식물을 관수하고 그 식물에 귀속시킨다.
+                        // (단일 밸브이므로 전역 쿨다운으로 범람 방지 — AUTO_WATER_COOLDOWN 당 최대 1회)
+                        if (_autoOn.value && nowMs - lastAutoWaterMs >= AUTO_WATER_COOLDOWN) {
+                            lastAutoWaterMs = nowMs
+                            val ok = attemptWater("auto", result.confidence, null, roi.plantId)
+                            addLog("[${now()}] ROI 자동 관수 [${roi.plantName}]: ${if (ok) "완료" else "실패(하드웨어)"}")
+                        }
                     }
                     if (pestNow) {
                         roiLastNotify[roi.plantId] = nowMs
