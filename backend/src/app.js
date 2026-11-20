@@ -21,6 +21,7 @@ import admin from './routes/admin.js';
 import crash from './routes/crash.js';
 import household from './routes/household.js';
 import harvests from './routes/harvests.js';
+import messages from './routes/messages.js';
 import './db.js';
 
 const app = express();
@@ -75,6 +76,7 @@ app.use('/api/admin', admin);
 app.use('/api/crash', crash);
 app.use('/api/household', household);
 app.use('/api/harvests', harvests);
+app.use('/api/messages', messages);
 
 // 알 수 없는 경로
 app.use((req, res) => {
