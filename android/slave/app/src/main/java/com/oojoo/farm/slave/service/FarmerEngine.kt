@@ -23,6 +23,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -1136,6 +1138,10 @@ object FarmerEngine {
     }
 
     // ---------- 오프라인 큐 (실패 시 로컬 적재, 재연결 시 flush) ----------
+    // enqueue/flushQueue 가 Prefs.offlineQueue 를 read-modify-write 하므로 Mutex 로 직렬화 —
+    // flush 도중 enqueue 가 적재된 항목이 flush 의 write 에 덮어쓰여 사라지는(lost update) 것을 방지.
+    private val queueMutex = Mutex()
+
     private suspend fun wateringLogSafe(pid: String?, amount: Int, source: String, factor: Double) {
         try {
             ApiClient.api.wateringLog(WateringLogRequest(slaveId(), pid, amount, source, factor))
@@ -1160,36 +1166,40 @@ object FarmerEngine {
         }
     }
 
-    private fun enqueue(obj: JSONObject) {
-        val arr = try { JSONArray(Prefs.offlineQueue(appCtx)) } catch (_: Exception) { JSONArray() }
-        arr.put(obj)
-        Prefs.setOfflineQueue(appCtx, arr.toString())
+    private suspend fun enqueue(obj: JSONObject) {
+        queueMutex.withLock {
+            val arr = try { JSONArray(Prefs.offlineQueue(appCtx)) } catch (_: Exception) { JSONArray() }
+            arr.put(obj)
+            Prefs.setOfflineQueue(appCtx, arr.toString())
+        }
     }
 
     private suspend fun flushQueue() {
-        val arr = try { JSONArray(Prefs.offlineQueue(appCtx)) } catch (_: Exception) { JSONArray() }
-        if (arr.length() == 0) return
-        val remaining = JSONArray()
-        var sent = 0
-        for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
-            val pid = if (o.isNull("plantId")) null else o.optString("plantId")
-            try {
-                if (o.getString("kind") == "watering") {
-                    ApiClient.api.wateringLog(WateringLogRequest(slaveId(), pid, o.getInt("amountMl"), o.getString("source"), o.getDouble("weatherFactor")))
-                } else {
-                    val pj = o.optJSONObject("payload") ?: JSONObject()
-                    val map = mutableMapOf<String, String>()
-                    for (k in pj.keys()) map[k] = pj.getString(k)
-                    ApiClient.api.reportEvent(EventRequest(slaveId(), pid, o.getString("type"), map))
+        queueMutex.withLock {
+            val arr = try { JSONArray(Prefs.offlineQueue(appCtx)) } catch (_: Exception) { JSONArray() }
+            if (arr.length() == 0) return@withLock
+            val remaining = JSONArray()
+            var sent = 0
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val pid = if (o.isNull("plantId")) null else o.optString("plantId")
+                try {
+                    if (o.getString("kind") == "watering") {
+                        ApiClient.api.wateringLog(WateringLogRequest(slaveId(), pid, o.getInt("amountMl"), o.getString("source"), o.getDouble("weatherFactor")))
+                    } else {
+                        val pj = o.optJSONObject("payload") ?: JSONObject()
+                        val map = mutableMapOf<String, String>()
+                        for (k in pj.keys()) map[k] = pj.getString(k)
+                        ApiClient.api.reportEvent(EventRequest(slaveId(), pid, o.getString("type"), map))
+                    }
+                    sent++
+                } catch (_: Exception) {
+                    remaining.put(o)
                 }
-                sent++
-            } catch (_: Exception) {
-                remaining.put(o)
             }
+            Prefs.setOfflineQueue(appCtx, remaining.toString())
+            if (sent > 0) addLog("[${now()}] 오프라인 이벤트 ${sent}건 동기화 완료")
         }
-        Prefs.setOfflineQueue(appCtx, remaining.toString())
-        if (sent > 0) addLog("[${now()}] 오프라인 이벤트 ${sent}건 동기화 완료")
     }
 
     private fun addLog(s: String) {
