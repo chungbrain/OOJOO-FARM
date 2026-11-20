@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import kotlinx.coroutines.delay
 import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.service.FarmerEngine
@@ -32,9 +33,15 @@ fun DashboardScreen(nav: NavController) {
     val ctx = LocalContext.current
     val english = LocalConfiguration.current.locales[0].language == "en"
     LaunchedEffect(Unit) {
-        // 첫 프레임이 올라온 뒤(메인 스레드 공백 시) 서비스 기동 — FGS
-        // 10초 윈도우 확보. 엔진은 서비스의 engine-boot 스레드가 소유한다.
-        FarmerService.start(ctx)
+        // FGS 10초 윈도우 (startForegroundService → startForeground) 는
+        // 콜드 스타트에서 메인 스레드 혼잡으로 놓칠 수 있다 (느린 환경에서
+        // AMS가 서비스를 종료). 그래서 첫 프레임 + 5초 안정화 후 최초 기동,
+        // 이후 엔진이 죽어 있으면 15초마다 재요청 (메인 스레드는 이미 워밍업).
+        delay(5_000)
+        while (true) {
+            if (!FarmerEngine.isRunning()) FarmerService.start(ctx)
+            delay(15_000)
+        }
     }
 
     val status by FarmerEngine.status.collectAsState()
