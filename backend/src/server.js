@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import db from './db.js';
+import { sweepOfflineSlaves } from './lib/sweeper.js';
 
 dotenv.config();
 
@@ -10,6 +11,19 @@ const server = app.listen(port, host, () => {
   console.log(`OOJOO FARM backend on http://${host}:${port}`);
   console.log(`Emulator URL: http://10.0.2.2:${port}/`);
 });
+
+// slaves.online sweeper — 3분간 신호 없으면 오프라인 (테스트에서는 직접 함수 검증)
+if (process.env.NODE_ENV !== 'test') {
+  const sweeper = setInterval(() => {
+    try {
+      const n = sweepOfflineSlaves();
+      if (n) console.log(`[OOJOO] sweeper: ${n} slave(s) marked offline`);
+    } catch (e) {
+      console.error('sweeper error:', e);
+    }
+  }, 60_000);
+  sweeper.unref();
+}
 
 // Graceful shutdown: 새 연결 중단 → in-flight 완료 대기 → SSE 등 남은 소켓 끊음 → DB close (WAL checkpoint)
 let shuttingDown = false;

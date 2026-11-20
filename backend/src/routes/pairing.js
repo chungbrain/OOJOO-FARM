@@ -95,11 +95,42 @@ r.put('/:slaveId', (req, res) => {
   res.json({ ok: true, slaveId: req.params.slaveId, name: name.trim() });
 });
 
-// 마스터: 슬레이브 연결 해제(이관/교체) — 관련 정책도 정리
+// 마스터: 슬레이브 연결 해제(이관/교체) — 관련 행 전부 정리 (오르팬 방지).
+// slaves 삭제만 하면 plants/events/waterings/commands/영상·분석·진단이
+// 고아 행으로 남는다 (해당 테이블에 FK/cascade 없음).
 r.delete('/:slaveId', (req, res) => {
   const { slaveId } = req.params;
-  db.prepare('DELETE FROM policies WHERE slave_id=?').run(slaveId);
-  db.prepare('DELETE FROM slaves WHERE id=?').run(slaveId);
+  const slave = db.prepare('SELECT id FROM slaves WHERE id=?').get(slaveId);
+  if (!slave) return res.status(404).json({ error: 'not found' });
+
+  db.exec('BEGIN');
+  try {
+    // 이 슬레이브의 식물 — 식물 단위 미디어/분석도 함께
+    const plantIds = db.prepare('SELECT id FROM plants WHERE slave_id=?').all(slaveId).map((p) => p.id);
+    if (plantIds.length) {
+      const ph = plantIds.map(() => '?').join(',');
+      db.prepare(`DELETE FROM plant_photos WHERE plant_id IN (${ph})`).run(...plantIds);
+      db.prepare(`DELETE FROM videos WHERE plant_id IN (${ph})`).run(...plantIds);
+      db.prepare(`DELETE FROM plant_analysis WHERE plant_id IN (${ph})`).run(...plantIds);
+    }
+    db.prepare(`DELETE FROM diagnosis_frames WHERE session_id IN (SELECT id FROM diagnosis_sessions WHERE slave_id=?)`).run(slaveId);
+    db.prepare('DELETE FROM diagnosis_sessions WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM plant_analysis WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM plant_photos WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM videos WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM harvests WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM plants WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM events WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM waterings WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM commands WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM policies WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM slaves WHERE id=?').run(slaveId);
+    db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch { /* noop */ }
+    console.error('unpair cleanup failed:', e);
+    return res.status(500).json({ error: 'unpair failed' });
+  }
   res.json({ ok: true });
 });
 
