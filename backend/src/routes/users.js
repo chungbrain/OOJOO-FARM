@@ -113,4 +113,41 @@ r.get('/:id', (req, res) => {
   res.json(userResponse(user));
 });
 
+// ---- FCM 푸시 토큰 (마스터 앱 디바이스 등록) ----
+// push_tokens: JSON 배열 (최대 10개 — 다중 디바이스). 기존 마스터 API 의
+// 비인증 셀프 등록 설계와 동일 (자기 자신의 디바이스 토큰).
+const MAX_PUSH_TOKENS = 10;
+function getPushTokens(row) {
+  try {
+    const arr = row?.push_tokens ? JSON.parse(row.push_tokens) : [];
+    return Array.isArray(arr) ? arr.filter((t) => typeof t === 'string') : [];
+  } catch { return []; }
+}
+
+r.post('/:id/push-token', (req, res) => {
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string' || token.length < 20 || token.length > 256) {
+    return res.status(400).json({ error: 'token must be a string (20..256 chars)' });
+  }
+  const cur = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  const tokens = getPushTokens(cur);
+  if (!tokens.includes(token)) {
+    tokens.push(token);
+    if (tokens.length > MAX_PUSH_TOKENS) tokens.shift(); // 가장 오래된 토큰 제거
+  }
+  db.prepare('UPDATE users SET push_tokens=? WHERE id=?').run(JSON.stringify(tokens), req.params.id);
+  res.json({ ok: true, count: tokens.length });
+});
+
+r.delete('/:id/push-token', (req, res) => {
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' });
+  const cur = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  const tokens = getPushTokens(cur).filter((t) => t !== token);
+  db.prepare('UPDATE users SET push_tokens=? WHERE id=?').run(JSON.stringify(tokens), req.params.id);
+  res.json({ ok: true, count: tokens.length });
+});
+
 export default r;

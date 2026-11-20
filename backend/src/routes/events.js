@@ -3,12 +3,22 @@ import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth, slaveAuthOptional } from '../middleware/auth.js';
 import { notifyMasterEvent } from './commands.js';
+import { pushMasterEvent } from '../lib/push.js';
 import { validCommandNumbers, validEventType } from '../lib/validate.js';
 const r = Router();
 
 // 즉시 대응이 필요한 이벤트 — events 저장과 함께 master SSE 로 실시간 push.
 // (그 외 이벤트는 알림 센터 폴링으로만 소비. F3 건강상태 변화 알림 포함)
 const SSE_PUSH_TYPES = new Set(['health_change', 'water_low', 'pest_detected', 'harvest_ready']);
+// FCM 푸시 대상 — SSE 대상 + 하드웨어 실패/배터리 (SSE 비연결 시에도 도달해야 할 알림)
+const FCM_PUSH_TYPES = new Set([...SSE_PUSH_TYPES, 'water_failed', 'battery_low']);
+
+// master 실시간 알림 분기 — SSE(연결 시) + FCM(설정 시) 병행.
+// FCM 은 fire-and-forget (pushMasterEvent 는 절대 throw 하지 않음).
+function dispatchMasterAlert(slaveId, msg) {
+  if (SSE_PUSH_TYPES.has(msg.type)) notifyMasterEvent(slaveId, msg);
+  if (FCM_PUSH_TYPES.has(msg.type)) void pushMasterEvent(slaveId, msg);
+}
 
 // 슬레이브: 이벤트 보고 (수확감지/해충탐지/캡처/이상 등)
 r.post('/', slaveAuthOptional, (req, res) => {
@@ -18,12 +28,10 @@ r.post('/', slaveAuthOptional, (req, res) => {
   db.prepare('INSERT INTO events(id, slave_id, plant_id, type, payload) VALUES(?,?,?,?,?)')
     .run(id, slaveId, plantId || null, type, JSON.stringify(payload));
   db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now') WHERE id=?").run(slaveId);
-  if (SSE_PUSH_TYPES.has(type)) {
-    notifyMasterEvent(slaveId, {
-      type, eventId: id, slaveId,
-      plantId: plantId || null, payload,
-    });
-  }
+  dispatchMasterAlert(slaveId, {
+    type, eventId: id, slaveId,
+    plantId: plantId || null, payload,
+  });
   res.json({ eventId: id });
 });
 
@@ -48,12 +56,10 @@ r.post('/batch', slaveAuth, (req, res) => {
       if (!ev || !validEventType(ev.type)) throw Object.assign(new Error('each event needs a valid type'), { status: 400 });
       insEvent.run(nanoid(12), slaveId, ev.plantId || null, ev.type, JSON.stringify(ev.payload || {}));
       nEvents++;
-      if (SSE_PUSH_TYPES.has(ev.type)) {
-        notifyMasterEvent(slaveId, {
-          type: ev.type, eventId: null, slaveId,
-          plantId: ev.plantId || null, payload: ev.payload || {},
-        });
-      }
+      dispatchMasterAlert(slaveId, {
+        type: ev.type, eventId: null, slaveId,
+        plantId: ev.plantId || null, payload: ev.payload || {},
+      });
     }
     for (const w of waterings) {
       if (!w) throw Object.assign(new Error('each watering must be an object'), { status: 400 });

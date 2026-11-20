@@ -241,6 +241,7 @@ ensureColumn('policies', 'camera_mount', "camera_mount TEXT DEFAULT 'auto'");
 ensureColumn('policies', 'pest_interval', 'pest_interval INTEGER DEFAULT 15');
 // PRD 4.9 — 관심 작물 (JSON array of strings, e.g. ["strawberry","basil"])
 ensureColumn('users', 'interests', 'interests TEXT');
+ensureColumn('users', 'push_tokens', 'push_tokens TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 db.exec(`
