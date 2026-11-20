@@ -20,6 +20,7 @@ data class PolicyResponse(
     val fan_auto: Int = 1,
     val laser_approval: Int = 1,
     val capture_interval: Int = 60,
+    val pest_interval: Int = 15,
     val roi_interval: Int = 20,
     val region: String? = null,
     // F4 — 카메라 물리 설치 위치 기반 자동 가로/세로 촬영 (auto | landscape | portrait)

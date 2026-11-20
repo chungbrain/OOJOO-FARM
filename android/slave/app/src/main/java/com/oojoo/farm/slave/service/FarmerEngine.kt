@@ -148,7 +148,6 @@ object FarmerEngine {
     private var lastHarvestNotify = 0L
     private var lastPestNotify = 0L
     private val HARVEST_COOLDOWN = 60 * 60 * 1000L // 1시간
-    private val PEST_COOLDOWN = 15 * 60 * 1000L    // 15분
 
     // 자동관수 범람 방지 — 히스테리시스(상승 엣지) + 쿨다운.
     // 이전 코드는 직전 분석의 needWater 가 true 로 유지되는 동안 30초 틱마다 doWater 를 재호출해
@@ -407,6 +406,7 @@ object FarmerEngine {
                 _roiIntervalSec.value = p.roi_interval.coerceIn(10, 3600)
                 Prefs.setAutoWater(appCtx, _autoOn.value)
                 Prefs.setCaptureIntervalMinutes(appCtx, p.capture_interval)
+                Prefs.setPestIntervalMinutes(appCtx, p.pest_interval)
                 p.region?.takeIf { it.isNotBlank() }?.let { Prefs.setRegion(appCtx, it) }
                 // F4 — 카메라 설치 위치 정책 → 촬영 방향 재적용 (원격 변경 즉시 반영)
                 val prevMount = OrientationPolicy.mount
@@ -452,7 +452,9 @@ object FarmerEngine {
                 addLog("[${now()}] 🍅 수확 적기 감지 (익음도 ${"%.0f".format(result.fruitRipeness * 100)}%) → 마스터 알림")
                 postEventSafe("harvest_ready", mapOf("ripeness" to "%.2f".format(result.fruitRipeness)))
             }
-            if (result.pestSuspected && nowMs - lastPestNotify > PEST_COOLDOWN) {
+            // 해충 감지 주기 — 원격 정책 pest_interval(5~120분, 기본 15분) 을 따른다.
+            val pestCooldownMs = Prefs.pestIntervalMinutes(appCtx) * 60L * 1000L
+            if (result.pestSuspected && nowMs - lastPestNotify > pestCooldownMs) {
                 lastPestNotify = nowMs
                 handlePest()
             }
@@ -858,9 +860,12 @@ object FarmerEngine {
         val analysis = _lastAnalysis.value
         val lastG = Prefs.lastPhotoGreenness(appCtx)
         val changed = analysis != null && lastG >= 0f && kotlin.math.abs(analysis.greenness - lastG) >= 0.12
-        val dueDaily = last == 0L || nowMs - last >= 20L * 60 * 60 * 1000
+        // 정기 캡처 — 원격 정책 capture_interval(10~360분, 기본 60분) 을 따른다.
+        // 이전 하드코딩(20일)은 마스터 설정이 전혀 반영되지 않는 죽은 값이었다.
+        val capMs = Prefs.captureIntervalMinutes(appCtx).toLong() * 60L * 1000L
+        val duePeriodic = last == 0L || nowMs - last >= capMs
         val dueChange = changed && nowMs - last >= 4L * 60 * 60 * 1000
-        if (!dueDaily && !dueChange) return
+        if (!duePeriodic && !dueChange) return
         lastPhotoAttempt = nowMs
         captureAndArchivePhoto(plants)
     }

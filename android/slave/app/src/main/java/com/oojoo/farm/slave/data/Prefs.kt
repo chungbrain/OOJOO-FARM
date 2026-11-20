@@ -11,6 +11,7 @@ object Prefs {
     private const val K_REGION = "region"
     private const val K_WEATHER_FACTOR = "weatherFactor"
     private const val K_CAPTURE_INTERVAL = "captureInterval"
+    private const val K_PEST_INTERVAL = "pestInterval"
     private const val K_AUTO_WATER = "autoWater"
     private const val K_HEADLESS = "headless"
     private const val K_QUEUE = "offlineQueue"
@@ -75,6 +76,13 @@ object Prefs {
 
     fun setCaptureIntervalMinutes(ctx: Context, minutes: Int) {
         sp(ctx).edit().putInt(K_CAPTURE_INTERVAL, minutes.coerceIn(1, 360)).apply()
+    }
+
+    fun pestIntervalMinutes(ctx: Context): Int =
+        sp(ctx).getInt(K_PEST_INTERVAL, 15)
+
+    fun setPestIntervalMinutes(ctx: Context, minutes: Int) {
+        sp(ctx).edit().putInt(K_PEST_INTERVAL, minutes.coerceIn(5, 120)).apply()
     }
 
     fun autoWater(ctx: Context): Boolean =
