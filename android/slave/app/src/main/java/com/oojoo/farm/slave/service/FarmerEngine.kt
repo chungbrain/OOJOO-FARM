@@ -228,8 +228,9 @@ object FarmerEngine {
             when (action) {
                 "water" -> {
                     addLog("[${now()}] 마스터 지시(SSE): 관수 ${amountMl}ml")
-                    doWater("manual", 1.0, amountMl, plantId)
-                    ApiClient.api.commandDone(id)
+                    lastAutoWaterMs = System.currentTimeMillis()
+                    attemptWater("manual", 1.0, amountMl, plantId)
+                    markCommandDone(id)
                 }
                 "pause" -> {
                     _autoOn.value = false; Prefs.setAutoWater(appCtx, false)
@@ -257,12 +258,10 @@ object FarmerEngine {
                 "capture_photo" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 즉시 사진 촬영")
                     captureAndUploadPhotoNow(id, plantId)
-                    ApiClient.api.commandDone(id)
                 }
                 "capture_video" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 3초 영상 캡처")
                     captureAndUploadVideo(id)
-                    ApiClient.api.commandDone(id)
                 }
                 "generate_growth_clip" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 성장 숏클립 생성")
@@ -272,7 +271,6 @@ object FarmerEngine {
                 "diagnose_video" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 영상 건강진단")
                     diagnoseVideo(id, plantId)
-                    ApiClient.api.commandDone(id)
                 }
             }
         } catch (_: Exception) {}
@@ -498,8 +496,9 @@ object FarmerEngine {
                 when (cmd.action) {
                     "water" -> {
                         addLog("[${now()}] 마스터 지시: 관수 ${cmd.amount_ml}ml")
-                        doWater("manual", 1.0, cmd.amount_ml, cmd.plant_id)
-                        ApiClient.api.commandDone(cmd.id)
+                        lastAutoWaterMs = System.currentTimeMillis()
+                        attemptWater("manual", 1.0, cmd.amount_ml, cmd.plant_id)
+                        markCommandDone(cmd.id)
                     }
                     "pause" -> {
                         _autoOn.value = false
@@ -530,12 +529,10 @@ object FarmerEngine {
                     "capture_photo" -> {
                         addLog("[${now()}] 마스터 요청: 즉시 사진 촬영")
                         captureAndUploadPhotoNow(cmd.id, cmd.plant_id)
-                        ApiClient.api.commandDone(cmd.id)
                     }
                     "capture_video" -> {
                         addLog("[${now()}] 마스터 요청: 3초 영상 캡처")
                         captureAndUploadVideo(cmd.id)
-                        ApiClient.api.commandDone(cmd.id)
                     }
                     "generate_growth_clip" -> {
                         addLog("[${now()}] 마스터 요청: 성장 숏클립 생성")
@@ -545,7 +542,6 @@ object FarmerEngine {
                     "diagnose_video" -> {
                         addLog("[${now()}] 마스터 요청: 영상 건강진단")
                         diagnoseVideo(cmd.id, cmd.plant_id)
-                        ApiClient.api.commandDone(cmd.id)
                     }
                 }
             }
@@ -612,6 +608,16 @@ object FarmerEngine {
         lastAutoWaterMs = System.currentTimeMillis()
         scope.launch {
             attemptWater(source, confidence, amountOverride, plantIdOverride)
+        }
+    }
+
+    /** 마스터 지시 완료 보고 — 비어 있으면 무시, 실패는 로그만 (명령은 이미 실행됨). */
+    private suspend fun markCommandDone(commandId: String) {
+        if (commandId.isBlank()) return
+        try {
+            ApiClient.api.commandDone(commandId)
+        } catch (e: Exception) {
+            addLog("[${now()}] 지시 완료 보고 실패: ${e.message}")
         }
     }
 
@@ -794,6 +800,7 @@ object FarmerEngine {
      */
     private fun captureAndUploadPhotoNow(commandId: String, plantIdHint: String?) {
         scope.launch {
+            try {
             if (!awaitCameraReady()) {
                 addLog("[${now()}] 즉시 사진 실패: 카메라 미준비")
                 return@launch
@@ -846,6 +853,9 @@ object FarmerEngine {
                 addLog("[${now()}] 즉시 사진 업로드 실패: ${e.message}")
             } finally {
                 file.delete()
+            }
+            } finally {
+                markCommandDone(commandId)
             }
         }
     }
@@ -977,6 +987,7 @@ object FarmerEngine {
     // 별도 바인딩 불필요 — CameraPreview 의 LaunchedEffect 가 통합 바인딩함.
     private fun captureAndUploadVideo(commandId: String) {
         scope.launch {
+            try {
             if (!awaitCameraReady()) {
                 addLog("[${now()}] 영상 캡처 실패: 카메라 미준비")
                 return@launch
@@ -1002,6 +1013,9 @@ object FarmerEngine {
             } finally {
                 file.delete()
             }
+            } finally {
+                markCommandDone(commandId)
+            }
         }
     }
 
@@ -1011,6 +1025,7 @@ object FarmerEngine {
     // 사람 라벨 확인을 받는다.
     private fun diagnoseVideo(commandId: String, plantIdHint: String?) {
         scope.launch {
+            try {
             if (!awaitCameraReady()) {
                 addLog("[${now()}] 진단 실패: 카메라 미준비")
                 return@launch
@@ -1138,6 +1153,9 @@ object FarmerEngine {
             } finally {
                 videoFile.delete()
                 frames.forEach { it.bitmap.recycle() }
+            }
+            } finally {
+                markCommandDone(commandId)
             }
         }
     }
