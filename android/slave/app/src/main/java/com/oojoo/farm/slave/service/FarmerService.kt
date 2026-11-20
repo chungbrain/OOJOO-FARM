@@ -152,6 +152,23 @@ class FarmerService : Service() {
             }
         }
 
+        /**
+         * 포그라운드 UI(대시보드)용 시작 경로 — 10초 FGS 윈도우를 피한다.
+         *
+         * startForegroundService() 는 Service.startForeground() 가 호출될
+         * 때까지 10초 윈도우를 강제하는데, 콜드 스타트에서 메인 스레드가
+         * Compose 첫 프레임으로 혼잡하면 이 윈도우를 놓쳐 AMS 가
+         * ForegroundServiceDidNotStartInTimeException 으로 프로세스를
+         * 종료한다. 일반적인 startService() 는 그런 윈도우가 없어
+         * onCreate 가 메인 스레드 공백 시점에 언제든 실행되며, 거기서
+         * 곧바로 startForeground() 를 호출해 FGS 로 승격한다.
+         * (앱이 백그라운드면 IllegalStateException → 호출처가
+         *  start() 로 폴백한다.)
+         */
+        fun startFromUi(ctx: Context) {
+            ctx.startService(Intent(ctx, FarmerService::class.java))
+        }
+
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, FarmerService::class.java))
         }

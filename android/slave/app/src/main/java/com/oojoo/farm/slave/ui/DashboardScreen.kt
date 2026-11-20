@@ -39,8 +39,16 @@ fun DashboardScreen(nav: NavController) {
         // 이후 엔진이 죽어 있으면 15초마다 재요청 (메인 스레드는 이미 워밍업).
         delay(5_000)
         while (true) {
-            if (!FarmerEngine.isRunning()) FarmerService.start(ctx)
-            delay(15_000)
+            if (!FarmerEngine.isRunning()) {
+                try {
+                    // 포그라운드면 10초 윈도우 없는 경로.
+                    FarmerService.startFromUi(ctx)
+                } catch (_: IllegalStateException) {
+                    // 백그라운드(다른 앱이 위에)면 FGS 경로로 폴백.
+                    FarmerService.start(ctx)
+                }
+            }
+            delay(10_000)
         }
     }
 

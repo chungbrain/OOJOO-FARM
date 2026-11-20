@@ -33,11 +33,13 @@ log "restarting apps ..."
 "$ADB" shell am force-stop "$MASTER_PKG"
 "$ADB" shell am force-stop "$SLAVE_PKG"
 sleep 2
-# 슬레이브가 먼저 — FGS 10초 윈도우가 콜드 스타트 동시 기동(두 앱의 첫
-# 프레임이 CPU를 공유)을 견디기 어려워, 마스터는 5초 띄워서 기동.
-"$ADB" shell am start -n "$SLAVE_PKG/.MainActivity" >/dev/null
-sleep 5
+# 마스터가 먼저, 슬레이브는 5초 후 — FGS 를 가진 슬레이브가 마지막에
+# 기동하면 화면 맨 위(포그라운드)에 남는다. 슬레이브 대시보드의
+# startFromUi(일반 startService, 10초 FGS 윈도우 없음)가 포그라운드
+# 요건만 보면 되므로 이게 TCG 콜드 스타트에서 가장 안전한 순서다.
 "$ADB" shell am start -n "$MASTER_PKG/.MainActivity" >/dev/null
+sleep 5
+"$ADB" shell am start -n "$SLAVE_PKG/.MainActivity" >/dev/null
 
 log "master: $(pkg_info "$MASTER_PKG")"
 log "slave:  $(pkg_info "$SLAVE_PKG")"
