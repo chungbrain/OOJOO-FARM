@@ -223,7 +223,8 @@ fun CartScreen(nav: NavController) {
                     Text(S.total, fontWeight = FontWeight.Bold, color = OojooTheme.Ink)
                     Text(won(Cart.total()), fontWeight = FontWeight.ExtraBold, color = OojooTheme.Green)
                 }
-                GradientButton(text = "${S.checkout} (${won(Cart.total())})", onClick = { loading = true; msg = null; scope.launch { try { val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems())); Cart.clear(); msg = "${r.orderId.take(8)} (${won(r.total)})" } catch (e: Exception) { msg = e.message ?: "Checkout failed" }; loading = false } }, enabled = !loading, modifier = Modifier.fillMaxWidth())
+                val checkoutFailMsg = stringResource(R.string.checkout_failed)
+                GradientButton(text = "${S.checkout} (${won(Cart.total())})", onClick = { loading = true; msg = null; scope.launch { try { val r = ApiClient.api.marketCreateOrder(CreateOrderRequest(Session.userId, Cart.toOrderItems())); Cart.clear(); msg = "${r.orderId.take(8)} (${won(r.total)})" } catch (e: Exception) { msg = e.message ?: checkoutFailMsg }; loading = false } }, enabled = !loading, modifier = Modifier.fillMaxWidth())
             }
             msg?.let { Text(it, color = OojooTheme.Green, fontSize = 13.sp) }
             OutlineButton(text = S.ordersNav, onClick = { nav.navigate("market_orders") }, modifier = Modifier.fillMaxWidth())

@@ -169,6 +169,7 @@
     <string name="empty_cart">장바구니가 비어 있습니다</string>
     <string name="total">합계</string>
     <string name="checkout">결제하기</string>
+    <string name="checkout_failed">결제 실패</string>
     <string name="orders_nav">주문 내역</string>
     <string name="no_orders">주문 내역이 없습니다</string>
     <string name="order_prefix">주문\u0020</string>

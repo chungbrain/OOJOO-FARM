@@ -293,9 +293,12 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
 private fun mapStatus(s: String, S: AppStrings): String = when (s) {
     "요청 대기" -> S.statusWaiting
     "캡처 요청 전송 중…" -> S.captureSending
+    "사진 요청 전송 중…" -> S.photoSending
     "캡처 요청 전송됨 — SSE로 응답 대기 중" -> S.captureSentWaiting
+    "사진 요청 전송됨 — 응답 대기 중" -> S.photoSentWaiting
     "시간 초과 — Slave가 오프라인이거나 카메라 미준비일 수 있습니다" -> S.captureTimeout
     "영상 수신 완료!" -> S.captureDone
+    "사진 수신 완료!" -> S.photoDone
     "요청 실패" -> S.captureFailed
     else -> s
 }

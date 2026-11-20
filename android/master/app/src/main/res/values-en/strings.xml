@@ -169,6 +169,7 @@
     <string name="empty_cart">Your cart is empty</string>
     <string name="total">Total</string>
     <string name="checkout">Checkout</string>
+    <string name="checkout_failed">Checkout failed</string>
     <string name="orders_nav">Orders</string>
     <string name="no_orders">No orders yet</string>
     <string name="order_prefix">Order\u0020</string>
