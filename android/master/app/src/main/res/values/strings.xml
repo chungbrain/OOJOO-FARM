@@ -27,6 +27,8 @@
     <string name="weather_night">밤 🌙 맑음</string>
     <string name="weather_day_rain">낮 ☀️ 🌧️ 비 옴</string>
     <string name="weather_day">낮 ☀️ 맑음</string>
+    <string name="weather_farm_tag">🏡 농장</string>
+    <string name="weather_me_tag">📍 나</string>
     <string name="settings">설정</string>
     <string name="ui_customize">UI 커스터마이징</string>
     <string name="language">언어</string>

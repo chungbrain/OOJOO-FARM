@@ -55,7 +55,11 @@ data class Slave(
     val owner_name: String? = null,
     val owner_email: String? = null,
     val shared: Int = 0,
-    val stream_url: String? = null
+    val stream_url: String? = null,
+    // farmer(농장) 위치 — 홈의 "농장 날씨" 조회용 (하트비트로 보고)
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val region: String? = null
 )
 @Serializable
 data class SlavesResponse(val slaves: List<Slave>)

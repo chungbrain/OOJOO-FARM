@@ -87,8 +87,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var plants by mutableStateOf<List<Plant>>(emptyList())
     var analyses by mutableStateOf<Map<String, com.oojoo.farm.master.model.AnalysisResponse>>(emptyMap())
+    // 메인(좌측상단) 날씨 — farmer(농장) 우선, 없으면 사용자 날씨로 폴백.
+    // 씬 그래픽(하늘/비/밤)도 이 기준으로 렌더링.
     var weather by mutableStateOf<WeatherResponse?>(null)
     var regionLabel by mutableStateOf(Session.region)
+    // farmer(농장) 날씨 — null = farmer 위치 데이터 없음(폴백 중)
+    var farmerWeather by mutableStateOf<WeatherResponse?>(null)
+    // 사용자(master app 현재 위치) 날씨 — 우측상단 소형 표시
+    var userWeather by mutableStateOf<WeatherResponse?>(null)
     var loading by mutableStateOf(false)
     var locating by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
@@ -98,34 +104,39 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         msg = null
         viewModelScope.launch {
             try {
+                // 1) 사용자 위치 + 날씨 (우측상단 소형 표시용)
                 if (requestLocation) {
                     locating = true
                     try {
                         val loc = LocationHelper.resolve(getApplication())
                         if (loc != null) {
                             val w = api.weatherByCoords(loc.lat, loc.lon)
-                            weather = w
-                            regionLabel = w.label?.takeIf { it.isNotBlank() } ?: w.region
+                            userWeather = w
                             Session.updateRegion(getApplication(), w.region)
                         } else if (Session.region.isNotBlank()) {
-                            weather = api.weather(Session.region)
-                            regionLabel = weather?.label ?: Session.region
+                            userWeather = api.weather(Session.region)
                         }
                     } catch (e: Exception) {
                         try {
-                            weather = api.weather(Session.region)
-                            regionLabel = weather?.label ?: Session.region
+                            userWeather = api.weather(Session.region)
                         } catch (_: Exception) {
                             msg = e.message
                         }
                     }
                     locating = false
                 } else {
-                    weather = api.weather(Session.region)
-                    regionLabel = weather?.label ?: Session.region
+                    userWeather = api.weather(Session.region)
                 }
+
                 slaves = api.slaves(userId).slaves
                 plants = api.plants(userId).plants
+
+                // 2) farmer(농장) 날씨 — 메인 표시 + 씬 그래픽 기준.
+                // farmer 좌표(GPS) 우선, 없으면 farmer region, 둘 다 없으면
+                // 사용자 날씨로 폴백 (과거 동작 유지).
+                farmerWeather = pickFarmerWeather(slaves)
+                weather = farmerWeather ?: userWeather
+                regionLabel = weather?.label?.takeIf { it.isNotBlank() } ?: weather?.region ?: Session.region
                 // Farmer 분석 결과 — 홈 식물 행의 건강 표시용 (과거: 하드코딩 "정보없음")
                 val analysisMap = mutableMapOf<String, com.oojoo.farm.master.model.AnalysisResponse>()
                 for (p in plants) {
@@ -141,6 +152,29 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
             loading = false
             locating = false
+        }
+    }
+
+    /**
+     * farmer(농장) 날씨 — 하트비트로 보고한 farmer 위치 기준으로 조회.
+     * 좌표(GPS)가 있으면 좌표 기반, 없으면 farmer region 기반. 위치 데이터가
+     * 전혀 없으면 null 반환 (호출측이 사용자 날씨로 폴백). 여러 farmer 중
+     * 좌표가 있는 기기(온라인 우선)를 먼저 사용한다.
+     */
+    private suspend fun pickFarmerWeather(slaves: List<Slave>): WeatherResponse? {
+        val withCoords = slaves.filter { it.lat != null && it.lon != null }
+        val target = (withCoords.filter { it.online == 1 }.ifEmpty { withCoords })
+            .firstOrNull()
+            ?: slaves.firstOrNull { !it.region.isNullOrBlank() }
+            ?: return null
+        return try {
+            if (target.lat != null && target.lon != null) {
+                api.weatherByCoords(target.lat, target.lon)
+            } else {
+                api.weather(target.region!!)
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -253,6 +287,8 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                 plants = vm.plants,
                 slaves = vm.slaves,
                 analyses = vm.analyses,
+                userWeather = vm.userWeather,
+                farmerAvailable = vm.farmerWeather != null,
                 onClickPlant = { nav.navigate("plant_detail/${it.id}") },
                 S = S
             )
@@ -274,6 +310,21 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
 }
 
 @Composable
+/** WMO weather code → 이모지 — 홈 사용자 날씨 칩용. */
+private fun weatherCodeEmoji(code: Int?): String = when {
+    code == null -> "❔"
+    code in 0..1 -> "☀️"
+    code == 2 -> "🌤️"
+    code == 3 -> "⛅"
+    code in 45..48 -> "🌫️"
+    code in 51..57 -> "🌦️"
+    code in 61..67 || code in 80..82 -> "🌧️"
+    code in 71..77 -> "❄️"
+    code in 85..86 -> "🌨️"
+    else -> "⛈️"
+}
+
+@Composable
 private fun FarmWeatherCard(
     weather: WeatherResponse?,
     region: String,
@@ -281,6 +332,8 @@ private fun FarmWeatherCard(
     plants: List<Plant>,
     slaves: List<Slave>,
     analyses: Map<String, com.oojoo.farm.master.model.AnalysisResponse>,
+    userWeather: WeatherResponse?,
+    farmerAvailable: Boolean,
     onClickPlant: (Plant) -> Unit,
     S: com.oojoo.farm.master.data.AppStrings
 ) {
@@ -361,11 +414,13 @@ private fun FarmWeatherCard(
                     isRain = scene.isRain
                 )
 
+                // 좌측상단 — farmer(농장) 날씨 (메인 표시 + 씬 그래픽 기준)
                 Column(
                     Modifier
                         .align(Alignment.TopStart)
                         .padding(14.dp)
                 ) {
+                    Text(S.weatherFarmTag, color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(scene.label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
                         "${w?.temp?.toInt() ?: "--"}°C",
@@ -383,6 +438,35 @@ private fun FarmWeatherCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MetricChip("💧 $hum%")
                         MetricChip("🌧 $rain mm")
+                    }
+                }
+
+                // 우측상단 — 사용자(master app 현재 위치) 날씨 소형 표시.
+                // farmer 위치가 확보돼야(=메인이 진짜 농장 날씨일 때) 표시 —
+                // 폴백 상태(메인==사용자 날씨)면 같은 데이터를 두 번 보여주는 셈이라 숨긴다.
+                // top 54dp — 씬의 ☀️/🌙(상단 우측) 아래.
+                if (farmerAvailable && userWeather != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White.copy(alpha = 0.16f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 54.dp, end = 12.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(S.weatherMeTag, color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "${userWeather.temp?.toInt() ?: "--"}°",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(weatherCodeEmoji(userWeather.weatherCode), fontSize = 13.sp)
+                        }
                     }
                 }
             }

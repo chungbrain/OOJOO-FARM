@@ -84,6 +84,8 @@ class AppStrings internal constructor(private val context: Context) {
     val weatherNight: String get() = context.getString(R.string.weather_night)
     val weatherDayRain: String get() = context.getString(R.string.weather_day_rain)
     val weatherDay: String get() = context.getString(R.string.weather_day)
+    val weatherFarmTag: String get() = context.getString(R.string.weather_farm_tag)
+    val weatherMeTag: String get() = context.getString(R.string.weather_me_tag)
     val settings: String get() = context.getString(R.string.settings)
     val uiCustomize: String get() = context.getString(R.string.ui_customize)
     val language: String get() = context.getString(R.string.language)
