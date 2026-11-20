@@ -85,6 +85,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val userId get() = Session.userId
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var plants by mutableStateOf<List<Plant>>(emptyList())
+    var analyses by mutableStateOf<Map<String, com.oojoo.farm.master.model.AnalysisResponse>>(emptyMap())
     var weather by mutableStateOf<WeatherResponse?>(null)
     var regionLabel by mutableStateOf(Session.region)
     var loading by mutableStateOf(false)
@@ -124,6 +125,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 slaves = api.slaves(userId).slaves
                 plants = api.plants(userId).plants
+                // Farmer 분석 결과 — 홈 식물 행의 건강 표시용 (과거: 하드코딩 "정보없음")
+                val analysisMap = mutableMapOf<String, com.oojoo.farm.master.model.AnalysisResponse>()
+                for (p in plants) {
+                    if (p.slave_id != null) {
+                        try {
+                            analysisMap[p.id] = api.latestAnalysis(p.id)
+                        } catch (_: Exception) {}
+                    }
+                }
+                analyses = analysisMap
             } catch (e: Exception) {
                 msg = e.message
             }
@@ -237,6 +248,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                 locating = vm.locating,
                 plants = vm.plants,
                 slaves = vm.slaves,
+                analyses = vm.analyses,
                 onClickPlant = { nav.navigate("plant_detail/${it.id}") },
                 S = S
             )
@@ -264,6 +276,7 @@ private fun FarmWeatherCard(
     locating: Boolean,
     plants: List<Plant>,
     slaves: List<Slave>,
+    analyses: Map<String, com.oojoo.farm.master.model.AnalysisResponse>,
     onClickPlant: (Plant) -> Unit,
     S: com.oojoo.farm.master.data.AppStrings
 ) {
@@ -271,9 +284,11 @@ private fun FarmWeatherCard(
     val w = weather
     val screenH = LocalConfiguration.current.screenHeightDp.dp
     val farmHeight = (screenH * 0.55f).coerceIn(520.dp, 780.dp)
-    val hum = w?.humidity?.toInt()?.toString()
-        ?: if (scene.isRain) "85" else if (scene.isNight) "60" else "45"
-    val sun = if (scene.isNight) "0" else if (scene.isRain) "150" else "850"
+    // 실제 API 값만 표시 — 없으면 "--" (과거: 비가 오면 85, 밤이면 60처럼 꾸며냄)
+    val hum = w?.humidity?.toInt()?.toString() ?: "--"
+    val rain = w?.precipitation?.toString()?.let {
+        if (it.endsWith(".0")) it.dropLast(2) else it
+    } ?: "--"
 
     Card(
         Modifier
@@ -363,7 +378,7 @@ private fun FarmWeatherCard(
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MetricChip("💧 $hum%")
-                        MetricChip("☀️ $sun lx")
+                        MetricChip("🌧 $rain mm")
                     }
                 }
             }
@@ -377,14 +392,19 @@ private fun FarmWeatherCard(
                     plants.forEach { p ->
                         val emoji = plantEmojiFor(p.species, p.stage)
                         val assignedSlave = slaves.find { it.id == p.slave_id }
-                        // Farmer가 없으면 "담당 Farmer 없음", 있으면 Farmer 판단 결과 (현재는 "정보없음")
-                        val healthText = if (assignedSlave == null) {
-                            S.noFarmerAssigned
-                        } else {
-                            // TODO: Farmer로부터 받은 분석 결과를 표시. 현재는 정보없음.
-                            S.noInfo
+                        // Farmer 판단 결과: 등급(healthGradeKo) → healthStatus → (없으면) 정보없음
+                        val a = analyses[p.id]?.analysis
+                        val healthText = when {
+                            assignedSlave == null -> S.noFarmerAssigned
+                            a?.healthGradeKo?.isNotBlank() == true -> a.healthGradeKo
+                            a?.healthStatus?.isNotBlank() == true -> a.healthStatus
+                            else -> S.noInfo
                         }
-                        val healthColor = if (assignedSlave == null) OojooTheme.Muted else OojooTheme.Muted2
+                        val healthColor = when {
+                            assignedSlave == null -> OojooTheme.Muted
+                            healthText.contains("건강") || healthText.contains("양호") || healthText.contains("없음") -> OojooTheme.Teal
+                            else -> OojooTheme.Orange
+                        }
                         Row(
                             Modifier
                                 .fillMaxWidth()

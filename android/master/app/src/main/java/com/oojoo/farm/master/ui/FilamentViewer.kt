@@ -130,7 +130,8 @@ fun FarmSceneView(
     isNight: Boolean = false,
     isRain: Boolean = false
 ) {
-    val displayPlants = plants.ifEmpty { defaultDemoPlants() }
+    // 등록된 식물이 없으면 빈 농장 표시 (과거: 가짜 데모 식물 4종 렌더링)
+    val displayPlants = plants
 
     // Farmer가 배정된 식물만 로봇 순찰 대상
     val assignedPlants = displayPlants.filter { p -> slaves.any { it.id == p.slave_id } }
@@ -447,9 +448,3 @@ private fun initialPlantCells(plants: List<Plant>): List<PlantCell> {
     return result
 }
 
-private fun defaultDemoPlants(): List<Plant> = listOf(
-    Plant(id = "demo1", name = "베이비그린", species = "상추", stage = "vegetative"),
-    Plant(id = "demo2", name = "방울토마토", species = "방울토마토", stage = "fruiting"),
-    Plant(id = "demo3", name = "바질", species = "바질", stage = "vegetative"),
-    Plant(id = "demo4", name = "딸기", species = "딸기", stage = "flowering")
-)
