@@ -398,7 +398,10 @@ OOJOO FARM은 가정에서 식용작물(채소, 과채, 허브 등)을 재배하
 - [M] **모델 개인화 원커맨드** — `ml/plant_health/personalize.sh --species X`:
   백엔드 DB 에서 사람 확인 진단 프레임 추출 → 온디바이스 모델 파인튜닝 →
   round-trip 검증. 데이터 없으면 거절(exit 2).
-- 추가 모델 종(Phase 5 연장)
+- [M] **다작물 모델 확장 (14종)** — Phase 5 "다작물 확장" 완료: 상추/깻잎/대파/고구마/감자/양파 6종 추가,
+  마스터 앱 등록 화면의 전 작물 커버. 종별 학습 데이터셋(`datasets/`, 결정적 합성 PNG +
+  manifest)과 원커맨드 파이프라인(`pipeline.sh`: dataset→verify→train→assets, val_acc 게이트).
+  시뮬레이션·기기 패리티 검증(14종 round-trip 벡터 ±1e-3).
 
 ---
 

@@ -175,17 +175,33 @@ The Farmer app ships species-specific tiny CNNs in `android/slave/app/src/main/a
 | **Format** | Custom `OJP1` (flat float32 weights + header), read by `PlantHealthNet.kt` |
 | **Architecture** | 48×48 RGB input → conv8-16-24 + GAP → 6-class dense |
 | **Classes** | `healthy`, `water_low`, `water_high`, `light_low`, `pest`, `heat` |
-| **Species** | cherry tomato, basil, cactus, herb, strawberry, pepper, pumpkin, zucchini |
+| **Species (14)** | cherry tomato, basil, cactus, herb (rosemary), strawberry, pepper, pumpkin, zucchini, lettuce, perilla, green onion, sweet potato, potato, onion |
 | **Actions** | `water_low` → auto-water · `pest` → Fan on |
 
-Unknown species fall back to the original color heuristic, so every plant still gets autonomous care.
+The 14 models cover every crop on the master app's plant-registration list (Korean/English aliases resolve to the model — e.g. "토마토"→cherry tomato, "로즈마리"→herb, "파"→green onion). Unknown species fall back to the original color heuristic, so every plant still gets autonomous care.
+
+### Training data (`datasets/`)
+
+Each species has a persistent labeled dataset — deterministic synthetic photos (pot-invariant painter, fixed seed) stored as 48×48 PNGs:
+
+```
+ml/plant_health/datasets/<species>/
+├── healthy|water_low|water_high|light_low|pest|heat/0000.png…   # full set (gitignored, regenerated locally)
+├── sample/<label>_00.png…                                       # committed samples (2 per class)
+└── manifest.json                                                # seed, counts, per-class SHA-256 digests (committed)
+```
+
+Same seed ⇒ byte-identical dataset; `gen_dataset.py --verify` re-checks digests. Web photo fetching (`fetch_*.py`) remains available for real-photo fine-tuning when network access exists.
 
 ### ML Pipeline (`ml/plant_health/`)
 
 ```
 ml/plant_health/
-├── train.py               # Train one species (pot-invariant recipe)
+├── train.py               # Train one species (in-memory recipe, or --from-dataset on disk)
 ├── train_all.py           # Train every species model
+├── gen_dataset.py         # Dataset generator — deterministic PNGs + manifest + --verify
+├── pipeline.sh            # One command: dataset -> verify -> train -> assets (val-acc gate)
+├── make_vectors.py        # Python↔JS parity vectors (simulation/test/vectors_species.json)
 ├── train_health_grade.py  # Train the 5-grade health model (health_grade.bin)
 ├── train_pest.py          # Train the 4-level pest model (pest.bin)
 ├── grade_paint.py         # Shared synthetic-scene painter for grade/pest training
@@ -201,18 +217,24 @@ ml/plant_health/
 ├── personalize.sh         # One-command personalization: export -> finetune -> verify (refuses without confirmed data)
 ├── test_personalization.py# E2E test: seed DB -> export -> finetune (16 asserts)
 ├── label_web/             # Browser-based labeling tool (server.py + web UI)
+├── datasets/              # Per-species datasets (sample + manifest committed, full set local)
 ├── test_internet/         # Held-out web test set manifest & split
 └── metrics/               # Per-species training + web-eval metrics (JSON/MD)
 ```
 
 Models are trained to be **pot-invariant** (planter color ignored). Web evaluation uses a 452-image set (`test_internet/`, split 360 train / 92 test) built from Creative-Commons photos (Openverse / Wikimedia / iNaturalist) and topped up with synthetic fills where real photos were scarce — `eval_internet.py` scores each model on the ~92-image held-out test split. Training runs locally with Python/NumPy — no GPU or cloud service required.
 
+Parity: the simulation (`simulation/src/models/ojp1.js`) parses the exact same `.bin` files; its test suite asserts every species model's structure plus Python↔JS logits agreement (±1e-3), so PC simulation and device inference stay identical.
+
 ```bash
 cd ml/plant_health
-py -3 train.py --species cherry_tomato   # one species
-py -3 train_all.py                        # all species
-py -3 eval_internet.py                    # held-out web evaluation
-bash personalize.sh --species basil       # personalization loop (needs confirmed diagnosis frames in the backend DB)
+bash pipeline.sh --all                 # dataset -> verify -> train -> assets (14 species, ~5 min)
+bash pipeline.sh --species lettuce     # one species
+bash pipeline.sh --all --data-only     # datasets only (no training)
+MIN_ACC=0.80 bash pipeline.sh --all    # raise the val-acc gate (default 0.75)
+py -3 make_vectors.py                  # refresh Python↔JS parity vectors
+py -3 eval_internet.py                 # held-out web evaluation
+bash personalize.sh --species basil    # personalization loop (needs confirmed diagnosis frames in the backend DB)
 ```
 
 ---
