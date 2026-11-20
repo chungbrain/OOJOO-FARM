@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { CATEGORIES } from '../lib/marketSeed.js';
+import { pgMode } from '../lib/pg.js';
 const r = Router();
 
 // 카테고리 목록 (상품 수 포함)
@@ -82,7 +83,8 @@ r.post('/affiliate/:id', (req, res) => {
   res.json({ url: p.affiliate_url });
 });
 
-// 주문(체크아웃): 자체 상품 결제 시뮬레이션. items:[{productId, qty}]
+// 주문(체크아웃): demo = 즉시 'paid' + 재고 차감.
+// toss (PG_MODE=toss) = 'pending_payment' — 재고는 결제 확인(markOrderPaid) 후에만 차감.
 r.post('/orders', (req, res) => {
   const { userId, items } = req.body;
   if (!userId || !Array.isArray(items) || items.length === 0) {
@@ -98,16 +100,19 @@ r.post('/orders', (req, res) => {
     total += p.price * qty;
     lines.push({ product: p, qty });
   }
-  db.prepare('INSERT INTO orders(id, user_id, total, status) VALUES(?,?,?,?)').run(orderId, userId, total, 'paid');
+  const status = pgMode() === 'toss' ? 'pending_payment' : 'paid';
+  db.prepare('INSERT INTO orders(id, user_id, total, status) VALUES(?,?,?,?)').run(orderId, userId, total, status);
   const insItem = db.prepare('INSERT INTO order_items(id, order_id, product_id, name, qty, price) VALUES(?,?,?,?,?,?)');
   for (const l of lines) {
     insItem.run(nanoid(12), orderId, l.product.id, l.product.name, l.qty, l.product.price);
-    // 자체 상품 재고 차감
-    if (l.product.vendor === 'self') {
-      db.prepare('UPDATE products SET stock = MAX(0, stock - ?) WHERE id=?').run(l.qty, l.product.id);
+    if (status === 'paid') {
+      // 자체 상품 재고 차감 (demo 모드에서만 즉시 — toss 는 markOrderPaid 가 처리)
+      if (l.product.vendor === 'self') {
+        db.prepare('UPDATE products SET stock = MAX(0, stock - ?) WHERE id=?').run(l.qty, l.product.id);
+      }
     }
   }
-  res.json({ orderId, total, status: 'paid', itemCount: lines.length });
+  res.json({ orderId, total, status, itemCount: lines.length });
 });
 
 // 주문 내역

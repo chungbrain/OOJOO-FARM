@@ -22,10 +22,13 @@ import crash from './routes/crash.js';
 import household from './routes/household.js';
 import harvests from './routes/harvests.js';
 import messages from './routes/messages.js';
+import payments, { tossWebhookHandler } from './routes/payments.js';
 import './db.js';
 
 const app = express();
 app.use(cors());
+// Toss PG 웹훅: HMAC 서명이 로우 바이트 기준이라 express.json()보다 먼저 raw로 읽는다.
+app.post('/api/payments/toss/webhook', express.raw({ type: '*/*' }), tossWebhookHandler);
 app.use(express.json());
 
 import db from './db.js';
@@ -77,6 +80,7 @@ app.use('/api/crash', crash);
 app.use('/api/household', household);
 app.use('/api/harvests', harvests);
 app.use('/api/messages', messages);
+app.use('/api/payments', payments);
 
 // 알 수 없는 경로
 app.use((req, res) => {
