@@ -181,6 +181,42 @@ test('페어링 → 세션키 인증 흐름', async () => {
   assert.equal(slaves.slaves[0].battery, 88);
 });
 
+test('하트비트 stream_url — 저장/목록 반환/유효성', async () => {
+  const u = await (await post('/api/users', { nickname: 'streamer', region: 'Seoul' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+  const H = { 'x-session-key': verify.sessionKey };
+
+  // stream_url 보고 → 목록에 노출
+  const ok = await post('/api/pairing/heartbeat', {
+    slaveId: verify.slaveId, battery: 91, streamUrl: 'http://192.168.0.42:8613/stream.mjpg',
+  }, H);
+  assert.equal(ok.status, 200);
+  let slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].stream_url, 'http://192.168.0.42:8613/stream.mjpg');
+
+  // 유효하지 않은 값 → 저장 안 됨 (기존 유지), 요청은 200
+  for (const bad of ['ftp://x:1/', 'x'.repeat(201), '', 123]) {
+    const r = await post('/api/pairing/heartbeat', { slaveId: verify.slaveId, battery: 90, streamUrl: bad }, H);
+    assert.equal(r.status, 200);
+  }
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].stream_url, 'http://192.168.0.42:8613/stream.mjpg');
+  assert.equal(slaves[0].battery, 90);
+
+  // stream_url 없는 하트비트 → 기존 값 유지
+  await post('/api/pairing/heartbeat', { slaveId: verify.slaveId, battery: 89 }, H);
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].stream_url, 'http://192.168.0.42:8613/stream.mjpg');
+
+  // https도 허용
+  await post('/api/pairing/heartbeat', {
+    slaveId: verify.slaveId, streamUrl: 'https://10.0.0.5:8613/stream.mjpg',
+  }, H);
+  slaves = (await (await get(`/api/pairing/${u.id}`)).json()).slaves;
+  assert.equal(slaves[0].stream_url, 'https://10.0.0.5:8613/stream.mjpg');
+});
+
 test('자율 정책 기본값 + 갱신', async () => {
   const u = await (await post('/api/users', { region: 'Daegu' })).json();
   const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;

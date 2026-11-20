@@ -58,7 +58,8 @@ r.post('/verify', (req, res) => {
 r.get('/:userId', (req, res) => {
   const ids = householdMemberIds(req.params.userId);
   const rows = db.prepare(`
-    SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.user_id AS owner_id,
+    SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.stream_url,
+           s.user_id AS owner_id,
            u.nickname AS owner_name, u.email AS owner_email
     FROM slaves s
     LEFT JOIN users u ON u.id = s.user_id
@@ -72,11 +73,23 @@ r.get('/:userId', (req, res) => {
   });
 });
 
-// 슬레이브: 하트비트 (온라인 상태 + 배터리 갱신) — 세션키 인증
+// 슬레이브: 하트비트 (온라인 상태 + 배터리 + 스트림 URL 갱신) — 세션키 인증
+// stream_url: slave가 직접 듣는 MJPEG 라이브 스트림 주소 (마스터가 LAN으로 직결).
+// http(s)만 허용, 200자 이하. 미보고/유효하지 않으면 기존 값 유지.
+function cleanStreamUrl(v) {
+  return typeof v === 'string' && v.length > 0 && v.length <= 200 && /^https?:\/\//.test(v) ? v : null;
+}
 r.post('/heartbeat', slaveAuth, (req, res) => {
-  const { slaveId, battery } = req.body;
+  const { slaveId, battery, streamUrl } = req.body;
+  const stream = cleanStreamUrl(streamUrl);
   if (battery != null) {
-    db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), battery=? WHERE id=?").run(Number(battery), slaveId);
+    if (stream) {
+      db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), battery=?, stream_url=? WHERE id=?").run(Number(battery), stream, slaveId);
+    } else {
+      db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), battery=? WHERE id=?").run(Number(battery), slaveId);
+    }
+  } else if (stream) {
+    db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now'), stream_url=? WHERE id=?").run(stream, slaveId);
   } else {
     db.prepare("UPDATE slaves SET online=1, last_seen=datetime('now') WHERE id=?").run(slaveId);
   }

@@ -243,6 +243,8 @@ ensureColumn('policies', 'pest_interval', 'pest_interval INTEGER DEFAULT 15');
 ensureColumn('users', 'interests', 'interests TEXT');
 ensureColumn('users', 'push_tokens', 'push_tokens TEXT');
 ensureColumn('orders', 'pg_payment_key', 'pg_payment_key TEXT');
+// 실시간 카메라 — slave의 직접 MJPEG 스트림 URL (하트비트로 보고)
+ensureColumn('slaves', 'stream_url', 'stream_url TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 db.exec(`
