@@ -58,7 +58,7 @@
 | perilla 발산(overflow→NaN) | lr 0.03에서 기울기 폭발 | lr 0.02 (seed 99 → 0.852) |
 | pipeline 2회 실패 | (1) fail-var 누수 (2) **데이터셋 시드/학습 시드 혼선** — 검색한 train seed를 ds seed 테이블에 기입 | fail 플래그 격리 + SPECIES_SEED(ds)/SPECIES_EXTRA(train) 분리. 게이트가 2개 버그를 모두 포착 |
 | gitignore 1-tier 패턴 | `datasets/*/*.png` 가 실제 2-tier 경로(`datasets/<sp>/<label>/`) 미일치 → 8400장 전부 커밋됨 | `datasets/*/*/*.png`+샘플 negation, soft reset 후 재커밋 (미푸시라 안전) |
-| 한자 오염 2건(빌드 문서) | 全覆盖/实测 오타 | 수정 + 전수 grep 클린 |
+| 한자 오염 2건(빌드 문서) | 중국어 오타 2곳("전부 커버"/"실측" 뜻) | 수정 + 전수 grep 클린 |
 | make_vectors batch 차원 | (1,6) logits → scalar 변환 실패 | `n[0].mean(axis=(0,1))` |
 | adb "more than one device" | TCG 하 transient | `-s emulator-5556` 명시, 워처 재시도 로직이 커버 |
 
