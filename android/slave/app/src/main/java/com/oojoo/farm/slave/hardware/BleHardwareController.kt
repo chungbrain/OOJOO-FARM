@@ -36,6 +36,10 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
     private var valveJob: Job? = null
     private var fanJob: Job? = null
     private var scanning = false
+    // 자동 재연결 상태 — ESP32 도중 단절 시 5초 후 재시도, 스캔 타임아웃(15초) 시 재시도.
+    private var connecting = false
+    private var reconnectJob: Job? = null
+    private var scanTimeoutJob: Job? = null
 
     private val adapter: BluetoothAdapter?
         get() = (ctx.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
@@ -53,11 +57,25 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
     override fun connect() {
         val a = adapter ?: return
         if (!a.isEnabled || !canScan()) { Log.w(TAG, "BLE 스캔 불가(권한/어댑터)"); return }
+        if (scanning || connecting || _connected.value) return // 중복 스캔/연결 방지
         val scanner = a.bluetoothLeScanner ?: return
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(SERVICE_UUID)).build()
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         scanning = true
+        connecting = true
         scanner.startScan(listOf(filter), settings, scanCallback)
+        // 스캔 타임아웃 — 장치가 꺼져서 발견되지 않으면 15초 후 재시도.
+        scanTimeoutJob?.cancel()
+        scanTimeoutJob = scope.launch {
+            delay(15_000L)
+            if (scanning) {
+                scanning = false
+                connecting = false
+                try { adapter?.bluetoothLeScanner?.stopScan(scanCallback) } catch (_: Exception) {}
+                Log.i(TAG, "ESP32 미발견(15초) → 재스캔")
+                scheduleReconnect()
+            }
+        }
         Log.i(TAG, "ESP32 BLE 스캔 시작")
     }
 
@@ -67,8 +85,9 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
             val a = adapter ?: return
             if (!scanning) return
             scanning = false
+            scanTimeoutJob?.cancel()
             try { a.bluetoothLeScanner?.stopScan(this) } catch (_: Exception) {}
-            if (!canConnect()) return
+            if (!canConnect()) { connecting = false; return }
             Log.i(TAG, "ESP32 발견 → 연결 시도")
             gatt = result.device.connectGatt(ctx, false, gattCallback)
         }
@@ -82,6 +101,10 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 _connected.value = false
                 rxChar = null
+                connecting = false
+                try { g.close() } catch (_: Exception) {}
+                if (gatt === g) gatt = null
+                scheduleReconnect()
             }
         }
 
@@ -89,7 +112,18 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
             val svc = g.getService(SERVICE_UUID)
             rxChar = svc?.getCharacteristic(RX_CHAR_UUID)
             _connected.value = rxChar != null
+            connecting = false
             Log.i(TAG, if (rxChar != null) "ESP32 연결 완료" else "NUS 특성 없음")
+        }
+    }
+
+    /** BLE 단절 후 5초 대기 → 아직 미연결이면 재스캔/재연결. */
+    private fun scheduleReconnect() {
+        reconnectJob?.cancel()
+        Log.i(TAG, "ESP32 단절 → 5초 후 자동 재연결")
+        reconnectJob = scope.launch {
+            delay(5_000L)
+            if (!_connected.value && !connecting) connect()
         }
     }
 
@@ -138,10 +172,14 @@ class BleHardwareController(private val ctx: Context) : HardwareController {
 
     @SuppressLint("MissingPermission")
     override fun disconnect() {
+        reconnectJob?.cancel()
+        scanTimeoutJob?.cancel()
         try { gatt?.disconnect(); gatt?.close() } catch (_: Exception) {}
         gatt = null
         rxChar = null
         _connected.value = false
+        connecting = false
+        scanning = false
     }
 
     companion object {

@@ -782,6 +782,7 @@ fun notiLabel(t: String, S: com.oojoo.farm.master.data.AppStrings): String = whe
     "pest_detected" -> S.notiPestDetected
     "auto_water" -> S.notiAutoWater
     "manual_water" -> S.notiManualWater
+    "water_failed" -> S.notiWaterFailed
     "anomaly" -> S.notiAnomaly
     "capture" -> S.notiCapture
     "health_change" -> S.notiHealthChange

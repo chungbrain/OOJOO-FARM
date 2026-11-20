@@ -363,6 +363,7 @@ object FarmerEngine {
         val next = !_autoOn.value
         _autoOn.value = next
         Prefs.setAutoWater(appCtx, next)
+        if (next) lastNeedWaterState = false // 재개 시 수분 부족을 다시 상승 엣지로 감지
         _status.value = if (next) "자율 관리 동작 중" else "자율 관리 일시정지"
     }
 
@@ -423,15 +424,20 @@ object FarmerEngine {
                 // 또는 직전 관수 직후에는 재관수하지 않는다.
                 val nowMs = System.currentTimeMillis()
                 if (!lastNeedWaterState && nowMs - lastAutoWaterMs >= AUTO_WATER_COOLDOWN) {
-                    addLog("[${now()}] AI 판정: 수분 부족 의심 → 자동 관수 (재관수 쿨다운 ${AUTO_WATER_COOLDOWN / 60000}분)")
-                    doWater("auto", result.confidence) // doWater 가 lastAutoWaterMs 갱신
+                    addLog("[${now()}] AI 판정: 수분 부족 의심 → 자동 관수 시도 (재관수 쿨다운 ${AUTO_WATER_COOLDOWN / 60000}분)")
+                    lastAutoWaterMs = nowMs
+                    val ok = attemptWater("auto", result.confidence, null, null)
+                    // 성공 시에만 엣지를 소모(needWater 가 다시 변할 때까지 재관수 안 함);
+                    // 실패(BLE 미연결 등) 시에는 유지해 재시도 가능하게 한다.
+                    if (ok) lastNeedWaterState = true
                 } else {
                     _status.value = "관찰 완료: ${result.healthStatus} (관수 쿨다운 ${AUTO_WATER_COOLDOWN / 60000}분)"
                 }
             } else {
                 _status.value = "관찰 완료: ${result.healthStatus}"
             }
-            lastNeedWaterState = result.needWater
+            // needWater 가 false 로 떨어지면 다음 상승 엣지를 위해 리셋.
+            if (!result.needWater) lastNeedWaterState = false
         } else {
             _status.value = "관찰 대기 (카메라 분석 대기)"
         }
@@ -500,6 +506,7 @@ object FarmerEngine {
                     "resume" -> {
                         _autoOn.value = true
                         Prefs.setAutoWater(appCtx, true)
+                        lastNeedWaterState = false // 재개 시 수분 부족을 다시 상승 엣지로 감지
                         addLog("[${now()}] 마스터 지시: 자율 관리 재개")
                         ApiClient.api.commandDone(cmd.id)
                     }
@@ -541,26 +548,38 @@ object FarmerEngine {
         } catch (_: Exception) {}
     }
 
-    private fun doWater(source: String, confidence: Double = 1.0, amountOverride: Int? = null, plantIdOverride: String? = null) {
-        // 모든 관수(자동/수동/마스터 지시)는 재관수 쿨다운 기준점을 갱신한다 —
-        // 수동 관수 직후 자동 관수가 즉각 겹쳐 범람하는 것을 막기 위함.
-        lastAutoWaterMs = System.currentTimeMillis()
-        scope.launch {
-            val baseAmount = amountOverride ?: 300
-            val factor = _weatherFactor.value
-            val amount = if (source == "auto") (baseAmount * factor).toInt().coerceIn(50, 2000) else baseAmount
-            val pid = plantIdOverride ?: _plant.value?.id
+    /**
+     * 급수 밸브를 열고 결과를 보고한다. (suspend — 백엔드 보고 포함)
+     * @return 밸브가 실제로 열렸는지(시뮬레이션 또는 BLE 연결, 제어 오류 없음).
+     *         BLE 미연결/제어 실패 시 false 를 반환하고 `water_failed` 이벤트를 남긴다.
+     */
+    private suspend fun attemptWater(source: String, confidence: Double, amountOverride: Int?, plantIdOverride: String?): Boolean {
+        val baseAmount = amountOverride ?: 300
+        val factor = _weatherFactor.value
+        val amount = if (source == "auto") (baseAmount * factor).toInt().coerceIn(50, 2000) else baseAmount
+        val pid = plantIdOverride ?: _plant.value?.id
 
-            // 실제 하드웨어(급수 밸브) 제어 — 공급량에 비례한 개방시간 + Fail-safe 자동 폐쇄.
-            // 대략 20ms/ml, 최소 0.5초, 최대 60초(Fail-safe).
-            val valveMs = (amount * 20L).coerceIn(500L, 60_000L)
-            try {
-                Hardware.controller.openValve(valveMs)
+        // 실제 하드웨어(급수 밸브) 제어 — 공급량에 비례한 개방시간 + Fail-safe 자동 폐쇄.
+        // 대략 20ms/ml, 최소 0.5초, 최대 60초(Fail-safe).
+        val valveMs = (amount * 20L).coerceIn(500L, 60_000L)
+        // 시뮬레이션(Mock) 또는 BLE 연결 시에만 실제로 작동한다. BLE 미연결이면 밸브가 열리지
+        // 않으므로 "관수 완료" 로 보고하면 마스터가 거짓 기록을 갖게 된다.
+        val actuated = Hardware.controller.connected.value
+        var controlFailed = false
+        try {
+            Hardware.controller.openValve(valveMs)
+            if (actuated) {
                 addLog("[${now()}] 급수 밸브 개방 ${valveMs}ms (하드웨어:${if (Hardware.controller.connected.value) "연결" else "시뮬"})")
-            } catch (e: Exception) {
-                addLog("[${now()}] 밸브 제어 실패: ${e.message}")
+            } else {
+                addLog("[${now()}] ⚠️ BLE 미연결 — 밸브 미개방, 관수 실행되지 않음")
             }
+        } catch (e: Exception) {
+            controlFailed = true
+            addLog("[${now()}] 밸브 제어 실패: ${e.message}")
+        }
 
+        val ok = actuated && !controlFailed
+        if (ok) {
             _lastWater.value = now()
             _status.value = "$source 관수 실행 (${amount}ml)"
             addLog("[${_lastWater.value}] $source 관수 ${amount}ml (날씨가중치:${"%.2f".format(factor)})")
@@ -571,6 +590,24 @@ object FarmerEngine {
                 mapOf("amount" to "$amount", "weatherFactor" to "%.2f".format(factor), "confidence" to "%.2f".format(confidence)),
                 pid
             )
+        } else {
+            _status.value = "$source 관수 실패 (하드웨어 ${if (actuated) "제어 오류" else "미연결"})"
+            // 마스터가 실제 관수가 일어나지 않았음을 알 수 있게 실패 이벤트를 기록한다.
+            postEventSafe(
+                "water_failed",
+                mapOf("reason" to (if (actuated) "control_error" else "hardware_offline"), "requested" to "$amount", "source" to source),
+                pid
+            )
+        }
+        return ok
+    }
+
+    private fun doWater(source: String, confidence: Double = 1.0, amountOverride: Int? = null, plantIdOverride: String? = null) {
+        // 모든 관수(자동/수동/마스터 지시)는 재관수 쿨다운 기준점을 갱신한다 —
+        // 수동 관수 직후 자동 관수가 즉각 겹쳐 범람하는 것을 막기 위함.
+        lastAutoWaterMs = System.currentTimeMillis()
+        scope.launch {
+            attemptWater(source, confidence, amountOverride, plantIdOverride)
         }
     }
 
