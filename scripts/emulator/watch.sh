@@ -44,13 +44,39 @@ cur_b=$state_b
 pending_a=0
 pending_b=0
 last_sync=$(date +%s)
+health_fail=0
+polls=0
 
 while true; do
   sleep "$POLL_INTERVAL_SEC"
+  polls=$((polls + 1))
   cur_a=$(tree_state "$ANDROID_DIR")
   cur_b=$(tree_state "$BACKEND_DIR")
   [ "$cur_a" != "$state_a" ] && pending_a=1
   [ "$cur_b" != "$state_b" ] && pending_b=1
+
+  # 백엔드 헬스 와치독 — 느린 호스트(TCG)에서 백엔드 프로세스가
+  # OOM 등 이유로 하드 킬당할 수 있다 (실측 2회, 로그 없이 소멸).
+  # 죽으면 slave 하트비트·연결이 전부 실패하는데 워처는 소스 변경이
+  # 없으니 영원히 알아채지 못한다. 60초(6 폴)마다 헬스 체크,
+  # 2회 연속 실패 시 재기동.
+  if [ $((polls % 6)) -eq 0 ]; then
+    if health_ok; then
+      health_fail=0
+    else
+      health_fail=$((health_fail + 1))
+      if [ "$health_fail" -ge 2 ] && [ $(( $(date +%s) - last_sync )) -ge "$SYNC_COOLDOWN_SEC" ]; then
+        log "backend health check failed x$health_fail -> watchdog restart"
+        if backend_restart; then
+          log "backend restarted OK (watchdog)"
+          health_fail=0
+          last_sync=$(date +%s)
+        else
+          log "ERROR: watchdog backend restart failed (see $BACKEND_LOG)"
+        fi
+      fi
+    fi
+  fi
 
   now=$(date +%s)
   if [ "$pending_b" = 1 ] && [ $((now - last_sync)) -ge "$SYNC_COOLDOWN_SEC" ]; then
