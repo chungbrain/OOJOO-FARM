@@ -113,3 +113,51 @@
   유지 — userdata 영속, 재설치 불필요), 양 앱 프로세스 가동.
 - 커밋: `04a75f7` (chore(scripts): pin emulator ADB port 8989, serial-pinned adb).
   미푸시 (사용자 지시 대기).
+
+## wave 후 부록 2: 갤러리 oojoo 폴더 + 실시간 카메라 스트리밍 (2026-11-20)
+
+- 요청: "farmer의 사진첩이 폰의 사진첩의 특정 oojoo폴더에 저장되고 열람
+  가능하도록 해. 그리고 farmer에서 카메라 보기 기능이 3초였는데 실시간
+  스트리밍도 되도록 지원했으면 좋겠다."
+- 설계 (5개 단위): U1 backend `slaves.stream_url`(하트비트 보고) →
+  U2 slave `GalleryPublisher`(MediaStore `Pictures/oojoo`, `PlantAlbum.add`
+  단일 초크포인트 후킹) → U3 slave `MjpegStreamer`(raw ServerSocket :8613,
+  multipart/x-mixed-replace ~5fps, 프레임은 기존 ImageAnalysis 콜백에서
+  640w q70 발행) → U4 master LiveCamera "실시간 보기"(WebView `<img>`,
+  3초 캡처는 그대로) → U5 통합 검증 + 빌드 2026112013.
+- 검증 (디바이스 실측):
+  - R-A: `capture_photo` 명령 + 기동 성장 캡처 → MediaStore
+    `bucket_display_name=oojoo`, `relative_path=Pictures/oojoo/`,
+    `is_pending=0`, 1856×1392 JPEG + 백엔드 업로드 동일 바이트.
+  - R-B: 하트비트 → DB `stream_url=http://10.0.2.15:8613/stream.mjpg` →
+    마스터 API 반환 → 호스트 `adb forward tcp:8613` 경유 MJPEG 실수신
+    (11 image/jpeg 파트/8초, 480×640 JFIF). 서비스 `isForeground=true
+    types=0x41`.
+  - 한계: 에뮬 가상카메라 정적 → 프레임 MD5 동일(파이프라인은 전구간
+    검증됨), 마스터 WebView 렌더는 headless에서 직접 확인 불가
+    (클리어텍스트는 매니페스트 허용 확인).
+- 검증 중 발견·수정한 결함 4건:
+  1. **FGS 10초 윈도우 크래시 루프 (TCG 한정)** — 콜드 스타트에서 Compose
+     첫 프레임 2~3분간 메인 스레드 혼잡 → `ForegroundServiceDidNotStartInTimeException`
+     반복. 3단계로 해결: onCreate 즉시 startForeground + 엔진 기동
+     백그라운드 스레드 (`dce663d`), UI 재시도 루프+기동 시간차 (`e357d75`),
+     **포그라운드에서 일반 startService() (10초 윈도우 자체가 없는 경로) →
+     onCreate에서 FGS 승격**, sync-apps는 슬레이브를 맨 위로 (`bd70e44`).
+     실기기 영향 없음(밀리초 기동).
+  2. **워처 backend_restart** — pkill 패턴이 구 프로세스를 놓쳐 health가
+     위장 "restarted OK". regex+퇴출대기+pid 생존 확인으로 수정 (`90721ba`).
+  3. **에셋 죽은 IP** — 양 앱 server_config.yaml이 `34.50.40.104` (주석은
+     10.0.2.2라 해놓고) → 신규 설치 전부 죽은 서버. 10.0.2.2로 (`dce663d`).
+  4. **백엔드 하드 킬** — 1시간 2회, 로그 없이 소멸. 워처에 60초 헬스
+     와치독(2회 연속 실패 시 재기동) 추가 (`8446e1b`).
+- 함정: 호스트가 게스트 IP(10.0.2.15) 직접 접근 불가(NAT 모드) —
+  스트림 확인은 `adb forward` 경유. `nc` "Network is unreachable"는
+  게스트 네트워크 미상 (system_server 사망 직후) 이기도 했고, 그 뒤
+  "ConnectException"이 났을 때는 실제로 호스트 백엔드가 죽어 있던 것 —
+  같은 증상, 다른 원인 2개.
+- 커밋: `6ab588d` `e7f695b` `efae78c` `c811506` `53f683d` `dce663d`
+  `90721ba` `e357d75` `bd70e44` `8446e1b` + 빌드 2026112013 (최종 커밋).
+  미푸시 (사용자 지시 대기).
+- 남은 작업: GitHub push 대기. `loadPlant()` 엔진 기동 1회 동기화 —
+  마스터가 나중에 식물 등록하면 슬레이브 재기동까지 미반영 (기존 동작,
+  개선 후보).
