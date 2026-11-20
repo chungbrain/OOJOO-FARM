@@ -349,7 +349,11 @@ def main():
     ap.add_argument("--per-class", type=int, default=100)
     ap.add_argument("--epochs", type=int, default=14)
     ap.add_argument("--lr", type=float, default=0.03)
+    ap.add_argument("--seed", type=int, default=7,
+                    help="RNG seed for init/data/augment/split (default 7 = historical)")
     args = ap.parse_args()
+    global RNG
+    RNG = np.random.default_rng(args.seed)
     root = Path(__file__).resolve().parents[2]
     out_dir = root / "android" / "slave" / "app" / "src" / "main" / "assets" / "models"
     metrics_dir = root / "ml" / "plant_health" / "metrics"
@@ -368,6 +372,7 @@ def main():
         "input": SIZE,
         "arch": "conv8-16-24 + GAP + dense6",
         "train_recipe": "pot-invariant synthetic + geometric symptoms + augment",
+        "seed": args.seed,
     }
     (metrics_dir / f"{args.species}.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(json.dumps({"species": args.species, "val_acc": result["val_acc"], "out": str(out_dir / f"{args.species}.bin")}))
