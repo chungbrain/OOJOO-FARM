@@ -268,6 +268,34 @@ test('알림 센터: 사용자 슬레이브 이벤트 집계', async () => {
   assert.ok(notis.notifications[0].slave_name);
 });
 
+test('알림 읽음 상태: unreadCount → 모두 읽음 → 신규 이벤트로 다시 증가', async () => {
+  const u = await (await post('/api/users', { region: 'Seoul' })).json();
+  const code = (await (await post('/api/pairing/code', { userId: u.id })).json()).code;
+  const verify = await (await post('/api/pairing/verify', { code })).json();
+  const key = { 'x-session-key': verify.sessionKey };
+
+  await post('/api/events', { slaveId: verify.slaveId, type: 'water_low' }, key);
+  await post('/api/events', { slaveId: verify.slaveId, type: 'harvest_ready' }, key);
+
+  // 읽지 않은 2건
+  let n = await (await get(`/api/notifications/${u.id}`)).json();
+  assert.equal(n.unreadCount, 2);
+  assert.equal(n.lastReadAt, null);
+
+  // 모두 읽음
+  const read = await post(`/api/notifications/${u.id}/read`, {});
+  assert.equal(read.status, 200);
+  n = await (await get(`/api/notifications/${u.id}`)).json();
+  assert.equal(n.unreadCount, 0);
+  assert.ok(n.lastReadAt);
+
+  // 신규 이벤트 → 다시 1건 (created_at 이 초 단위라 읽음 마커보다 확실히 늦게)
+  await new Promise((r) => setTimeout(r, 1100));
+  await post('/api/events', { slaveId: verify.slaveId, type: 'pest_detected' }, key);
+  n = await (await get(`/api/notifications/${u.id}`)).json();
+  assert.equal(n.unreadCount, 1);
+});
+
 test('가구 초대: 가족/친구가 Farmer·식물을 공동 소유', async () => {
   const owner = await (await post('/api/users', { nickname: '주인', region: 'Seoul' })).json();
   const friend = await (await post('/api/users', { nickname: '친구', region: 'Busan' })).json();
