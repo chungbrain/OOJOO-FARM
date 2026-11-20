@@ -34,6 +34,9 @@ object PlantAlbum {
             put("location", location)
         })
         indexFile(ctx, plantId).writeText(arr.toString())
+        // 폰 갤러리 발행 — Pictures/oojoo. 단일 폴더라 plantId 접미사로
+        // 같은 초에 찍힌 다중 식물 사진의 표시이름 충돌을 방지한다.
+        GalleryPublisher.publish(ctx, dest, "p_${stamp}_${plantId.take(6)}.jpg")
         return entry
     }
 
