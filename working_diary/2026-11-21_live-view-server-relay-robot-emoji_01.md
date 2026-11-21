@@ -67,8 +67,13 @@ master                          backend                      farmer(slave)
 - master/slave `:app:compileDebugKotlin` 통과 (android 루트 gradle 2모듈 동시)
 - 백엔드 `npm test` — **90 pass / 1 fail**: 실패한 `SIGTERM graceful shutdown`은 변경 전(stash 후 재현)에도 동일 실패하는 **Windows 플랫폼 종속 이슈** (Windows는 SIGTERM 리스너 동작 없이 강제 종료 → exit code null). Linux/GCP 배포 환경에서는 무관
 
+## 배포·빌드 (세션 후반)
+
+- **GCP 백엔드 배포**: VM `sudo git pull` → `1b84ca9..656d5ad` 반영, `systemctl restart oojoo` → **active**, `/health` 200, `/api/live/:id/status` 정상 응답, `POST /api/commands {action:"live_start"}` → commandId 발급(queued) 확인
+- **APK 재빌드**: 버전 라벨 `2026112015` → **`2026112102`**로 상향 후 `assembleDebug` BUILD SUCCESSFUL — `dist/oojoo-farm-farmer-debug.apk` (18.4MB) / `dist/oojoo-farm-master-debug.apk` (18.9MB), 17:41 갱신 (자동 복사 훅 미동작으로 수동 복사)
+- JAVA_HOME: Android Studio jbr 경로가 현재 PC에 없음 → `C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot` 사용
+
 ## 남은 작업
 
-- GCP 백엔드(34.50.40.104)에 `d87a9a2..e558176` 배포 필요 — 배포 전 원격 카메라 live 미동작
-- APK 재빌드(2026112101 이후 변경 미반영) — 요청 시 build-apk-dist 절차로 진행
+- 기기에 새 APK(2026112102) 설치 — farmer/master 둘 다 업데이트해야 라이브 보기 동작 (구버전 APK는 live_start 미지원)
 - 라이브 화면 해상도/품질 상향(현재 스트림 프레임 재사용 640w q70) — 필요 시 캡처 전용 고해상도 경로 추가 가능
