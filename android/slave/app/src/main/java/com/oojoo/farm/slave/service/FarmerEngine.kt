@@ -473,7 +473,11 @@ object FarmerEngine {
                 Prefs.setAutoWater(appCtx, _autoOn.value)
                 Prefs.setCaptureIntervalMinutes(appCtx, p.capture_interval)
                 Prefs.setPestIntervalMinutes(appCtx, p.pest_interval)
-                p.region?.takeIf { it.isNotBlank() }?.let { Prefs.setRegion(appCtx, it) }
+                p.region?.takeIf { it.isNotBlank() }?.let {
+                    // 기기 위치 기반 자동 추론 지역이 우선 — 위치가 없을 때만
+                    // 원격 정책 지역을 fallback으로 쓴다 (자동 설정 값을 덮어쓰지 않게).
+                    if (farmLoc == null) Prefs.setRegion(appCtx, it)
+                }
                 // F4 — 카메라 설치 위치 정책 → 촬영 방향 재적용 (원격 변경 즉시 반영)
                 val prevMount = OrientationPolicy.mount
                 OrientationPolicy.setMount(p.camera_mount ?: OrientationPolicy.MOUNT_AUTO)
@@ -552,13 +556,26 @@ object FarmerEngine {
             val resp = farmLoc?.let {
                 ApiClient.api.weatherByCoords(it.lat, it.lon)
             } ?: ApiClient.api.weather(region)
+            // 지역 자동 추론 — 좌표 기반 응답의 region(백엔드 역지오딩 지역명)으로
+            // farmer 지역을 자동 설정한다. 기기가 위치한 곳이 곧 농장이므로
+            // 마스터가 수동 설정하지 않아도 지역이 잡힌다.
+            // 역지오딩 실패 시의 좌표 폼백("37.12, 127.10" 형태)은 지역명이 아니므로 제외.
+            if (farmLoc != null && resp.region.isNotBlank() &&
+                !COORD_REGION.matches(resp.region) && resp.region != region
+            ) {
+                Prefs.setRegion(appCtx, resp.region)
+                addLog("[${now()}] 지역 자동 설정: ${resp.region}")
+            }
             _weatherFactor.value = resp.weatherFactor
             Prefs.setWeatherFactor(appCtx, resp.weatherFactor)
-            addLog("[${now()}] 날씨 업데이트: $region ${resp.temp?.let { "${it.toInt()}°C" } ?: "?"} (가중치:${"%.2f".format(resp.weatherFactor)})")
+            addLog("[${now()}] 날씨 업데이트: ${resp.region.ifBlank { region }} ${resp.temp?.let { "${it.toInt()}°C" } ?: "?"} (가중치:${"%.2f".format(resp.weatherFactor)})")
         } catch (e: Exception) {
             addLog("[${now()}] 날씨 조회 실패 (캐시 사용): ${e.message}")
         }
     }
+
+    // 역지오딩 실패 시 백엔드가 반환하는 좌표 문자열 형태 — 지역명 자동 설정에서 제외
+    private val COORD_REGION = Regex("^-?\\d+\\.\\d+,\\s*-?\\d+\\.\\d+$")
 
     private suspend fun pollCommands() {
         try {
