@@ -6,7 +6,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -123,15 +122,10 @@ private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Fl
     return sqrt(dr * dr + dc * dc)
 }
 
-// --- 나무 팻말/로봇 색상 ---
+// --- 나무 팻말 색상 ---
 private val WoodLight = Color(0xFFD2A26B)
 private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
-private val RobotInk = Color(0xFF37474F)
-private val RobotSteelLight = Color(0xFFCFD8DC)
-private val RobotSteelDark = Color(0xFF90A4AE)
-private val RobotGreenTop = Color(0xFF66BB6A)
-private val RobotGreenBottom = Color(0xFF2E7D32)
 
 /**
  * 빈 cell 중 가장 좋은 위치 — 격자 중심에서 가까운 순, 같은 행에 1칸 간격 유지.
@@ -325,22 +319,6 @@ fun FarmSceneView(
             birdFlight.snapTo(0f)
         }
     }
-
-    // 로봇 눈 깜빡임 — 3.4초 주기, 짧은 한 번
-    val blink by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            keyframes {
-                durationMillis = 3400
-                1f at 0
-                1f at 3050
-                0.15f at 3150
-                1f at 3250
-            },
-            RepeatMode.Restart
-        ),
-        label = "blink"
-    )
 
     // 관수 중 물방울 낙하 (0 → 16dp 후 리셋)
     val dropFall by infiniteTransition.animateFloat(
@@ -593,7 +571,6 @@ fun FarmSceneView(
                     tilt = robotTilt.value,
                     scale = robotScale.value,
                     tending = tendingAlpha.value,
-                    blink = blink,
                     dropFall = dropFall,
                     modifier = Modifier.offset(
                         x = (robotPxX - 22f).dp,
@@ -656,8 +633,10 @@ private fun WoodSign(plantName: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * 로봇 — primitives로 조립: 안테나(봉+불빛) / 헤드(깜빡이는 눈) / 몸통(그라디언트+화면) / 바퀴.
- * facing(+1/-1)으로 이동 방향 회전, tilt으로 이동 기울기, tending(0..1)으로 관수 물방울.
+ * 로봇 — 하단 메뉴바의 farmer 탭과 같은 🤖 이모지 피겨.
+ * (과거: primitives로 조립한 스틸 헤드+그린 몸통 로봇 — 모양이 어색해 교체)
+ * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
+ * tending(0..1)으로 관수 물방울이 떨어진다.
  */
 @Composable
 private fun RobotFigure(
@@ -665,64 +644,24 @@ private fun RobotFigure(
     tilt: Float,
     scale: Float,
     tending: Float,
-    blink: Float,
     dropFall: Float,
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier.size(width = 44.dp, height = 48.dp)
-            .graphicsLayer {
-                scaleX = scale * facing
-                scaleY = scale
-                rotationZ = tilt
-            },
+        modifier.size(width = 44.dp, height = 48.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 안테나
-            Box(Modifier.size(width = 1.5.dp, height = 5.dp).background(RobotSteelDark))
-            Box(Modifier.size(4.dp).clip(CircleShape).background(Color(0xFFFFB300)).alpha(0.9f))
-            // 헤드
-            Box(
-                Modifier
-                    .padding(top = 1.dp)
-                    .size(width = 22.dp, height = 11.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Brush.verticalGradient(listOf(RobotSteelLight, RobotSteelDark)))
-                    .border(1.dp, RobotInk, RoundedCornerShape(3.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    RobotEye(blink)
-                    RobotEye(blink)
+        Text(
+            "🤖",
+            fontSize = 38.sp,
+            modifier = Modifier
+                .offset(y = 4.dp)
+                .graphicsLayer {
+                    scaleX = scale * facing
+                    scaleY = scale
+                    rotationZ = tilt
                 }
-            }
-            // 몸통
-            Box(
-                Modifier
-                    .padding(top = 1.dp)
-                    .size(width = 27.dp, height = 15.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Brush.verticalGradient(listOf(RobotGreenTop, RobotGreenBottom)))
-                    .border(1.dp, RobotInk, RoundedCornerShape(4.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    Modifier
-                        .size(width = 13.dp, height = 6.dp)
-                        .clip(RoundedCornerShape(1.5.dp))
-                        .background(Color(0xFF263238)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(Modifier.size(width = 9.dp, height = 2.dp).background(Color(0xFF76FF03)))
-                }
-            }
-            // 바퀴
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                RobotWheel()
-                RobotWheel()
-            }
-        }
+        )
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
         if (tending > 0.01f) {
@@ -744,30 +683,5 @@ private fun RobotFigure(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RobotEye(blink: Float) {
-    Box(
-        Modifier
-            .size(3.5.dp)
-            .graphicsLayer { scaleY = blink }
-            .clip(CircleShape)
-            .background(Color(0xFF263238))
-    )
-}
-
-@Composable
-private fun RobotWheel() {
-    Box(
-        Modifier
-            .size(7.dp)
-            .clip(CircleShape)
-            .background(RobotInk)
-            .border(1.dp, RobotSteelDark, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(Modifier.size(2.dp).clip(CircleShape).background(RobotSteelLight))
     }
 }
