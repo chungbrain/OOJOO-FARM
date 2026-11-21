@@ -43,10 +43,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
 import kotlinx.coroutines.coroutineScope
@@ -167,10 +169,16 @@ fun FarmSceneView(
     // 등록된 식물이 없으면 빈 농장 표시 (과거: 가짜 데모 식물 4종 렌더링)
     val displayPlants = plants
 
-    // 식물 위치 — 식물 ID 키로 관리. 목록 순서 변화(추가/재정렬)에도 기존 식물은
-    // 움직이지 않고, 새 식물만 빈 cell에 결정적으로 배정, 삭제된 식물의 cell은 해제.
+    // 식물 위치 — 식물 ID 키로 관리. 드래그로 옮겨둔 위치를 SharedPreferences에
+    // 저장해 앱 재시작 후에도 그 자리에 배치한다. 목록 순서 변화(추가/재정렬)에도
+    // 기존 식물은 움직이지 않고, 새 식물만 빈 cell에 결정적으로 배정,
+    // 삭제된 식물의 cell은 해제(+저장 위치 정리).
     // 조합 내 동기 보정(첫 프레임부터 올바른 위치) + 이펙트로 상태 영속화.
-    var cellMap by remember { mutableStateOf<Map<String, PlantCell>>(emptyMap()) }
+    val ctx = LocalContext.current
+    var cellMap by remember {
+        val stored = Prefs.farmPlantCells(ctx).mapValues { (_, rc) -> PlantCell(rc.first, rc.second) }
+        mutableStateOf(stored)
+    }
     val currentIds = displayPlants.map { it.id }.toSet()
     val cells = remember(cellMap, currentIds) {
         if (cellMap.keys.containsAll(currentIds) && cellMap.size == currentIds.size) {
@@ -183,8 +191,11 @@ fun FarmSceneView(
             m
         }
     }
-    LaunchedEffect(currentIds) {
+    LaunchedEffect(cells) {
         if (cellMap != cells) cellMap = cells
+        // 위치 영속화 — 새로 배정/옮겨진 식물 위치 저장, 삭제된 식물의 저장 위치 정리
+        cells.forEach { (id, c) -> Prefs.setFarmPlantCell(ctx, id, c.row, c.col) }
+        Prefs.removeFarmPlantCells(ctx, Prefs.farmPlantCells(ctx).keys.filter { it !in currentIds })
     }
 
     // 드래그 중인 식물 ID (null = 드래그 아님)
@@ -508,6 +519,8 @@ fun FarmSceneView(
                                     }
                                     if (target != cell) {
                                         cellMap = cells + (plant.id to target)
+                                        // 옮겨진 위치 기억 — 앱 재시작 후에도 이 자리에 배치
+                                        Prefs.setFarmPlantCell(ctx, plant.id, target.row, target.col)
                                     }
                                     draggingId = null
                                 },
