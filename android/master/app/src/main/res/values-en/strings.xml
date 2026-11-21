@@ -280,12 +280,14 @@
     <string name="photo_captured_suffix">)</string>
     <string name="video_capture_btn">📹 Record video</string>
     <string name="live_view_btn">📡 Live view</string>
-    <string name="live_fetching">Fetching stream URL…</string>
-    <string name="live_unsupported">This farmer has not reported a stream URL (restart the app and retry)</string>
+    <string name="live_fetching">Connecting live stream…</string>
     <string name="live_streaming">Live streaming…</string>
     <string name="live_stopped">Live view stopped</string>
     <string name="live_stop">⏹ Stop live</string>
     <string name="live_unavailable">Live view unavailable</string>
+    <string name="live_no_signal">No live signal — Farmer may be offline or the camera is off</string>
+    <string name="live_badge">● LIVE</string>
+    <string name="live_refresh_note">Refreshes every 3 seconds</string>
     <string name="start_app">🚀 Get Started!</string>
     <string name="hello">Hello!</string>
     <string name="welcome_subtitle">Grow your own smart farm\nat home</string>

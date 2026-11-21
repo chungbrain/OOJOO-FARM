@@ -89,6 +89,14 @@ object FarmerEngine {
     private val _captureRequested = MutableStateFlow(false)
     val captureRequested: StateFlow<Boolean> = _captureRequested.asStateFlow()
 
+    // 실시간 보기 — 마스터의 live_start/live_stop 명령으로 on/off.
+    // on이면 3초마다 최신 프레임을 백엔드(/api/live/:slaveId/frame)에 push하고
+    // 마스터는 같은 주기로 pull해 화면을 갱신한다 (3초 라이브).
+    @Volatile
+    private var liveRelayJob: Job? = null
+    private val LIVE_FRAME_INTERVAL_MS = 3_000L
+    private val LIVE_FRAME_STALE_MS = 5_000L
+
     // ROI 기반 다중 식물 모니터링 결과 (plantId -> 최신 진단)
     data class RoiStatus(
         val plantId: String,
@@ -272,6 +280,16 @@ object FarmerEngine {
                     addLog("[${now()}] 마스터 요청(SSE): 영상 건강진단")
                     diagnoseVideo(id, plantId)
                 }
+                "live_start" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 실시간 보기 시작")
+                    startLiveRelay()
+                    ApiClient.api.commandDone(id)
+                }
+                "live_stop" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 실시간 보기 종료")
+                    stopLiveRelay()
+                    ApiClient.api.commandDone(id)
+                }
             }
         } catch (_: Exception) {}
     }
@@ -337,6 +355,7 @@ object FarmerEngine {
 
     fun stop() {
         MjpegStreamer.stop()
+        stopLiveRelay()
         loops.forEach { it.cancel() }
         loops.clear()
         sseJob?.cancel()
@@ -595,6 +614,16 @@ object FarmerEngine {
                         addLog("[${now()}] 마스터 요청: 영상 건강진단")
                         diagnoseVideo(cmd.id, cmd.plant_id)
                     }
+                    "live_start" -> {
+                        addLog("[${now()}] 마스터 요청: 실시간 보기 시작")
+                        startLiveRelay()
+                        ApiClient.api.commandDone(cmd.id)
+                    }
+                    "live_stop" -> {
+                        addLog("[${now()}] 마스터 요청: 실시간 보기 종료")
+                        stopLiveRelay()
+                        ApiClient.api.commandDone(cmd.id)
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -670,6 +699,53 @@ object FarmerEngine {
             ApiClient.api.commandDone(commandId)
         } catch (e: Exception) {
             addLog("[${now()}] 지시 완료 보고 실패: ${e.message}")
+        }
+    }
+
+    // ---------- 실시간 보기 릴레이 ----------
+    // 마스터의 live_start 로 켜지고 live_stop 로 꺼진다. 켜져 있는 동안 3초마다
+    // 최신 카메라 프레임을 백엔드(/api/live/:slaveId/frame)에 push하고,
+    // 마스터는 같은 주기로 pull해 화면을 갱신한다 (3초 라이브).
+    private fun startLiveRelay() {
+        liveRelayJob?.cancel()
+        liveRelayJob = scope.launch {
+            while (isActive) {
+                try {
+                    val frame = latestLiveFrame()
+                    if (frame != null) {
+                        val part = MultipartBody.Part.createFormData(
+                            "frame", "live_${System.currentTimeMillis()}.jpg",
+                            frame.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                        )
+                        ApiClient.api.uploadLiveFrame(slaveId(), part)
+                    }
+                } catch (_: Exception) { /* 오프라인이면 다음 틱에 재시도 */ }
+                delay(LIVE_FRAME_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopLiveRelay() {
+        liveRelayJob?.cancel()
+        liveRelayJob = null
+    }
+
+    /** push할 최신 프레임 — 스트림용 최신 프레임이 살아 있으면 그것을, 아니면 즉시 캡처 fallback. */
+    private suspend fun latestLiveFrame(): ByteArray? {
+        val latest = CameraHolder.latestFrame
+        if (latest != null && System.currentTimeMillis() - CameraHolder.latestFrameAt < LIVE_FRAME_STALE_MS) {
+            return latest
+        }
+        if (!awaitCameraReady(1500)) return null
+        val bitmap = suspendCancellableCoroutine<Bitmap?> { cont ->
+            CameraHolder.captureFrame { b -> if (cont.isActive) cont.resume(b) }
+        } ?: return null
+        return try {
+            val out = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            out.toByteArray()
+        } finally {
+            bitmap.recycle()
         }
     }
 

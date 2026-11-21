@@ -6,6 +6,7 @@
 export const COMMAND_ACTIONS = new Set([
   'water', 'pause', 'resume', 'fan', 'laser',
   'capture_photo', 'capture_video', 'generate_growth_clip', 'diagnose_video',
+  'live_start', 'live_stop',
 ]);
 
 // 관수 명령/로그 공통 수치 범위.
