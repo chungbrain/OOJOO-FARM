@@ -38,7 +38,8 @@ const upload = multer({
       cb(null, `${nanoid(16)}${ext}`);
     },
   }),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  // 고해상도 촬영 기기 대비 여유 있는 상한 (slave는 업로드 전 1920px 축소본 전송)
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 function toPhoto(row) {

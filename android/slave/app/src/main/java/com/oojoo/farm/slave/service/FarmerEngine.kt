@@ -897,17 +897,24 @@ object FarmerEngine {
             val location = Prefs.region(appCtx)
             try {
                 PlantAlbum.add(appCtx, pid, file, takenAt, location)
-                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
-                ApiClient.api.uploadPhoto(
-                    slaveId(),
-                    part,
-                    pid.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    location.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    commandId.takeIf { it.isNotBlank() }?.toRequestBody("text/plain".toMediaTypeOrNull())
-                )
-                addLog("[${now()}] 즉시 사진 전송 완료 (${file.length() / 1024}KB)")
+                // 업로드용 축소본 — 고해상도 원본 JPEG이 백엔드 업로드 제한(8MB)을
+                // 넘겨 413(File too large)로 거부되는 것을 방지한다.
+                val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+                try {
+                    val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
+                    ApiClient.api.uploadPhoto(
+                        slaveId(),
+                        part,
+                        pid.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        location.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        commandId.takeIf { it.isNotBlank() }?.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                    addLog("[${now()}] 즉시 사진 전송 완료 (${upFile.length() / 1024}KB)")
+                } finally {
+                    if (upFile != file) upFile.delete()
+                }
             } catch (e: Exception) {
                 addLog("[${now()}] 즉시 사진 업로드 실패: ${e.message}")
             } finally {
@@ -956,19 +963,27 @@ object FarmerEngine {
         try {
             for (p in plants) {
                 PlantAlbum.add(appCtx, p.id, file, takenAt, location)
-                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
-                ApiClient.api.uploadPhoto(
-                    slaveId(),
-                    part,
-                    p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    location.toRequestBody("text/plain".toMediaTypeOrNull())
-                )
             }
-            Prefs.setLastPhotoAt(appCtx, System.currentTimeMillis())
-            _lastAnalysis.value?.let { Prefs.setLastPhotoGreenness(appCtx, it.greenness.toFloat()) }
-            addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${file.length() / 1024}KB)")
+            // 업로드용 축소본 — 모든 식물이 공유. 원본이 업로드 제한(8MB)을 넘기는 것 방지.
+            val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+            try {
+                for (p in plants) {
+                    val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
+                    ApiClient.api.uploadPhoto(
+                        slaveId(),
+                        part,
+                        p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        location.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                }
+                Prefs.setLastPhotoAt(appCtx, System.currentTimeMillis())
+                _lastAnalysis.value?.let { Prefs.setLastPhotoGreenness(appCtx, it.greenness.toFloat()) }
+                addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${upFile.length() / 1024}KB)")
+            } finally {
+                if (upFile != file) upFile.delete()
+            }
         } catch (e: Exception) {
             addLog("[${now()}] 성장 사진 업로드 실패: ${e.message}")
         } finally {
