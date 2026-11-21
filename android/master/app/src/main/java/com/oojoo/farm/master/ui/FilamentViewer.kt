@@ -10,6 +10,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -51,8 +53,11 @@ import com.oojoo.farm.master.model.Slave
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 /**
  * 작물 종류(species)와 생장 단계(stage)를 함께 고려한 이모지.
@@ -148,7 +153,8 @@ private fun pickEmptyCell(used: Set<PlantCell>): PlantCell {
  * 2D emoji farm scene.
  *
  * 레이아웃:
- *   하늘   : 천체/구름 (상단 40%)
+ *   하늘   : 천체/구름 (상단 40%). 구름은 하늘을 가로질러 흐르고
+ *            새 떼가 가끔 편대로 날아간다. 밤에는 별가루 반짝임 + 북두칠성.
  *   바닥   : 4x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
  *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다 (점유 cell → 가장 가까운
  *            빈 cell, 격자 가득차면 원위치).
@@ -282,11 +288,43 @@ fun FarmSceneView(
         label = "pulse"
     )
 
-    val cloudDrift by infiniteTransition.animateFloat(
-        initialValue = -14f, targetValue = 14f,
-        animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "cloudDrift"
+    // 구름 — 하늘을 가로질러 지속적으로 흐른다.
+    // 0→1 선형 이동이며 양 끝은 화면 밖이라 되돌아감이 눈에 띄지 않는다.
+    val cloudF1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(42000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud1"
     )
+    val cloudF2 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(58000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud2"
+    )
+    val cloudF3 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(50000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud3"
+    )
+
+    // 밤하늘 별 반짝임 주기 (별가루 + 북두칠성 공용)
+    val twinkle by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
+        label = "twinkle"
+    )
+
+    // 새 떼 — 가끔 하늘을 가로질러 날아간다 (6~15초 잠복 후 9초 비행)
+    var birdsActive by remember { mutableStateOf(false) }
+    val birdFlight = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(Random.nextLong(6000, 15000))
+            birdsActive = true
+            birdFlight.animateTo(1f, animationSpec = tween(9000, easing = LinearEasing))
+            birdsActive = false
+            birdFlight.snapTo(0f)
+        }
+    }
 
     // 로봇 눈 깜빡임 — 3.4초 주기, 짧은 한 번
     val blink by infiniteTransition.animateFloat(
@@ -330,22 +368,93 @@ fun FarmSceneView(
                 .graphicsLayer { scaleX = pulse; scaleY = pulse }
                 .alpha(0.95f)
         )
-        if (!isNight || isRain) {
+        // === 밤하늘 — 별가루 반짝임 + 북두칠성 ===
+        if (isNight) {
+            // 별 위치 — 시드 고정이라 재구성돼도 같은 자리에 빛난다.
+            val skyStars = remember {
+                val rnd = Random(20261121)
+                List(18) { Triple(rnd.nextFloat(), 0.06f + rnd.nextFloat() * 0.86f, rnd.nextFloat()) }
+            }
+            Canvas(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height((maxH - groundH).dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                // 별가루 — 개별 위상으로 각자 다른 속도로 반짝임
+                skyStars.forEach { (sx, sy, phase) ->
+                    val a = 0.25f + 0.75f * (0.5f + 0.5f * sin((twinkle + phase) * 2.0 * PI).toFloat())
+                    drawCircle(
+                        color = Color.White.copy(alpha = a),
+                        radius = 1.6f + phase * 1.6f,
+                        center = Offset(sx * w, sy * h)
+                    )
+                }
+                // 북두칠성 — 국자 4개 별 + 자루 3개 별을 잇는 별자리 라인
+                val dipper = listOf(
+                    0.10f to 0.52f, 0.20f to 0.40f, 0.32f to 0.34f, 0.44f to 0.42f,
+                    0.56f to 0.60f, 0.68f to 0.52f, 0.80f to 0.30f
+                ).map { (x, y) -> Offset(x * w, y * h) }
+                val lineColor = Color.White.copy(alpha = 0.35f)
+                listOf(0 to 1, 1 to 2, 2 to 3, 3 to 0, 0 to 4, 4 to 5, 5 to 6).forEach { (a, b) ->
+                    drawLine(lineColor, dipper[a], dipper[b], strokeWidth = 2f)
+                }
+                dipper.forEachIndexed { i, p ->
+                    drawCircle(Color.White.copy(alpha = 0.95f), radius = if (i % 2 == 0) 5f else 4f, center = p)
+                    drawCircle(Color.White.copy(alpha = 0.22f), radius = 9f, center = p)
+                }
+            }
+        }
+
+        // === 구름 — 하늘을 가로질러 흐른다 (속도/높이가 제각각) ===
+        val cloudDim = if (isNight) 0.4f else 1f
+        val cloudTravel = maxW + 220f
+        fun cloudX(f: Float): Float = (maxW + 80f) - f * cloudTravel
+        Text(
+            "☁️", fontSize = 30.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF1).dp, y = 18.dp)
+                .alpha(0.75f * cloudDim)
+        )
+        Text(
+            "☁️", fontSize = 22.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF2).dp, y = 48.dp)
+                .alpha(0.5f * cloudDim)
+        )
+        Text(
+            "☁️", fontSize = 26.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF3).dp, y = 72.dp)
+                .alpha(0.62f * cloudDim)
+        )
+
+        // === 새 떼 — 가끔 V자 편대로 날아간다 ===
+        if (birdsActive) {
+            val bx = -90f + birdFlight.value * (maxW + 180f)
+            val by = maxH * 0.08f + sin(birdFlight.value * 2.5 * PI).toFloat() * 12f
             Text(
-                "☁️", fontSize = 28.sp,
+                "🐦", fontSize = 20.sp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 18.dp)
-                    .offset(x = cloudDrift.dp)
-                    .alpha(0.7f)
+                    .offset(x = bx.dp, y = by.dp)
             )
             Text(
-                "☁️", fontSize = 22.sp,
+                "🐦", fontSize = 16.sp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 42.dp, start = 120.dp)
-                    .offset(x = (cloudDrift * 0.6f).dp)
-                    .alpha(0.5f)
+                    .offset(x = (bx - 26f).dp, y = (by + 15f).dp)
+            )
+            Text(
+                "🐦", fontSize = 15.sp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = (bx + 26f).dp, y = (by + 9f).dp)
             )
         }
 
