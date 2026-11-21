@@ -176,6 +176,9 @@ class LiveCameraViewModel : ViewModel() {
     }
 
     private fun request(slaveId: String, slaveName: String, ctx: android.content.Context, action: String) {
+        // 라이브 스트림이 켜져 있으면 종료 — 촬영 결과가 같은 슬롯에 표시되므로
+        // farmer의 push 루프도 끊고 화면을 촬영 흐름으로 전환한다.
+        stopLive()
         photoMode = action == "capture_photo"
         loading = true
         error = null
@@ -355,63 +358,22 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
             if (vm.loading) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) }
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
-            vm.photoUrl?.let { pUrl ->
-                val fullUrl = baseUrl + pUrl
-                Text("${S.photoCapturedPrefix}${vm.photoTakenAt ?: S.justNow}${S.photoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
-                    coil.compose.AsyncImage(
-                        model = fullUrl,
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                }
-                OutlineButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.fillMaxWidth())
-                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+            // 라이브 연결 진행/에러 표시 — 결과 미디어는 아래 슬롯에 유지된다
+            if (vm.liveLoading) {
+                Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 2.dp)
             }
+            vm.liveError?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
-            vm.videoInfo?.let { v ->
-                val fullUrl = baseUrl + v.url
-                Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
-                    AndroidView(
-                        factory = { context ->
-                            VideoView(context).apply {
-                                setVideoURI(Uri.parse(fullUrl))
-                                setOnPreparedListener { it.isLooping = true; start() }
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
-                }
-            }
-
-            // 실시간 보기 — farmer가 3초마다 push한 프레임을 받아 화면을 갱신 (3초 라이브)
-            if (vm.liveFrame != null || vm.liveLoading || vm.liveError != null) {
-                if (vm.liveLoading) {
-                    Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 2.dp)
-                }
-                vm.liveError?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                vm.liveFrame?.let { frame ->
+            // 미디어 표시 슬롯 — 3초 영상·사진·실시간 스트림이 같은 위치를 공유한다.
+            // 실시간 보기 중이면 라이브 프레임이 3초 영상이 보이던 바로 그 자리를 차지하고,
+            // 종료하면 직전 결과(3초 영상/사진)로 되돌아온다.
+            when {
+                vm.liveFrame != null -> {
                     Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             androidx.compose.foundation.Image(
-                                bitmap = frame.asImageBitmap(),
+                                bitmap = vm.liveFrame!!.asImageBitmap(),
                                 contentDescription = null,
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -433,18 +395,66 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
                     Text(S.liveRefreshNote, color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         GradientButton(text = S.liveStop, onClick = { vm.stopLive() }, modifier = Modifier.weight(1f))
-                        if (vm.videoInfo == null && vm.photoUrl == null) {
+                        OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                vm.videoInfo != null -> {
+                    val v = vm.videoInfo!!
+                    val fullUrl = baseUrl + v.url
+                    Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                        AndroidView(
+                            factory = { context ->
+                                VideoView(context).apply {
+                                    setVideoURI(Uri.parse(fullUrl))
+                                    setOnPreparedListener { it.isLooping = true; start() }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                vm.photoUrl != null -> {
+                    val fullUrl = baseUrl + vm.photoUrl!!
+                    Text("${S.photoCapturedPrefix}${vm.photoTakenAt ?: S.justNow}${S.photoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                        coil.compose.AsyncImage(
+                            model = fullUrl,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                else -> {
+                    // 아직 결과 없음 — 사진 촬영/실시간 보기로 전환 가능
+                    if (!vm.loading && !vm.liveLoading) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
                             OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                         }
                     }
-                }
-            }
-
-            // 결과 없이 대기 중일 때도 사진 촬영/실시간 보기로 전환 가능
-            if (vm.videoInfo == null && vm.photoUrl == null && vm.liveFrame == null && vm.liveError == null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                 }
             }
         }
