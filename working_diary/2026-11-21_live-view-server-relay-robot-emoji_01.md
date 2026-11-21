@@ -71,6 +71,7 @@ master                          backend                      farmer(slave)
 
 - **GCP 백엔드 배포**: VM `sudo git pull` → `1b84ca9..656d5ad` 반영, `systemctl restart oojoo` → **active**, `/health` 200, `/api/live/:id/status` 정상 응답, `POST /api/commands {action:"live_start"}` → commandId 발급(queued) 확인
 - **APK 재빌드**: 버전 라벨 `2026112015` → **`2026112102`**로 상향 후 `assembleDebug` BUILD SUCCESSFUL — `dist/oojoo-farm-farmer-debug.apk` (18.4MB) / `dist/oojoo-farm-master-debug.apk` (18.9MB), 17:41 갱신 (자동 복사 훅 미동작으로 수동 복사)
+- **dist APK 커밋·홈 배치** (`d757918`): 재빌드된 두 APK를 저장소 dist에 커밋해 push 하고, 홈 디렉터리 `~/dist`(`C:\Users\cklee\dist`)에도 동일 복사본 위치
 - JAVA_HOME: Android Studio jbr 경로가 현재 PC에 없음 → `C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot` 사용
 
 ## 남은 작업
