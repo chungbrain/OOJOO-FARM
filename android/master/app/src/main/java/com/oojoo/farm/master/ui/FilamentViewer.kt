@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -545,10 +547,14 @@ fun FarmSceneView(
                     )
                 }
 
-                // 이름표 — 나무 팻말, 원 정중앙 아래 배치 (고정 64x24dp: 줄기 7 + 팻말 17).
+                // 이름표 — 나무 팻말, 원 정중앙 아래 배치. 전체 높이 = 줄기 7 + 몸통.
+                // 몸통 높이는 폰트 확대(fontScale)를 반영해 계산 — 시스템 글자 크기가
+                // 커도 이름 텍스트가 아래로 잘리지 않는다.
                 // 맨 아래 행(row GRID-1)은 팻말이 카드 하단으로 잘리지 않게 원 위쪽으로.
+                val fontScale = LocalDensity.current.fontScale
                 val signW = 64f
-                val signH = 24f
+                val signBodyH = 17f * fontScale
+                val signH = signBodyH + 7f
                 val centerX = boxX + soilSize.value / 2f
                 val onTop = cell.row >= GRID - 1
                 Box(
@@ -565,11 +571,11 @@ fun FarmSceneView(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (onTop) {
-                            WoodSign(plant.name)
+                            WoodSign(plant.name, signBodyH)
                             Box(Modifier.size(width = 2.5.dp, height = 7.dp).background(WoodEdge))
                         } else {
                             Box(Modifier.size(width = 2.5.dp, height = 7.dp).background(WoodEdge))
-                            WoodSign(plant.name)
+                            WoodSign(plant.name, signBodyH)
                         }
                     }
                 }
@@ -622,13 +628,15 @@ fun FarmSceneView(
     }
 }
 
-/** 나무 팻말 — 고정 폭 64dp, 나무 그라디언트 + 어두운 테두리, 긴 이름은 줄임표시. */
+/** 나무 팻말 — 고정 폭 64dp, 나무 그라디언트 + 어두운 테두리, 긴 이름은 줄임표시.
+ *  이름 텍스트는 상하좌우 모두 가운데 정렬. 몸통 높이(bodyH)는 폰트 확대를
+ *  반영한 값이라 아래쪽이 잘려 보이지 않는다. */
 @Composable
-private fun WoodSign(plantName: String, modifier: Modifier = Modifier) {
+private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modifier) {
     Box(
         modifier
             .width(64.dp)
-            .height(17.dp)
+            .height(bodyH.dp)
             .clip(RoundedCornerShape(3.dp))
             .background(Brush.verticalGradient(listOf(WoodLight, WoodDark)))
             .border(1.dp, WoodEdge, RoundedCornerShape(3.dp)),
@@ -640,7 +648,8 @@ private fun WoodSign(plantName: String, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
             color = Color(0xFFFFF3E0),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
         )
     }
 }
