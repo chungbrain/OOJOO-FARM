@@ -37,6 +37,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.LocalAppStrings
+import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
@@ -80,6 +81,9 @@ class PlantDetailViewModel : ViewModel() {
     var editPlantedAt by mutableStateOf("")
     var editStage by mutableStateOf("seedling")
     var editSlaveId by mutableStateOf<String?>(null)
+    // 농장 배치 위치 편집 — 전체 식물 목록(점유 표시용)과 편집 중 위치
+    var allPlants by mutableStateOf<List<Plant>>(emptyList())
+    var editFarmCell by mutableStateOf<FarmCell?>(null)
     private var sseJob: Job? = null
     val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "허브", "선인장", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
 
@@ -97,23 +101,43 @@ class PlantDetailViewModel : ViewModel() {
                     try { growthClip = api.plantVideos(p.id, "growth").videos.firstOrNull() } catch (_: Exception) {}
                 }
                 try { slaves = api.slaves(Session.userId).slaves } catch (_: Exception) {}
+                try { allPlants = api.plants(Session.userId).plants } catch (_: Exception) {}
                 try { weather = api.weather(Session.region) } catch (_: Exception) {}
             } catch (e: Exception) { msg = e.message }
             loading = false
         }
     }
 
-    fun startEdit() {
+    fun startEdit(ctx: android.content.Context) {
         val p = plant ?: return
         editName = p.name
         editSpecies = p.species ?: ""
         editPlantedAt = p.planted_at ?: ""
         editStage = p.stage ?: "seedling"
         editSlaveId = p.slave_id
+        // 현재 농장 위치 (저장된 위치 우선, 없으면 자동 배치 규칙 계산값)
+        val occ = computeFarmOccupancy(ctx, allPlants)
+        editFarmCell = occ[p.id] ?: pickEmptyFarmCell(occ.values.toSet())
         editing = true
     }
 
-    fun saveEdit() {
+    /**
+     * 농장 위치 적용 — 대상 칸에 다른 식물이 이미 있으면 그 식물을 내 예전 칸으로
+     * 맞바꾼다 (예전 칸이 없으면 가장 가까운 빈 칸으로).
+     */
+    private fun applyFarmCell(ctx: android.content.Context, plantId: String, newCell: FarmCell) {
+        val others = computeFarmOccupancy(ctx, allPlants, excludePlantId = plantId)
+        val occupantId = others.entries.firstOrNull { it.value == newCell }?.key
+        if (occupantId != null) {
+            val myOld = Prefs.farmPlantCells(ctx)[plantId]?.let { clampFarmCell(it.first, it.second) }
+            val usedForOther = (others.values.toSet() - (others[occupantId] ?: newCell)) + newCell
+            val targetForOther = myOld ?: pickEmptyFarmCell(usedForOther)
+            Prefs.setFarmPlantCell(ctx, occupantId, targetForOther.row, targetForOther.col)
+        }
+        Prefs.setFarmPlantCell(ctx, plantId, newCell.row, newCell.col)
+    }
+
+    fun saveEdit(ctx: android.content.Context) {
         val p = plant ?: return
         if (editName.isBlank()) { msg = "식물 이름을 입력하세요"; return }
         saving = true
@@ -129,6 +153,8 @@ class PlantDetailViewModel : ViewModel() {
                         stage = editStage
                     )
                 )
+                // 선택한 농장 위치 저장
+                editFarmCell?.let { applyFarmCell(ctx, p.id, it) }
                 editing = false
                 msg = "수정되었습니다"
                 load(p.id)
@@ -310,6 +336,7 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 val pl = vm.plant
+                val ctx = LocalContext.current
                 if (vm.editing && pl != null) {
                     PlantEditCard(vm)
                 } else if (pl != null) {
@@ -329,7 +356,7 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                                     border = BorderStroke(1.dp, OojooTheme.Ink),
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .clickable { vm.startEdit() }
+                                        .clickable { vm.startEdit(ctx) }
                                 ) {
                                     Text("✏️", fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 2.dp))
                                 }
@@ -705,11 +732,22 @@ private fun PlantEditCard(vm: PlantDetailViewModel) {
                     stages.forEach { (v, l) -> DropdownMenuItem(text = { Text(l) }, onClick = { vm.editStage = v; stageExpanded = false }) }
                 }
             }
+
+            // 농장 위치 — 3x4 구역 중 배치할 칸 선택 (점유 칸을 고르면 저장 시 맞바꿈)
+            val ctx = LocalContext.current
+            FarmCellPicker(
+                occupied = computeFarmOccupancy(ctx, vm.allPlants, excludePlantId = vm.plant?.id),
+                emojis = vm.allPlants.associate { it.id to plantEmojiFor(it.species, it.stage) },
+                selected = vm.editFarmCell,
+                onSelect = { vm.editFarmCell = it },
+                movingEmoji = plantEmojiFor(vm.editSpecies.ifBlank { null }, vm.editStage)
+            )
+
             if (vm.saving) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GradientButton(text = S.save, onClick = { vm.saveEdit() }, enabled = !vm.saving && vm.editName.isNotBlank(), modifier = Modifier.weight(1f))
+                GradientButton(text = S.save, onClick = { vm.saveEdit(ctx) }, enabled = !vm.saving && vm.editName.isNotBlank(), modifier = Modifier.weight(1f))
                 OutlineButton(text = S.cancel, onClick = { vm.editing = false }, modifier = Modifier.weight(1f), enabled = !vm.saving)
             }
         }

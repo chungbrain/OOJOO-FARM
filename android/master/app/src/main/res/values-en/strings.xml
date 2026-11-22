@@ -447,4 +447,7 @@
     <string name="message_thread_empty">No conversation yet. Send the first message</string>
     <string name="message_send">Send</string>
     <string name="message_draft_ph">Type a message</string>
+    <string name="farm_position_label">Farm position (3×4)</string>
+    <string name="farm_position_hint">Pick a spot in the green area to place your plant</string>
+    <string name="farm_position_applied">Farm position saved</string>
 </resources>

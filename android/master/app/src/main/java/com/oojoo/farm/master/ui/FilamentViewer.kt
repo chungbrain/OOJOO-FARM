@@ -115,41 +115,18 @@ private fun stageEmoji(stage: String?): String = when (stage) {
     else -> "🌱"
 }
 
-private const val GRID = 4
-
-/** 식물 하나의 4x4 격자 위치 (row, col). row 0=맨 위(뒤), row 3=맨 아래(앞). */
-private data class PlantCell(val row: Int, val col: Int)
-
-/** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
-private data class Waypoint(val row: Int, val col: Float)
-
-/** 격자 중심으로부터의 거리 (유클리드). */
-private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Float {
-    val dr = row - centerRow
-    val dc = col - centerCol
-    return sqrt(dr * dr + dc * dc)
-}
-
 // --- 나무 팻말 색상 ---
 private val WoodLight = Color(0xFFD2A26B)
 private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
 
 /**
- * 빈 cell 중 가장 좋은 위치 — 격자 중심에서 가까운 순, 같은 행에 1칸 간격 유지.
- * (새 식물 등록/이동 시 충돌 없이 배치하는 공용 규칙)
+ * 빈 cell 중 가장 좋은 위치는 FarmGrid.kt의 pickEmptyFarmCell 사용.
+ * (과거: 4x4 GRID/PlantCell을 이 파일에서 private으로 정의 — 3x4 공용 정의로 이동)
  */
-private fun pickEmptyCell(used: Set<PlantCell>): PlantCell {
-    val center = (GRID - 1) / 2f
-    val order = (0 until GRID).flatMap { r ->
-        (0 until GRID).map { c -> PlantCell(r, c) to distance(r, c, center, center) }
-    }.sortedBy { it.second }.map { it.first }
-    val spaced = order.firstOrNull { c ->
-        c !in used && used.none { o -> o.row == c.row && kotlin.math.abs(o.col - c.col) <= 1 }
-    }
-    if (spaced != null) return spaced
-    return order.firstOrNull { it !in used } ?: PlantCell(GRID - 1, GRID - 1)
-}
+
+/** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
+private data class Waypoint(val row: Int, val col: Float)
 
 /**
  * 2D emoji farm scene.
@@ -157,7 +134,7 @@ private fun pickEmptyCell(used: Set<PlantCell>): PlantCell {
  * 레이아웃:
  *   하늘   : 천체/구름 (상단 40%). 구름은 하늘을 가로질러 흐르고
  *            새 떼가 가끔 편대로 날아간다. 밤에는 별가루 반짝임 + 북두칠성.
- *   바닥   : 4x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
+ *   바닥   : 3x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
  *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다 (점유 cell → 가장 가까운
  *            빈 cell, 격자 가득차면 원위치).
  *   로봇   : 배정된 식물들을 순서대로 방문·관리. 이동은 X/Y 동시(직선), 거리에 비례
@@ -182,7 +159,7 @@ fun FarmSceneView(
     // 조합 내 동기 보정(첫 프레임부터 올바른 위치) + 이펙트로 상태 영속화.
     val ctx = LocalContext.current
     var cellMap by remember {
-        val stored = Prefs.farmPlantCells(ctx).mapValues { (_, rc) -> PlantCell(rc.first, rc.second) }
+        val stored = Prefs.farmPlantCells(ctx).mapValues { (_, rc) -> clampFarmCell(rc.first, rc.second) }
         mutableStateOf(stored)
     }
     val currentIds = displayPlants.map { it.id }.toSet()
@@ -192,7 +169,7 @@ fun FarmSceneView(
         } else {
             val m = cellMap.filterKeys { it in currentIds }.toMutableMap()
             for (p in displayPlants) {
-                if (p.id !in m) m[p.id] = pickEmptyCell(m.values.toSet())
+                if (p.id !in m) m[p.id] = pickEmptyFarmCell(m.values.toSet())
             }
             m
         }
@@ -233,8 +210,8 @@ fun FarmSceneView(
     )
 
     // 로봇 부드러운 이동을 위한 Animatable (격자 단위 좌표)
-    val robotX = remember { Animatable((GRID - 1) / 2f) }
-    val robotY = remember { Animatable((GRID - 1) / 2f) }
+    val robotX = remember { Animatable((FARM_COLS - 1) / 2f) }
+    val robotY = remember { Animatable((FARM_ROWS - 1) / 2f) }
     val robotScale = remember { Animatable(1f) }
     val tendingAlpha = remember { Animatable(0f) }
     val robotFacing = remember { Animatable(1f) }
@@ -352,8 +329,8 @@ fun FarmSceneView(
         val maxW = maxWidth.value
         val maxH = maxHeight.value
         val groundH = maxH * 0.6f
-        val cellW = maxW / GRID
-        val cellH = groundH / GRID
+        val cellW = maxW / FARM_COLS
+        val cellH = groundH / FARM_ROWS
 
         val soilColor = Color(0xFFB5905E)
 
@@ -458,7 +435,7 @@ fun FarmSceneView(
             }
         }
 
-        // === 4x4 격자 바닥 ===
+        // === 3x4 격자 바닥 ===
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -466,9 +443,9 @@ fun FarmSceneView(
                 .height(groundH.dp)
         ) {
             displayPlants.forEachIndexed { i, plant ->
-                val cell = cells[plant.id] ?: PlantCell(0, 0)
+                val cell = cells[plant.id] ?: FarmCell(0, 0)
                 val emoji = plantEmojiFor(plant.species, plant.stage)
-                val fontSize = (16f + (cell.row.toFloat() / (GRID - 1)) * 18f).sp
+                val fontSize = (16f + (cell.row.toFloat() / (FARM_ROWS - 1)) * 18f).sp
                 val soilSize = (minOf(cellW, cellH) * 0.7f).dp
                 val cellLeft = cell.col * cellW
                 val cellTop = cell.row * cellH
@@ -512,13 +489,13 @@ fun FarmSceneView(
                                     // 가까운 빈 cell로, 빈 cell 없으면 원위치.
                                     val dropCx = (dragOffsetX + soilSize.value / 2f) / cellW
                                     val dropCy = (dragOffsetY + soilSize.value / 2f) / cellH
-                                    val desired = PlantCell(
-                                        dropCy.roundToInt().coerceIn(0, GRID - 1),
-                                        dropCx.roundToInt().coerceIn(0, GRID - 1)
+                                    val desired = FarmCell(
+                                        dropCy.roundToInt().coerceIn(0, FARM_ROWS - 1),
+                                        dropCx.roundToInt().coerceIn(0, FARM_COLS - 1)
                                     )
                                     val others = cells.entries.filter { it.key != plant.id }.map { it.value }
                                     val target = if (desired in others) {
-                                        (0 until GRID).flatMap { r -> (0 until GRID).map { c -> PlantCell(r, c) } }
+                                        (0 until FARM_ROWS).flatMap { r -> (0 until FARM_COLS).map { c -> FarmCell(r, c) } }
                                             .filter { c -> c !in others }
                                             .minByOrNull { c ->
                                                 val dx = c.col + 0.5f - dropCx
@@ -559,13 +536,13 @@ fun FarmSceneView(
                 // 이름표 — 나무 팻말, 원 정중앙 아래 배치. 전체 높이 = 줄기 7 + 몸통.
                 // 몸통 높이는 폰트 확대(fontScale)를 반영해 계산 — 시스템 글자 크기가
                 // 커도 이름 텍스트가 아래로 잘리지 않는다.
-                // 맨 아래 행(row GRID-1)은 팻말이 카드 하단으로 잘리지 않게 원 위쪽으로.
+                // 맨 아래 행(row FARM_ROWS-1)은 팻말이 카드 하단으로 잘리지 않게 원 위쪽으로.
                 val fontScale = LocalDensity.current.fontScale
                 val signW = 64f
                 val signBodyH = 17f * fontScale
                 val signH = signBodyH + 7f
                 val centerX = boxX + soilSize.value / 2f
-                val onTop = cell.row >= GRID - 1
+                val onTop = cell.row >= FARM_ROWS - 1
                 Box(
                     Modifier
                         .offset(

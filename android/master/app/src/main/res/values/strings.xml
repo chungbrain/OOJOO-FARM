@@ -447,4 +447,7 @@
     <string name="message_thread_empty">대화가 없습니다. 첫 메시지를 보내보세요</string>
     <string name="message_send">보내기</string>
     <string name="message_draft_ph">메시지를 입력하세요</string>
+    <string name="farm_position_label">농장 위치 (3×4)</string>
+    <string name="farm_position_hint">녹색 구역에서 식물을 배치할 칸을 선택하세요</string>
+    <string name="farm_position_applied">농장 위치가 저장되었습니다</string>
 </resources>
