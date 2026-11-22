@@ -320,12 +320,15 @@ fun FarmSceneView(
         label = "twinkle"
     )
 
-    // 새 떼 — 가끔 하늘을 가로질러 날아간다 (6~15초 잠복 후 9초 비행)
+    // 새 떼 — 가끔 하늘을 가로질러 날아간다.
+    // 첫 비행은 2~5초 안에 (도입 확인용), 이후 6~15초 잠복 후 9초 비행.
     var birdsActive by remember { mutableStateOf(false) }
     val birdFlight = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
+        var firstFlight = true
         while (true) {
-            delay(Random.nextLong(6000, 15000))
+            delay(if (firstFlight) Random.nextLong(2000, 5000) else Random.nextLong(6000, 15000))
+            firstFlight = false
             birdsActive = true
             birdFlight.animateTo(1f, animationSpec = tween(9000, easing = LinearEasing))
             birdsActive = false
@@ -402,26 +405,29 @@ fun FarmSceneView(
         // === 구름 — 하늘을 가로질러 흐른다 (속도/높이가 제각각) ===
         val cloudDim = if (isNight) 0.4f else 1f
         val cloudTravel = maxW + 220f
-        fun cloudX(f: Float): Float = (maxW + 80f) - f * cloudTravel
+        // 위상(phase) — 구름 3개가 화면 밖 같은 곳에서 함께 출발하면 처음 ~8초간
+        // 하늘이 텅 비어 보인다. 위상을 엇갈리면 첫 프레임부터 구름이 떠 있고,
+        // 순환 경계(f+phase=1)는 양 끝 화면 밖이라 되돌아감이 눈에 띄지 않는다.
+        fun cloudX(f: Float, phase: Float): Float = (maxW + 80f) - ((f + phase) % 1f) * cloudTravel
         Text(
             "☁️", fontSize = 30.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF1).dp, y = 18.dp)
+                .offset(x = cloudX(cloudF1, 0f).dp, y = 18.dp)
                 .alpha(0.75f * cloudDim)
         )
         Text(
             "☁️", fontSize = 22.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF2).dp, y = 48.dp)
+                .offset(x = cloudX(cloudF2, 0.4f).dp, y = 48.dp)
                 .alpha(0.5f * cloudDim)
         )
         Text(
             "☁️", fontSize = 26.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF3).dp, y = 72.dp)
+                .offset(x = cloudX(cloudF3, 0.7f).dp, y = 72.dp)
                 .alpha(0.62f * cloudDim)
         )
 
