@@ -41,6 +41,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -432,28 +436,26 @@ fun FarmSceneView(
                 .alpha(0.62f * cloudDim)
         )
 
-        // === 새 떼 — 가끔 V자 편대로 날아간다 ===
+        // === 새 떼 — 가끔 V자 편대로 날아간다. 진행 방향은 구름과 같은 오른쪽→왼쪽 ===
+        // (과거: 🐦 이모지를 왼쪽→오른쪽으로 이동 — 왼쪽을 바라보는 새 모양이
+        //  거꾸로 날아 보였고, 이모지 자체가 앉아 있는 새라 '나는 새'가 아니었음.
+        //  날개를 펄럭이는 날아가는 새 실루엣으로 교체)
         if (birdsActive) {
-            val bx = -90f + birdFlight.value * (maxW + 180f)
-            val by = maxH * 0.08f + sin(birdFlight.value * 2.5 * PI).toFloat() * 12f
-            Text(
-                "🐦", fontSize = 20.sp,
-                modifier = Modifier
+            val f = birdFlight.value
+            val bx = (maxW + 90f) - f * (maxW + 180f)
+            val by = maxH * 0.10f + sin(f * 2.5 * PI).toFloat() * 12f
+            Canvas(
+                Modifier
                     .align(Alignment.TopStart)
-                    .offset(x = bx.dp, y = by.dp)
-            )
-            Text(
-                "🐦", fontSize = 16.sp,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = (bx - 26f).dp, y = (by + 15f).dp)
-            )
-            Text(
-                "🐦", fontSize = 15.sp,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = (bx + 26f).dp, y = (by + 9f).dp)
-            )
+                    .offset(x = (bx - 40f).dp, y = (by - 22f).dp)
+                    .size(width = 80.dp, height = 44.dp)
+            ) {
+                // 날개 펄럭임 — 비행 9초 동안 약 9번 (1Hz), 편대마다 위상 엇갈림
+                val flapBase = f * 18.0 * PI
+                drawBird(centerX = 40f, centerY = 20f, scale = 1f, flap = sin(flapBase.toFloat()))
+                drawBird(centerX = 15f, centerY = 33f, scale = 0.8f, flap = sin((flapBase + 1.0).toFloat()))
+                drawBird(centerX = 65f, centerY = 30f, scale = 0.85f, flap = sin((flapBase + 2.0).toFloat()))
+            }
         }
 
         // === 4x4 격자 바닥 ===
@@ -713,4 +715,25 @@ private fun RobotFigure(
             }
         }
     }
+}
+
+/**
+ * 날아가는 새 실루엣 — 몸통 점 + 좌우로 뻗은 곡선 날개(flap으로 펄럭임).
+ * (과거 🐦 이모지 — 앉아 있는 새 모양에 진행 방향과 반대로 날아 보였음)
+ */
+private fun DrawScope.drawBird(centerX: Float, centerY: Float, scale: Float, flap: Float) {
+    val ink = Color(0xFF263238)
+    val s = 10f * scale          // 날개 길이
+    val tip = flap * 4f * scale  // 날개 끝 상하 변위 (펄럭임)
+    drawCircle(ink, radius = 2.4f * scale, center = Offset(centerX, centerY))
+    val leftWing = Path().apply {
+        moveTo(centerX, centerY)
+        quadraticBezierTo(centerX - s * 0.45f, centerY - tip * 0.6f, centerX - s, centerY - tip)
+    }
+    val rightWing = Path().apply {
+        moveTo(centerX, centerY)
+        quadraticBezierTo(centerX + s * 0.45f, centerY - tip * 0.6f, centerX + s, centerY - tip)
+    }
+    drawPath(leftWing, ink, style = Stroke(width = 1.8f * scale, cap = StrokeCap.Round))
+    drawPath(rightWing, ink, style = Stroke(width = 1.8f * scale, cap = StrokeCap.Round))
 }
