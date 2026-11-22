@@ -290,26 +290,27 @@ fun FarmSceneView(
     )
 
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.94f, targetValue = 1.06f,
+        initialValue = 0.90f, targetValue = 1.12f,
         animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Reverse),
         label = "pulse"
     )
 
     // 구름 — 하늘을 가로질러 지속적으로 흐른다.
-    // 0→1 선형 이동이며 양 끝은 화면 밖이라 되돌아감이 눈에 띄지 않는다.
+    // 한 바퀴 20~26초 — 흐름이 한눈에 보이는 속도.
+    // (과거 42~58초였다가 멈춰 있는 것처럼 보인다는 피드백으로 단축)
     val cloudF1 by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(42000, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Restart),
         label = "cloud1"
     )
     val cloudF2 by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(58000, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Restart),
         label = "cloud2"
     )
     val cloudF3 by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(50000, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(23000, easing = LinearEasing), RepeatMode.Restart),
         label = "cloud3"
     )
 
@@ -413,21 +414,21 @@ fun FarmSceneView(
             "☁️", fontSize = 30.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF1, 0f).dp, y = 18.dp)
+                .offset(x = cloudX(cloudF1, 0f).dp, y = (18f + sway * 1.4f).dp)
                 .alpha(0.75f * cloudDim)
         )
         Text(
             "☁️", fontSize = 22.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF2, 0.4f).dp, y = 48.dp)
+                .offset(x = cloudX(cloudF2, 0.4f).dp, y = (48f - sway * 1.1f).dp)
                 .alpha(0.5f * cloudDim)
         )
         Text(
             "☁️", fontSize = 26.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = cloudX(cloudF3, 0.7f).dp, y = 72.dp)
+                .offset(x = cloudX(cloudF3, 0.7f).dp, y = (72f + sway * 0.9f).dp)
                 .alpha(0.62f * cloudDim)
         )
 
