@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File android\preview-master.ps1 -StartEmulat
 powershell -ExecutionPolicy Bypass -File android\preview-master.ps1
 ```
 
-앱이 뜨면 서버 주소에 배포된 백엔드(`http://34.50.40.04:4000` 등)를 입력하고
+앱이 뜨면 서버 주소에 배포된 백엔드(`http://34.50.40.104:4000`)를 입력하고
 기존 계정으로 로그인하면 실제 농장 데이터로 디자인 확인 가능.
 
 ## 화면 캡처 (디자인 비교용)
