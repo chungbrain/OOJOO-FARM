@@ -177,14 +177,17 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(vm.plants, key = { it.id }) { plant ->
-                PlantGridCard(
-                    plant = plant,
-                    slaves = vm.slaves,
-                    latestAnalysis = vm.analyses[plant.id],
-                    onClick = { nav.navigate("plant_detail/${plant.id}") },
-                    onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
-                    onDelete = { vm.deletePlant(plant) }
-                )
+                // 카드 폭이 제한(max 180dp)되므로, 넓은 화면에서는 셀 안에 가운데 정렬
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    PlantGridCard(
+                        plant = plant,
+                        slaves = vm.slaves,
+                        latestAnalysis = vm.analyses[plant.id],
+                        onClick = { nav.navigate("plant_detail/${plant.id}") },
+                        onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
+                        onDelete = { vm.deletePlant(plant) }
+                    )
+                }
             }
             item(span = { GridItemSpan(2) }) {
                 Column {
@@ -223,6 +226,10 @@ private fun PlantGridCard(
 
     Card(
         Modifier
+            // 화면이 커져도 카드가 비율적으로 확대되지 않게 최대 폭 제한.
+            // (수정 전: fillMaxWidth만 써서 셀 폭=화면 폭에 비례해 커졌음)
+            // 순서 주의 — widthIn이 fillMaxWidth 바깥에 와야 상한이 적용된다.
+            .widthIn(max = 180.dp)
             .fillMaxWidth()
             .aspectRatio(0.82f)
             .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
