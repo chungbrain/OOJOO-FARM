@@ -66,6 +66,10 @@ object CameraHost {
 
     val isReady: Boolean get() = started && CameraHolder.ready
 
+    /** 바인딩 시도 완료 전(starting) 포함 상태 — 엔진의 백그라운드 재시도 판단용. */
+    val isRunning: Boolean get() = started
+    val isStarting: Boolean get() = starting
+
     /**
      * 카메라를 서비스 라이프사이클에 바인딩한다.
      * 권한이 없거나(Android 11+ 백그라운드 while-in-use 제한 등) 실패하면
@@ -165,6 +169,7 @@ object CameraHost {
                         } catch (e3: Exception) {
                             CameraHolder.setImageCapture(null)
                             started = false
+                            resetFailedHost()
                             Log.e(TAG, "camera bind failed", e3)
                         }
                     }
@@ -180,12 +185,20 @@ object CameraHost {
             } catch (e: Exception) {
                 // Android 11+ 백그라운드 while-in-use 제한 등
                 started = false
+                resetFailedHost()
                 Log.e(TAG, "camera init failed (while-in-use restriction?)", e)
             } finally {
                 starting = false
             }
         }, ContextCompat.getMainExecutor(appCtx))
         return true
+    }
+
+    /** 실패 시 생성된 lifecycle owner 정리 — 재시도 시 새 owner로 재바인딩. */
+    private fun resetFailedHost() {
+        try { host?.registry?.currentState = Lifecycle.State.DESTROYED } catch (_: Exception) {}
+        host = null
+        pendingPreviewView = null
     }
 
     /** UI가 카메라 프리뷰를 표시할 때 호출 — 바인딩은 그대로 두고 surface만 연결. */

@@ -3,6 +3,7 @@ package com.oojoo.farm.slave.service
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.BatteryManager
+import android.util.Log
 import com.oojoo.farm.slave.data.Prefs
 import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.model.*
@@ -53,6 +54,7 @@ import java.util.Locale
  * 중복 실행 방지: start() 는 idempotent. 카메라 분석 결과는 onAnalysis() 로 주입한다.
  */
 object FarmerEngine {
+    private const val TAG = "FarmerEngine"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loops: MutableList<Job> = mutableListOf()
     @Volatile private var started = false
@@ -332,6 +334,7 @@ object FarmerEngine {
                 if (!sseConnected) pollCommands() // SSE 미연결 시 폴링 fallback
                 if (_autoOn.value) tick()
                 maybeCaptureGrowthPhoto()
+                ensureCamera()
                 // 5분마다 원격 정책 재동기화 (ROI 진단 주기 등 즉시 반영)
                 if (++tickCount % 10 == 0) syncPolicy()
                 delay(30_000L)
@@ -365,6 +368,18 @@ object FarmerEngine {
     }
 
     fun isRunning() = started
+
+    /**
+     * 카메라 바인딩 유지 — 프로세스 재기동(START_STICKY/부팅) 시 Android 11+
+     * 백그라운드 while-in-use 제재로 CameraHost.start 가 거부되면 서비스
+     * 생존 중에는 재시도 경로가 없었다(다음 포그라운드 진입까지만). 메인
+     * 30초 틱에서 재시도로 화면 꺼짐/백그라운드 상태에서도 카메라 회복.
+     */
+    private fun ensureCamera() {
+        if (CameraHost.isRunning || CameraHost.isStarting) return
+        val ok = CameraHost.start(appCtx)
+        if (!ok) Log.w(TAG, "camera start refused (no permission?)")
+    }
 
     // 이벤트 로그/모니터링 스로틀 — 분석 로그·해충 감지 판정은 프레임마다가 아닌 10초에 1회만 처리한다.
     private var lastAnalysisLogAt = 0L
