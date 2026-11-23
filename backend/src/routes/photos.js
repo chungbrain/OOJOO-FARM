@@ -5,6 +5,7 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
+import { householdMemberIds, inSql } from '../lib/household.js';
 import { notifyMasterEvent } from './commands.js';
 
 const r = Router();
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS plant_photos (
   slave_id TEXT,
   plant_id TEXT,
   filename TEXT NOT NULL,
+  thumb_filename TEXT,
   mime TEXT,
   size INTEGER,
   taken_at TEXT,
@@ -29,6 +31,13 @@ CREATE TABLE IF NOT EXISTS plant_photos (
 CREATE INDEX IF NOT EXISTS idx_photos_plant ON plant_photos(plant_id, taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_slave ON plant_photos(slave_id, created_at);
 `);
+// 기존 DB 호환 — 썸네일 컬럼 추가 (master 사진첩 그리드용)
+{
+  const cols = db.prepare('PRAGMA table_info(plant_photos)').all();
+  if (!cols.some((c) => c.name === 'thumb_filename')) {
+    db.exec('ALTER TABLE plant_photos ADD COLUMN thumb_filename TEXT;');
+  }
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -48,6 +57,7 @@ function toPhoto(row) {
     slave_id: row.slave_id,
     plant_id: row.plant_id,
     url: `/api/photos/file/${row.filename}`,
+    thumb_url: row.thumb_filename ? `/api/photos/file/${row.thumb_filename}` : null,
     mime: row.mime,
     size: row.size,
     taken_at: row.taken_at,
@@ -58,21 +68,32 @@ function toPhoto(row) {
   };
 }
 
-r.post('/upload/:slaveId', slaveAuth, upload.single('photo'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'photo file required' });
+// photo(필수) + thumb(선택, 480px — master 사진첩 그리드용).
+// fields()라서 기존 슬레이브( photo 단일 필드) 호환 유지.
+const uploadFields = upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'thumb', maxCount: 1 },
+]);
+
+r.post('/upload/:slaveId', slaveAuth, uploadFields, (req, res) => {
+  const files = (req.files && req.files.photo) || [];
+  const photoFile = files[0];
+  if (!photoFile) return res.status(400).json({ error: 'photo file required' });
+  const thumbFile = (req.files && req.files.thumb && req.files.thumb[0]) || null;
   const { plantId, takenAt, location, lat, lon, commandId } = req.body || {};
   if (!plantId) return res.status(400).json({ error: 'plantId required' });
   const id = nanoid(12);
   db.prepare(`
-    INSERT INTO plant_photos(id, slave_id, plant_id, filename, mime, size, taken_at, location, lat, lon)
-    VALUES(?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO plant_photos(id, slave_id, plant_id, filename, thumb_filename, mime, size, taken_at, location, lat, lon)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     id,
     req.params.slaveId,
     plantId,
-    req.file.filename,
-    req.file.mimetype || 'image/jpeg',
-    req.file.size,
+    photoFile.filename,
+    thumbFile ? thumbFile.filename : null,
+    photoFile.mimetype || 'image/jpeg',
+    photoFile.size,
     takenAt || null,
     location || null,
     lat != null && lat !== '' ? Number(lat) : null,
@@ -104,6 +125,28 @@ r.get('/slave/:slaveId', (req, res) => {
   const rows = db.prepare('SELECT * FROM plant_photos WHERE slave_id=? ORDER BY created_at DESC LIMIT 80')
     .all(req.params.slaveId);
   res.json({ photos: rows.map(toPhoto) });
+});
+
+// 마스터 사진첩 — 사용자(가구) 전체의 farmer→식물 사진.
+// 이름 조인까지 여기서 해주고, 그룹핑은 클라이언트에서 한다.
+r.get('/user/:userId', (req, res) => {
+  const ids = householdMemberIds(req.params.userId);
+  const rows = db.prepare(`
+    SELECT pp.*, p.name AS plant_name, s.name AS slave_name
+    FROM plant_photos pp
+    LEFT JOIN plants p ON p.id = pp.plant_id
+    LEFT JOIN slaves s ON s.id = pp.slave_id
+    WHERE pp.slave_id IN (SELECT id FROM slaves WHERE user_id IN (${inSql(ids)}))
+    ORDER BY pp.created_at DESC
+    LIMIT 300
+  `).all(...ids);
+  res.json({
+    photos: rows.map((row) => ({
+      ...toPhoto(row),
+      plant_name: row.plant_name,
+      slave_name: row.slave_name,
+    })),
+  });
 });
 
 r.get('/file/:filename', (req, res) => {
