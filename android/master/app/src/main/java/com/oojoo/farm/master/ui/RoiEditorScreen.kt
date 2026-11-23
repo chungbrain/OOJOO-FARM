@@ -339,8 +339,9 @@ private fun Drawable.toBitmap(): Bitmap {
 
 private const val ROI_MIN = 0.02f
 
-/** 오버레이 — 박스 밖 어둡게, 초록 테두리, 4개 모서리 핸들. */
-private fun DrawScope.drawRoiOverlay(b: RoiBox) {
+/** 오버레이 — 박스 밖 어둡게, 초록 테두리, 4개 모서리 핸들.
+ *  (내부 공개 — 사진첩 상세의 RoI 표시도 재사용) */
+internal fun DrawScope.drawRoiOverlay(b: RoiBox) {
     val x = b.x.toFloat() * size.width
     val y = b.y.toFloat() * size.height
     val w = b.w.toFloat() * size.width

@@ -391,6 +391,13 @@
     <string name="roi_saved">관심영역이 저장되었습니다. Farmer가 해당 영역을 감시합니다.</string>
     <string name="roi_cleared">관심영역을 초기화했습니다.</string>
 
+    <!-- Farmer photo album -->
+    <string name="album_farmer_online">온라인</string>
+    <string name="album_farmer_offline">오프라인</string>
+    <string name="album_photos_count">%1$d장</string>
+    <string name="album_plant_fallback">식물</string>
+    <string name="album_empty">Farmer 사진이 아직 없어요. Farmer가 동작하면 사진이 자동으로 쌓입니다.</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">영상 건강진단</string>
     <string name="diagnosis_title">영상 건강진단</string>

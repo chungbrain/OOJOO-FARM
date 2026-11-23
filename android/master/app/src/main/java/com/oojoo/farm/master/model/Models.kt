@@ -422,6 +422,9 @@ data class PlantPhoto(
     val slave_id: String? = null,
     val plant_id: String? = null,
     val url: String,
+    val thumb_url: String? = null,
+    val plant_name: String? = null,
+    val slave_name: String? = null,
     val taken_at: String? = null,
     val location: String? = null,
     val created_at: String? = null

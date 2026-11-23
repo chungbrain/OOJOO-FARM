@@ -170,6 +170,10 @@ interface ApiService {
     @GET("api/photos/plant/{plantId}")
     suspend fun plantPhotos(@Path("plantId") plantId: String): PlantPhotosResponse
 
+    // 사진첩 — 사용자 전체의 farmer→식물 사진 (이름 조인, 최신순, 최대 300)
+    @GET("api/photos/user/{userId}")
+    suspend fun userPhotos(@Path("userId") userId: String): PlantPhotosResponse
+
     // ---------- Farmer 분석 결과 ----------
     @GET("api/analysis/latest/{plantId}")
     suspend fun latestAnalysis(@Path("plantId") plantId: String): AnalysisResponse

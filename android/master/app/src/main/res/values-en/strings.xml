@@ -391,6 +391,13 @@
     <string name="roi_saved">Region saved. Farmer will monitor this area.</string>
     <string name="roi_cleared">Region was reset.</string>
 
+    <!-- Farmer photo album -->
+    <string name="album_farmer_online">online</string>
+    <string name="album_farmer_offline">offline</string>
+    <string name="album_photos_count">%1$d</string>
+    <string name="album_plant_fallback">Plant</string>
+    <string name="album_empty">No farmer photos yet. Photos will appear as Farmer works.</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">Video health check</string>
     <string name="diagnosis_title">Video health diagnosis</string>
