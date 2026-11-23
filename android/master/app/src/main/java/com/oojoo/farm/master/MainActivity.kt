@@ -63,6 +63,7 @@ import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.network.ApiClient
 import com.oojoo.farm.master.push.FcmService
 import com.oojoo.farm.master.ui.AuthScreen
+import com.oojoo.farm.master.ui.RoiEditorScreen
 import com.oojoo.farm.master.ui.OojooMasterTheme
 import com.oojoo.farm.master.ui.OojooTheme
 import com.oojoo.farm.master.ui.LocalOojooUi
@@ -165,6 +166,9 @@ fun MainApp(uiState: MutableState<OojooUiState>) {
             composable("plant_register") { PlantRegistrationScreen(nav) }
             composable("plant_detail/{plantId}") { backStackEntry ->
                 PlantDetailScreen(nav, backStackEntry.arguments?.getString("plantId") ?: "")
+            }
+            composable("roi_editor/{plantId}") { b ->
+                RoiEditorScreen(nav, b.arguments?.getString("plantId") ?: "")
             }
             composable("farmers") { FarmerListScreen(nav) }
             composable("pairing") { PairingScreen(nav) }

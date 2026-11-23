@@ -380,6 +380,17 @@
     <string name="growth_clip_no_farmer">No Farmer is assigned.</string>
     <string name="growth_clip_ready_label">Growth story</string>
 
+    <!-- Plant RoI (region of interest) -->
+    <string name="roi_button">Set region</string>
+    <string name="roi_button_set">Edit region</string>
+    <string name="roi_editor_title">Region of interest</string>
+    <string name="roi_editor_hint">Drag to mark where the plant is. Drag inside the box to move it, use the corner handles to resize, or drag from outside to place a new box.</string>
+    <string name="roi_editor_no_photos">No photo yet. Available once Farmer sends the first photo.</string>
+    <string name="roi_load_failed">Failed to load the photo.</string>
+    <string name="roi_clear">Reset</string>
+    <string name="roi_saved">Region saved. Farmer will monitor this area.</string>
+    <string name="roi_cleared">Region was reset.</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">Video health check</string>
     <string name="diagnosis_title">Video health diagnosis</string>

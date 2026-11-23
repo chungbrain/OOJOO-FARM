@@ -102,13 +102,28 @@ data class CreatePlantRequest(
     val plantedAt: String? = null,
     val stage: String = "seedling"
 )
+/**
+ * 식물별 관심영역(RoI) — 프레임 정규화 좌표 {x,y,w,h} 0..1 (왼쪽 위 기준).
+ * 슬레이브 RoiStore.isValid 와 같은 최소 크기(한 변 2%) 규칙.
+ * 주의: updatePlant 에는 항상 현재 값을 명시적으로 보낸다
+ * (roi:null = 삭제, null 은 생략이 아닌 '삭제' 의미로 직렬화된다).
+ */
+@Serializable
+data class RoiBox(
+    val x: Double,
+    val y: Double,
+    val w: Double,
+    val h: Double
+)
+
 @Serializable
 data class UpdatePlantRequest(
     val slaveId: String? = null,
     val name: String? = null,
     val species: String? = null,
     val plantedAt: String? = null,
-    val stage: String? = null
+    val stage: String? = null,
+    val roi: RoiBox? = null
 )
 @Serializable
 data class PlantIdResponse(val plantId: String)
@@ -123,6 +138,7 @@ data class Plant(
     val species: String? = null,
     val planted_at: String? = null,
     val stage: String? = null,
+    val roi: RoiBox? = null,
     val owner_name: String? = null,
     val owner_email: String? = null,
     val shared: Int = 0

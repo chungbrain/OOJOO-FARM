@@ -80,7 +80,7 @@ class PlantListViewModel : ViewModel() {
     fun assignSlave(plant: Plant, slaveId: String?) {
         viewModelScope.launch {
             try {
-                api.updatePlant(plant.id, UpdatePlantRequest(slaveId = slaveId))
+                api.updatePlant(plant.id, UpdatePlantRequest(slaveId = slaveId, roi = plant.roi))
                 msg = if (slaveId == null) "Farmer 배정 해제" else "Farmer 배정 완료"
                 refresh()
             } catch (e: Exception) {

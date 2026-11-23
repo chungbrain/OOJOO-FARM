@@ -380,6 +380,17 @@
     <string name="growth_clip_no_farmer">담당 Farmer가 없습니다.</string>
     <string name="growth_clip_ready_label">성장 스토리</string>
 
+    <!-- Plant RoI (관심영역) -->
+    <string name="roi_button">관심영역 설정</string>
+    <string name="roi_button_set">관심영역 변경</string>
+    <string name="roi_editor_title">관심영역 설정</string>
+    <string name="roi_editor_hint">식물이 있는 영역을 드래그해 지정하세요. 박스 안에서 드래그하면 이동, 모서리 핸들로 크기 변경, 밖에서 드래그하면 새로 지정합니다.</string>
+    <string name="roi_editor_no_photos">설정할 사진이 없습니다. Farmer가 첫 사진을 보내면 사용할 수 있어요.</string>
+    <string name="roi_load_failed">사진을 불러오지 못했습니다.</string>
+    <string name="roi_clear">초기화</string>
+    <string name="roi_saved">관심영역이 저장되었습니다. Farmer가 해당 영역을 감시합니다.</string>
+    <string name="roi_cleared">관심영역을 초기화했습니다.</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">영상 건강진단</string>
     <string name="diagnosis_title">영상 건강진단</string>

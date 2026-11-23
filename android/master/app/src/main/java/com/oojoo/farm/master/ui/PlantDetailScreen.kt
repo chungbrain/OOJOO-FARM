@@ -150,7 +150,9 @@ class PlantDetailViewModel : ViewModel() {
                         name = editName.trim(),
                         species = editSpecies.trim().ifBlank { null },
                         plantedAt = editPlantedAt.trim().ifBlank { null },
-                        stage = editStage
+                        stage = editStage,
+                        // roi 명시 전달 — 생략(null)은 백엔드에서 '삭제' 의미
+                        roi = p.roi
                     )
                 )
                 // 선택한 농장 위치 저장
@@ -473,12 +475,20 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                GradientButton(
-                    text = stringResource(if (vm.clipMaking) R.string.growth_clip_making else R.string.growth_clip_action),
-                    onClick = { vm.requestGrowthClip(ctx) },
-                    enabled = !vm.clipMaking && vm.plant?.slave_id != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // RoI(관심영역) — Farmer 사진 위에 지정, 저장 시 slave가 크롭해 CNN 감시
+                    OutlineButton(
+                        text = stringResource(if (vm.plant?.roi != null) R.string.roi_button_set else R.string.roi_button),
+                        onClick = { nav.navigate("roi_editor/$plantId") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    GradientButton(
+                        text = stringResource(if (vm.clipMaking) R.string.growth_clip_making else R.string.growth_clip_action),
+                        onClick = { vm.requestGrowthClip(ctx) },
+                        enabled = !vm.clipMaking && vm.plant?.slave_id != null,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 vm.growthClip?.let { clip ->
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(R.string.growth_clip_ready_label), fontWeight = FontWeight.Bold, color = OojooTheme.GreenDark)
