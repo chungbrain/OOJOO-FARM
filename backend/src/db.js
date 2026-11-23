@@ -249,6 +249,8 @@ ensureColumn('slaves', 'stream_url', 'stream_url TEXT');
 ensureColumn('slaves', 'lat', 'lat REAL');
 ensureColumn('slaves', 'lon', 'lon REAL');
 ensureColumn('slaves', 'region', 'region TEXT');
+// 식물별 관심영역(RoI) — 마스터가 farmer 사진 위에 설정, 슬레이브가 크롭해 CNN 진단
+ensureColumn('plants', 'roi_json', 'roi_json TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
 db.exec(`
