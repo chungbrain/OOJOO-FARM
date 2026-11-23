@@ -64,10 +64,25 @@ data class Plant(
     val name: String,
     val species: String? = null,
     val planted_at: String? = null,
-    val stage: String? = null
+    val stage: String? = null,
+    /** 마스터가 farmer 사진 위에 설정한 관심영역 — 정규화 {x,y,w,h} 0..1 */
+    val roi: RoiBox? = null
 )
 @Serializable
 data class PlantsResponse(val plants: List<Plant>)
+
+/** 식물별 관심영역(RoI) — 마스터 설정, 프레임 정규화 좌표 0..1 (좌상단 기준). */
+@Serializable
+data class RoiBox(
+    val x: Double,
+    val y: Double,
+    val w: Double,
+    val h: Double
+)
+
+/** 로컬 ROI 편집 후 마스터(백엔드)에 반영 — roi:null = 삭제. */
+@Serializable
+data class UpdatePlantRequest(val roi: RoiBox? = null)
 
 @Serializable
 data class Command(

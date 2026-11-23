@@ -18,6 +18,7 @@ import com.oojoo.farm.slave.vision.OrientationPolicy
 import com.oojoo.farm.slave.vision.PestNet
 import com.oojoo.farm.slave.vision.PlantAnalyzer
 import com.oojoo.farm.slave.vision.PlantHealthNet
+import com.oojoo.farm.slave.vision.PlantRoi
 import com.oojoo.farm.slave.vision.RoiStore
 import com.oojoo.farm.slave.vision.VideoFrameSampler
 import kotlinx.coroutines.*
@@ -465,6 +466,7 @@ object FarmerEngine {
                 val resp = ApiClient.api.slavePlants(slaveId())
                 _plants.value = resp.plants
                 _plant.value = resp.plants.firstOrNull()
+                syncRoisFromMaster(resp.plants)
                 val chosen = _plant.value
                 PlantHealthNet.setSpecies(chosen?.species ?: chosen?.name)
                 chosen?.let {
@@ -474,6 +476,51 @@ object FarmerEngine {
             } catch (e: Exception) {
                 addLog("[${now()}] 식물 조회 실패: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * 마스터가 설정한 RoI 동기화 — 백엔드가 기준 (마스터 최종 권한).
+     * loadPlant 는 시작 시 + 5분마다(10틱) 호출되므로 이 타이밍에 반영한다.
+     * 값이 실제로 달라진 ROI만 쓰기 (불필요한 재기동/파일 I/O 방지).
+     * 로컬 편집은 RoiEditorScreen 에서 백엔드에 push 하므로 양방향 일관.
+     */
+    private fun syncRoisFromMaster(plants: List<Plant>) {
+        try {
+            val local = RoiStore.list(appCtx).associateBy { it.plantId }
+            var changed = false
+            for (p in plants) {
+                val roi = p.roi
+                val cur = local[p.id]
+                if (roi == null) {
+                    if (cur != null) {
+                        RoiStore.remove(appCtx, p.id)
+                        changed = true
+                    }
+                } else {
+                    val desired = PlantRoi(
+                        plantId = p.id, plantName = p.name, species = p.species,
+                        x = roi.x.toFloat(), y = roi.y.toFloat(),
+                        w = roi.w.toFloat(), h = roi.h.toFloat()
+                    )
+                    if (cur == null ||
+                        cur.x != desired.x || cur.y != desired.y ||
+                        cur.w != desired.w || cur.h != desired.h
+                    ) {
+                        RoiStore.save(appCtx, desired)
+                        changed = true
+                    }
+                }
+            }
+            // 목록에서 사라진 식물의 로컬 ROI 도 정리
+            val liveIds = plants.map { it.id }.toSet()
+            local.keys.filter { it !in liveIds }.forEach { RoiStore.remove(appCtx, it) }
+            if (changed) {
+                addLog("[${now()}] 마스터 RoI 동기화 (${RoiStore.list(appCtx).size}개 영역)")
+                onRoisChanged() // 모니터링 루프 즉시 재시작
+            }
+        } catch (e: Exception) {
+            addLog("[${now()}] RoI 동기화 실패: ${e.message}")
         }
     }
 

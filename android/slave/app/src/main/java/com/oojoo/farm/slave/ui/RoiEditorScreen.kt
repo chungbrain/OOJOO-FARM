@@ -27,10 +27,14 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.slave.R
 import com.oojoo.farm.slave.model.Plant
+import com.oojoo.farm.slave.model.RoiBox
+import com.oojoo.farm.slave.model.UpdatePlantRequest
+import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.service.FarmerEngine
 import com.oojoo.farm.slave.vision.CameraPreview
 import com.oojoo.farm.slave.vision.PlantRoi
 import com.oojoo.farm.slave.vision.RoiStore
+import kotlinx.coroutines.launch
 
 private val RoiColors = listOf(
     Color(0xFF4CAF50), Color(0xFF2196F3), Color(0xFFFF9800),
@@ -53,6 +57,7 @@ private fun normalizeRect(a: Offset, b: Offset): Rect = Rect(
 @Composable
 fun RoiEditorScreen(nav: NavController) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     val plants by FarmerEngine.plants.collectAsState()
     val rois = remember { mutableStateListOf<PlantRoi>() }
     var dragRect by remember { mutableStateOf<Rect?>(null) }
@@ -78,6 +83,26 @@ fun RoiEditorScreen(nav: NavController) {
         FarmerEngine.onRoisChanged()
     }
 
+    /**
+     * 로컬 편집 결과를 마스터(백엔드)에도 반영 — 마스터 앱에서
+     * 같은 RoI 로 보게 된다. best-effort: 오프라인이면 5분 주기
+     * 재조회 시 마스터 값이 기준이 되어 재동기화된다.
+     */
+    fun pushRoi(plantId: String, roi: PlantRoi?) {
+        scope.launch {
+            try {
+                ApiClient.api.updatePlant(
+                    plantId,
+                    UpdatePlantRequest(
+                        roi = roi?.let { RoiBox(it.x.toDouble(), it.y.toDouble(), it.w.toDouble(), it.h.toDouble()) }
+                    )
+                )
+            } catch (_: Exception) {
+                message = ctx.getString(R.string.roi_sync_pending)
+            }
+        }
+    }
+
     fun assignRoi(plant: Plant, rect: Rect, viewWidth: Float, viewHeight: Float) {
         if (viewWidth <= 0f || viewHeight <= 0f) return
         val norm = PlantRoi(
@@ -93,6 +118,7 @@ fun RoiEditorScreen(nav: NavController) {
             rois.removeAll { it.plantId == plant.id }
             rois.add(norm)
             saveAll()
+            pushRoi(plant.id, norm)
             message = ctx.getString(R.string.roi_saved, plant.name)
         }
     }
@@ -217,6 +243,7 @@ fun RoiEditorScreen(nav: NavController) {
                                     TextButton(onClick = {
                                         rois.removeAll { it.plantId == plant.id }
                                         saveAll()
+                                        pushRoi(plant.id, null)
                                         message = ctx.getString(R.string.roi_removed, plant.name)
                                     }) { Text(stringResource(R.string.roi_delete), color = OojooTheme.Red, fontSize = 12.sp) }
                                 }

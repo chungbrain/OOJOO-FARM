@@ -81,6 +81,7 @@
     <string name="roi_select_plant">식물 선택 (ROI 지정 대상)</string>
     <string name="roi_no_plants">등록된 식물이 없습니다 (마스터에서 등록 필요)</string>
     <string name="roi_saved">%1$s ROI 저장됨</string>
+    <string name="roi_sync_pending">저장됨 · 서버 연결 시 마스터에 동기화됩니다</string>
     <string name="roi_removed">%1$s ROI 삭제됨</string>
     <string name="roi_delete">삭제</string>
     <string name="roi_close">완료</string>

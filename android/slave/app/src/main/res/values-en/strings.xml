@@ -81,6 +81,7 @@
     <string name="roi_select_plant">Select plant (ROI target)</string>
     <string name="roi_no_plants">No plants registered (register from Master)</string>
     <string name="roi_saved">%1$s ROI saved</string>
+    <string name="roi_sync_pending">Saved · will sync to Master when the server is reachable</string>
     <string name="roi_removed">%1$s ROI removed</string>
     <string name="roi_delete">Delete</string>
     <string name="roi_close">Done</string>

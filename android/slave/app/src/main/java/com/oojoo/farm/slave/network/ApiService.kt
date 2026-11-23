@@ -24,6 +24,10 @@ interface ApiService {
     @GET("api/plants/slave/{slaveId}")
     suspend fun slavePlants(@Path("slaveId") slaveId: String): PlantsResponse
 
+    // 로컬 ROI 편집 결과 반영 (마스터의 설정은 5분 주기 재조회로 동기화)
+    @PUT("api/plants/plant/{id}")
+    suspend fun updatePlant(@Path("id") id: String, @Body body: UpdatePlantRequest): OkResponse
+
     @GET("api/commands/pending/{slaveId}")
     suspend fun pendingCommands(@Path("slaveId") slaveId: String): CommandsResponse
 
