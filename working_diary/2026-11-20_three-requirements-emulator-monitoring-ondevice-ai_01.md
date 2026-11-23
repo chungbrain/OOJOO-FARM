@@ -161,3 +161,97 @@
 - 남은 작업: GitHub push 대기. `loadPlant()` 엔진 기동 1회 동기화 —
   마스터가 나중에 식물 등록하면 슬레이브 재기동까지 미반영 (기존 동작,
   개선 후보).
+
+---
+
+## 추가: 홈 농장 개선 4건 + 날씨 분리 + 설정 옵션 (→ 빌드 2026112014)
+
+사용자 신규 요청 4건 + 추가 1건:
+
+1. W1 — 마스터 홈 "나의 농장"에서 farmer(로봇)가 부드럽게 움직이도록
+2. W2 — 식물 이동 시 UI 문제 발견/수정
+3. W3 — 식물 팻말, 로봇 디자인 개선
+4. W4 — 날씨 분리: **좌측상단 = farmer(농장) 날씨(메인)**, 우측상단 =
+   master(사용자) 날씨(작게), **날씨 그래픽은 farmer 기준**
+5. W5 (추가 요청) — 설정에서 "내 날씨 함께 표시" 옵션화
+
+### W4 데이터 파이프라인 (farmer 위치)
+
+- backend `cbdaf3a`: `slaves.lat/lon/region` (ensureColumn). 하트비트를
+  동적 컬럼 builder로 리팩토링(기존 battery/stream 4갈래 분기). `num()`
+  검증 — **`Number(null)===0` 함정**(`[1, null]` 케이스가 lat=1을
+  저장해 테스트가 잡아냄), ±90/±180 범위, 무효/미보고 시 기존값 유지.
+  86→87 테스트.
+- slave `bd0c018`: 신규 `LocationUtil` — last-known
+  GPS/network/passive(30분 신선도) + 8초 한도 single-update + 그래도
+  없으면 stale 유지(**농장은 움직이지 않으므로, IP 폴백 없음**). 30분
+  날씨 루프에서 해석, `fetchWeather`도 fix 있으면 좌표 기반. 하트비트에
+  lat/lon/region 보고. manifest FINE/COARSE(기존 BLE maxSdk-30 FINE
+  대체 — BLE 31+는 BLUETOOTH_SCAN/CONNECT가 사용 권한), 런타임 요청
+  (거부 시 region 폴백).
+- master `b6c0aae`: `farmerWeather`/`userWeather` 분리.
+  **main = farmerWeather ?: userWeather** — 하늘/비/밤 씬 그래픽도
+  이(=farmer) 기준. `pickFarmerWeather` = online+GPS 좌표 우선 →
+  좌표, 없으면 region. 좌측상단에 🏡 농장 태그, 우측상단은 소형 칩
+  (📍 나 + 온도 + WMO 이모지, 씬 ☀️ 아래 top 54dp). **farmer 위치
+  확보 상태에서만 칩 표시** — 폴백 상태(메인==사용자)에서 같은 데이터
+  두 번 표시 방지.
+
+### W5 설정 옵션
+
+- `f37a564`: 기어(설정) 화면에 "홈 옵션" 섹션 + Switch.
+  `Prefs.showUserWeather` **기본 ON**(원래 요청은 표시 — 끄는 것만
+  옵션). 칩은 조합 시 Prefs 직독, ON_RESUME 리프레시의 재구성으로 반영.
+
+### W1-W3 농장 씬 (`FilamentViewer.kt` 재작성)
+
+- **로봇(W1)**: X/Y **동시 tween** — 과거 `robotX.animateTo` →
+  `robotY.animateTo` 순서는 L자 경로+급정곡서. 시간은 거리 비례
+  (260ms + 320ms/cell, 0.3~1.5s 캡). 이동 방향으로 회전(scaleX ±1),
+  이동 중 ±4° 기울기. **순찰 인덱스 유지** — 과거 `LaunchedEffect
+  (waypoints)` 재기동마다 idx=0 리셋이라 식물 이동/목록 변화마다 첫
+  식물로 텔레포트.
+- **식물 이동(W2)**: cell을 **식물 ID 키**로 — 과거에는 리스트 인덱스
+  키라 추가/재정렬 시 전체 식물 재배치(랜덤). 드롭 충돌 → 드롭점에서
+  가장 가까운 빈 cell, 빈 cell 없으면 원위치. 해제 시 ~180ms
+  애니메이션(과거: 텔레포트), 취소 시 부드럽게 복귀.
+- **팻말/로봇(W3)**: 나무 팻말(세로 그라디언트+테두리, 고정 64dp
+  정중앙, 줄기 중앙, ±2.5° 경사, 긴 이름 줄임표시), 최하단 행은 원
+  **위쪽으로 플립**(과거: 카드 하단 클립). 로봇은 primitives 재구성 —
+  안테나(봉+불빛), 헤드(3.4초 주기 **깜빡이는 눈**), 녹색 그라디언트
+  몸통+화면, 바퀴, 관수 중 아래로 떨어지는 물방울.
+- `plantEmojiFor`(타 화면 5곳 사용)/`FarmSceneView` 시그니처 불변.
+
+### Compose 1.6.8 API 함정 (aar 클래스 파일 javap 실측)
+
+- `keyframes` 블록 receiver = `KeyframesSpecConfig` — 프로퍼티는
+  **`durationMillis`** (구식 `durationMs` 아님).
+- `animateFloatAsState`는 **`androidx.compose.animation.core`**
+  패키지 (runtime 아님).
+- `Modifier.offset { }` (측정 크기 람다) 오버로드는 이 버전 foundation에
+  없음 — 팻말은 고정 크기(64×24dp) + 산술 중심 정렬로 대체.
+
+### 환경 고생 (디바이스 검증 과정)
+
+- 게스트(TCG) **system_server 과부하**(93%+ sys, sensor HAL busy
+  loop, Bluetooth APEX native crash) → ANR "Process system isn't
+  responding" 반복.
+- `adb reboot`(게스트) 후 **에뮬레이터 가상 Wi-Fi AP(mac80211_hwsim)
+ 가 사라지는 현상** — wlan0에 IP가 없고 link down, `ip addr add` +
+  route, `svc wifi`, netd 재시작, link down/up 전부 실패. 게스트
+  재부팅은 이 환경에서 네트워크를 회복할 수 없음 → **emulator 전체
+  재시작**이 유일한 복귀 경로.
+- 워처가 재시작 전 07:56에 2026112014를 이미 설치(워처 재시도 루프가
+  중간 컴파일 실패 4회를 거쳐 최종 성공 — 재기동 설계대로 동작). /data
+  지속이라 재부팅 후 앱 재설치 불필요, 앱 기동만 필요.
+- (디바이스 검증 결과는 아래 부록에 기록 — 부팅 완료 후)
+
+### 게이트 (2026112014 기준)
+
+backend 87/87, sim 27/27, assembleDebug×2 RC=0, verify-locales pass,
+CJK clean, aapt badging 2026112014 (양 APK).
+
+### 커밋
+
+`cbdaf3a` `bd0c018` `b6c0aae` `f37a564` `d3e58e8` + 빌드 2026112014
+(최종 커밋). 미푸시 (사용자 지시 대기).
