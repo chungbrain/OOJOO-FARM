@@ -398,6 +398,12 @@
     <string name="album_plant_fallback">Plant</string>
     <string name="album_empty">No farmer photos yet. Photos will appear as Farmer works.</string>
 
+    <!-- Plant card share/sell -->
+    <string name="plant_share_dialog_title">Share %1$s</string>
+    <string name="plant_sell_dialog_title">Sell %1$s</string>
+    <string name="plant_share_dialog_hint">A card appears in the Neighbors tab. When the growth-story video is ready it is attached automatically.</string>
+    <string name="feed_video_badge">Growth story</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">Video health check</string>
     <string name="diagnosis_title">Video health diagnosis</string>

@@ -3,6 +3,7 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppStrings
@@ -91,6 +93,29 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
                             if (post.type == "sell" && (post.price ?: 0) > 0) Text(won(post.price ?: 0), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
                         }
                         Text(listOfNotNull(post.crop, post.quantity).joinToString(" · ").ifBlank { post.description ?: "" }, color = OojooTheme.Muted, fontSize = 12.sp)
+                        // 식물카드 배지 — 원본 식물 + 성장스토리 동영상 유무
+                        if (post.plant_name != null || post.video_url != null) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                post.plant_name?.let { pn ->
+                                    Surface(
+                                        shape = OojooTheme.PillShape,
+                                        color = OojooTheme.GreenBg,
+                                        border = BorderStroke(1.dp, OojooTheme.GreenDark)
+                                    ) {
+                                        Text("🌱 $pn", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.GreenDark, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (post.video_url != null) {
+                                    Surface(
+                                        shape = OojooTheme.PillShape,
+                                        color = OojooTheme.Yellow,
+                                        border = BorderStroke(1.dp, OojooTheme.Amber)
+                                    ) {
+                                        Text("🎬 ${S.feedVideoBadge}", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                         Row {
                             Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
                             statusLabel(post.status, S).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
@@ -150,6 +175,23 @@ fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewMo
                     Text("${S.regionLabel}: ${post.region ?: "-"}", color = OojooTheme.Muted, fontSize = 13.sp)
                     post.description?.let { Text(it, color = OojooTheme.Ink, fontSize = 14.sp) }
                     Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · ⭐${post.author_score} (${post.author_deals}) · ${statusLabel(post.status, S).ifBlank { S.available }}", color = OojooTheme.Muted, fontSize = 11.sp)
+                }
+            }
+            // 성장스토리 동영상 (식물카드 — growth 클립)
+            post.video_url?.let { vurl ->
+                Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                    Column(Modifier.padding(10.dp)) {
+                        Text("🎬 ${S.feedVideoBadge}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                        AndroidView(
+                            factory = { c ->
+                                android.widget.VideoView(c).apply {
+                                    setVideoPath(ApiClient.baseUrl.trimEnd('/') + vurl)
+                                    setOnPreparedListener { it.isLooping = true; start() }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(240.dp)
+                        )
+                    }
                 }
             }
             if (isAuthor) {

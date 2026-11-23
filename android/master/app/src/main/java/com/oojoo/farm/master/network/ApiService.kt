@@ -123,6 +123,10 @@ interface ApiService {
     @POST("api/community/posts")
     suspend fun communityCreate(@Body body: CreatePostRequest): PostIdResponse
 
+    // 성장스토리 동영상 준비 완료 후 게시물에 첨부
+    @PATCH("api/community/posts/{id}/video")
+    suspend fun communityAttachVideo(@Path("id") id: String, @Body body: AttachVideoRequest): OkResponse
+
     @POST("api/community/posts/{id}/comments")
     suspend fun communityComment(@Path("id") id: String, @Body body: CommentRequest): CommentIdResponse
 

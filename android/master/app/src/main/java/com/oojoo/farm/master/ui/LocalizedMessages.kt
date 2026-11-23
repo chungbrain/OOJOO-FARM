@@ -39,7 +39,11 @@ internal fun localizeMasterMessage(message: String, strings: AppStrings): String
         "닉네임을 입력하세요" to "Enter a nickname",
         "이름 변경됨" to "Renamed",
         "수량을 숫자로 입력하세요" to "Enter a quantity as a number",
-        "수확 기록이 저장되었습니다" to "Harvest recorded"
+        "수확 기록이 저장되었습니다" to "Harvest recorded",
+        "나눔 카드를 이웃에 올렸어요" to "Share card posted to Neighbors",
+        "판매 카드를 이웃에 올렸어요" to "Sell card posted to Neighbors",
+        "성장 스토리 동영상이 카드에 첨부되었어요" to "Growth-story video attached to the card",
+        "게시물 등록 실패" to "Failed to create the post"
     )
     return replacements.fold(message) { result, (source, target) -> result.replace(source, target) }
 }

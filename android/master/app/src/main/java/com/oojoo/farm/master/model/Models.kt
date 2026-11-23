@@ -315,7 +315,12 @@ data class CommunityPost(
     val created_at: String? = null,
     val author_name: String? = null,
     val author_score: Double = 0.0,
-    val author_deals: Int = 0
+    val author_deals: Int = 0,
+    // 식물카드 (나눔/판매) — 원본 식물 + 성장스토리 동영상
+    val plant_id: String? = null,
+    val plant_name: String? = null,
+    val plant_species: String? = null,
+    val video_url: String? = null
 )
 @Serializable
 data class CommunityPostsResponse(val posts: List<CommunityPost>)
@@ -340,10 +345,15 @@ data class CreatePostRequest(
     val price: Int? = null,
     val region: String? = null,
     val description: String? = null,
-    val image: String? = null
+    val image: String? = null,
+    // 식물카드 — 원본 식물 + (이미 만든) 성장스토리 동영상
+    val plantId: String? = null,
+    val videoId: String? = null
 )
 @Serializable
 data class PostIdResponse(val postId: String)
+@Serializable
+data class AttachVideoRequest(val videoId: String?)
 @Serializable
 data class CommentRequest(val userId: String, val body: String)
 @Serializable

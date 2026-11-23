@@ -41,6 +41,9 @@ import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.model.UpdatePlantRequest
+import com.oojoo.farm.master.model.AttachVideoRequest
+import com.oojoo.farm.master.model.CommandRequest
+import com.oojoo.farm.master.model.CreatePostRequest
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
@@ -99,6 +102,85 @@ class PlantListViewModel : ViewModel() {
                 msg = e.message ?: "삭제 실패"
             }
         }
+    }
+
+    /**
+     * 식물카드 나눔/판매 — 이웃(커뮤니티) 탭에 plant_id 연결 게시물을
+     * 즉시 생성한다. 성장스토리 동영상:
+     *  - 이미 만든 growth 클립이 있으면 바로 첨부
+     *  - 없으면 Farmer 배정 + 사진이 있으면 generate_growth_clip 을 발주하고
+     *    준비되면(최대 90초 폴링) 자동 첨부 — 사용자는 대기하지 않는다
+     *  - 둘 다 안 되면 동영상 없는 카드 (성장 스토리 텍스트로 대체)
+     */
+    fun sharePlant(plant: Plant, type: String, quantity: String, price: String) {
+        viewModelScope.launch {
+            try {
+                var videoId: String? = null
+                try { videoId = api.plantVideos(plant.id, "growth").videos.firstOrNull()?.videoId } catch (_: Exception) {}
+                val photoCount = try { api.plantPhotos(plant.id).photos.size } catch (_: Exception) { 0 }
+                val farmer = slaves.firstOrNull { it.id == plant.slave_id }
+
+                val created = api.communityCreate(
+                    CreatePostRequest(
+                        userId = userId,
+                        type = type,
+                        title = plant.name,
+                        crop = plant.species,
+                        quantity = quantity.trim().ifBlank { null },
+                        price = if (type == "sell") price.trim().toIntOrNull() else null,
+                        region = Session.region,
+                        description = buildGrowthStory(plant, photoCount, farmer?.name),
+                        image = plantEmojiFor(plant.species, plant.stage),
+                        plantId = plant.id,
+                        videoId = videoId
+                    )
+                )
+                msg = if (type == "share") "나눔 카드를 이웃에 올렸어요" else "판매 카드를 이웃에 올렸어요"
+
+                if (videoId == null && plant.slave_id != null && photoCount > 0) {
+                    watchShareVideoJob?.cancel()
+                    watchShareVideoJob = viewModelScope.launch {
+                        try {
+                            val cmd = api.sendCommand(CommandRequest(plant.slave_id!!, plant.id, "generate_growth_clip"))
+                            var waited = 0
+                            while (waited < 90) {
+                                kotlinx.coroutines.delay(4_000)
+                                waited += 4
+                                try {
+                                    val v = api.videoByCommand(cmd.commandId)
+                                    api.communityAttachVideo(created.postId, AttachVideoRequest(v.videoId))
+                                    msg = "성장 스토리 동영상이 카드에 첨부되었어요"
+                                    return@launch
+                                } catch (_: Exception) {}
+                            }
+                            // 타임아웃 — 동영상 없는 카드로 남김 (fallback)
+                        } catch (_: Exception) {}
+                    }
+                }
+            } catch (e: Exception) {
+                msg = e.message ?: "게시물 등록 실패"
+            }
+        }
+    }
+
+    private var watchShareVideoJob: kotlinx.coroutines.Job? = null
+
+    /** 성장스토리 설명 자동 구성 — 심은 날 · 생육 일수 · 사진 수 · 담당 Farmer. */
+    private fun buildGrowthStory(plant: Plant, photoCount: Int, farmerName: String?): String {
+        val parts = mutableListOf(plant.name + (plant.species?.let { " ($it)" } ?: ""))
+        plant.planted_at?.let { plantedAt ->
+            parts.add("심은 날 $plantedAt")
+            try {
+                val planted = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).parse(plantedAt)
+                if (planted != null) {
+                    val days = ((System.currentTimeMillis() - planted.time) / (24L * 3600 * 1000)).toInt()
+                    if (days > 0) parts.add("생육 ${days}일차")
+                }
+            } catch (_: Exception) {}
+        }
+        if (photoCount > 0) parts.add("성장 사진 ${photoCount}장")
+        farmerName?.let { parts.add("Farmer: $it") }
+        return parts.joinToString(" · ")
     }
 
     init { refresh() }
@@ -186,7 +268,8 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                         latestAnalysis = vm.analyses[plant.id],
                         onClick = { nav.navigate("plant_detail/${plant.id}") },
                         onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
-                        onDelete = { vm.deletePlant(plant) }
+                        onDelete = { vm.deletePlant(plant) },
+                        onSharePlant = { type, qty, price -> vm.sharePlant(plant, type, qty, price) }
                     )
                 }
             }
@@ -212,7 +295,8 @@ private fun PlantGridCard(
     latestAnalysis: com.oojoo.farm.master.model.AnalysisResponse?,
     onClick: () -> Unit,
     onAssignSlave: (String?) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSharePlant: (type: String, quantity: String, price: String) -> Unit
 ) {
     val S = LocalAppStrings.current
     val stageK = mapOf(
@@ -224,6 +308,7 @@ private fun PlantGridCard(
     val emoji = plantEmojiFor(plant.species, plant.stage)
     var showAssignDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var shareType by remember { mutableStateOf<String?>(null) }
 
     Card(
         Modifier
@@ -360,6 +445,42 @@ private fun PlantGridCard(
                     )
                 }
             }
+
+            // 나눔/판매 — 이웃(커뮤니티) 탭에 카드 즉시 생성, 성장스토리 동영상은 준비되면 첨부
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.GreenBg,
+                    border = BorderStroke(1.dp, OojooTheme.Ink),
+                    modifier = Modifier.weight(1f).clickable { shareType = "share" }
+                ) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            "🤝 ${S.share}",
+                            color = OojooTheme.GreenDark,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.Yellow,
+                    border = BorderStroke(1.dp, OojooTheme.Ink),
+                    modifier = Modifier.weight(1f).clickable { shareType = "sell" }
+                ) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            "🏷️ ${S.sell}",
+                            color = OojooTheme.Ink,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
         }
         }
     }
@@ -391,6 +512,65 @@ private fun PlantGridCard(
             }
         )
     }
+
+    if (shareType != null) {
+        SharePlantDialog(
+            plant = plant,
+            type = shareType!!,
+            onDismiss = { shareType = null },
+            onSubmit = { qty, price ->
+                onSharePlant(shareType!!, qty, price)
+                shareType = null
+            }
+        )
+    }
+}
+
+/**
+ * 식물카드 나눔/판매 다이얼로그 — 제출 시 이웃(커뮤니티) 탭에
+ * plant_id 연결 게시물이 즉시 생성된다 (성장스토리 동영상은
+ * ViewModel 에서 준비되면 자동 첨부).
+ */
+@Composable
+private fun SharePlantDialog(
+    plant: Plant,
+    type: String,
+    onDismiss: () -> Unit,
+    onSubmit: (quantity: String, price: String) -> Unit
+) {
+    val S = LocalAppStrings.current
+    var quantity by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                (if (type == "share") S.plantShareDialogTitle else S.plantSellDialogTitle).format(plant.name),
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    plant.name + (plant.species?.let { " ($it)" } ?: ""),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = OojooTheme.Ink
+                )
+                Text(S.plantShareDialogHint, fontSize = 12.sp, color = OojooTheme.Muted)
+                OojooField(quantity, { quantity = it }, S.quantityPh)
+                if (type == "sell") {
+                    OojooField(price, { price = it.filter { c -> c.isDigit() } }, S.priceWon)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSubmit(quantity, price) }) { Text(S.postButton, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(S.cancel) }
+        }
+    )
 }
 
 @Composable

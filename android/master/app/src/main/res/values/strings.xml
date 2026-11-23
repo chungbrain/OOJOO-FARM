@@ -398,6 +398,12 @@
     <string name="album_plant_fallback">식물</string>
     <string name="album_empty">Farmer 사진이 아직 없어요. Farmer가 동작하면 사진이 자동으로 쌓입니다.</string>
 
+    <!-- 식물카드 나눔/판매 -->
+    <string name="plant_share_dialog_title">%1$s 나눔하기</string>
+    <string name="plant_sell_dialog_title">%1$s 판매하기</string>
+    <string name="plant_share_dialog_hint">이웃 탭에 카드가 생기고, 성장 스토리 동영상이 준비되면 자동으로 첨부됩니다.</string>
+    <string name="feed_video_badge">성장스토리</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">영상 건강진단</string>
     <string name="diagnosis_title">영상 건강진단</string>
