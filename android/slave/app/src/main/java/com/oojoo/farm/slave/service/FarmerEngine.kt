@@ -1054,13 +1054,19 @@ object FarmerEngine {
                 PlantAlbum.add(appCtx, pid, file, takenAt, location)
                 // 업로드용 축소본 — 고해상도 원본 JPEG이 백엔드 업로드 제한(8MB)을
                 // 넘겨 413(File too large)로 거부되는 것을 방지한다.
+                // 480px 썸네일을 함께 보내면 마스터 사진첩이 원본을 로드하지 않고 그리드를 그린다.
                 val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+                val thumbFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file, maxDim = 480, quality = 75, tag = "th")
                 try {
                     val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
+                    val thumbPart = if (thumbFile != file)
+                        MultipartBody.Part.createFormData("thumb", thumbFile.name, thumbFile.asRequestBody("image/jpeg".toMediaTypeOrNull()))
+                    else null
                     ApiClient.api.uploadPhoto(
                         slaveId(),
                         part,
+                        thumbPart,
                         pid.toRequestBody("text/plain".toMediaTypeOrNull()),
                         takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
                         location.toRequestBody("text/plain".toMediaTypeOrNull()),
@@ -1069,6 +1075,7 @@ object FarmerEngine {
                     addLog("[${now()}] 즉시 사진 전송 완료 (${upFile.length() / 1024}KB)")
                 } finally {
                     if (upFile != file) upFile.delete()
+                    if (thumbFile != file) thumbFile.delete()
                 }
             } catch (e: Exception) {
                 addLog("[${now()}] 즉시 사진 업로드 실패: ${e.message}")
@@ -1120,14 +1127,20 @@ object FarmerEngine {
                 PlantAlbum.add(appCtx, p.id, file, takenAt, location)
             }
             // 업로드용 축소본 — 모든 식물이 공유. 원본이 업로드 제한(8MB)을 넘기는 것 방지.
+            // 480px 썸네일 포함 (마스터 사진첩 그리드용).
             val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+            val thumbFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file, maxDim = 480, quality = 75, tag = "th")
             try {
+                val thumbPart = if (thumbFile != file)
+                    MultipartBody.Part.createFormData("thumb", thumbFile.name, thumbFile.asRequestBody("image/jpeg".toMediaTypeOrNull()))
+                else null
                 for (p in plants) {
                     val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
                     ApiClient.api.uploadPhoto(
                         slaveId(),
                         part,
+                        thumbPart,
                         p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
                         takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
                         location.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -1138,6 +1151,7 @@ object FarmerEngine {
                 addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${upFile.length() / 1024}KB)")
             } finally {
                 if (upFile != file) upFile.delete()
+                if (thumbFile != file) thumbFile.delete()
             }
         } catch (e: Exception) {
             addLog("[${now()}] 성장 사진 업로드 실패: ${e.message}")

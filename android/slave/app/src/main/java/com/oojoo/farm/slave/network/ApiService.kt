@@ -65,6 +65,7 @@ interface ApiService {
     suspend fun uploadPhoto(
         @Path("slaveId") slaveId: String,
         @Part photo: MultipartBody.Part,
+        @Part thumb: MultipartBody.Part? = null,
         @Part("plantId") plantId: RequestBody,
         @Part("takenAt") takenAt: RequestBody,
         @Part("location") location: RequestBody,

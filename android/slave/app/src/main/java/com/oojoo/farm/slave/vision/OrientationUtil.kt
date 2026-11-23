@@ -53,8 +53,10 @@ object OrientationUtil {
      * JPEG 파일을 upright로 디코딩해 최대 변 길이 maxDim(px)으로 축소 재압축한다.
      * 백엔드 업로드 제한(사진 8MB)을 고해상도 원본이 넘겨 413로 거부되는 것 방지.
      * 축소 결과물은 src와 같은 폴더의 임시 파일. 실패 시 원본 src를 그대로 반환.
+     * tag 는 임시 파일명 접두어 — 같은 원본에서 1920/480 두 버전을 만들 때
+     * 같은 밀리초에 같은 파일명이 만들어지는 것을 방지한다.
      */
-    fun downscaleJpeg(src: File, maxDim: Int = 1920, quality: Int = 85): File {
+    fun downscaleJpeg(src: File, maxDim: Int = 1920, quality: Int = 85, tag: String = "up"): File {
         try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(src.absolutePath, bounds)
@@ -71,7 +73,7 @@ object OrientationUtil {
                 if (scaled != bmp) bmp.recycle()
                 bmp = scaled
             }
-            val out = File(src.parentFile ?: return src, "up_${System.currentTimeMillis()}_${src.name}")
+            val out = File(src.parentFile ?: return src, "${tag}_${System.currentTimeMillis()}_${src.name}")
             out.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }
             bmp.recycle()
             if (out.exists() && out.length() > 0) return out
