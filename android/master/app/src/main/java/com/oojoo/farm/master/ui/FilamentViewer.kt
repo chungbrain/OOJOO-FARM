@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -38,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -120,6 +123,23 @@ private val WoodLight = Color(0xFFD2A26B)
 private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
 
+// --- farmer별 얼굴 색상 (복수 farmer 구별) ---
+// farmer id로 결정되는 안정 색상 — farm scene figure, 식물카드 farmer pill,
+// farmer 목록 어디서든 같은 색을 쓰게 한다.
+private val FarmerPalette = listOf(
+    Color(0xFFE53935), // 빨강
+    Color(0xFFFB8C00), // 주황
+    Color(0xFF7CB342), // 초록
+    Color(0xFF00ACC1), // 시안
+    Color(0xFF1E88E5), // 파랑
+    Color(0xFF8E24AA), // 보라
+    Color(0xFFD81B60), // 분홍
+    Color(0xFF6D4C41)  // 갈색
+)
+
+fun farmerColorFor(slaveId: String): Color =
+    FarmerPalette[(slaveId.hashCode() and Int.MAX_VALUE) % FarmerPalette.size]
+
 /**
  * 빈 cell 중 가장 좋은 위치는 FarmGrid.kt의 pickEmptyFarmCell 사용.
  * (과거: 4x4 GRID/PlantCell을 이 파일에서 private으로 정의 — 3x4 공용 정의로 이동)
@@ -127,6 +147,18 @@ private val WoodEdge = Color(0xFF6D4423)
 
 /** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
 private data class Waypoint(val row: Int, val col: Float)
+
+/** farmer별 로봇 상태 — Animatable 6개 + 순찰 인덱스.
+ *  웨이포인트 재기동/재구성 사이값 유지(점프 방지)를 위해 컴포지션 밖 객체. */
+private class FarmerBotState {
+    val x = Animatable((FARM_COLS - 1) / 2f)
+    val y = Animatable((FARM_ROWS - 1) / 2f)
+    val scale = Animatable(1f)
+    val tending = Animatable(0f)
+    val facing = Animatable(1f)
+    val tilt = Animatable(0f)
+    var patrolIdx = 0
+}
 
 /**
  * 2D emoji farm scene.
@@ -137,8 +169,10 @@ private data class Waypoint(val row: Int, val col: Float)
  *   바닥   : 3x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
  *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다 (점유 cell → 가장 가까운
  *            빈 cell, 격자 가득차면 원위치).
- *   로봇   : 배정된 식물들을 순서대로 방문·관리. 이동은 X/Y 동시(직선), 거리에 비례
- *            하는 시간, 이동 방향으로 회전, 관수 중엔 물방울이 떨어진다.
+ *   로봇   : farmer 1인당 figure 1대 — 자기 배정 식물들을 순서대로 방문·관리.
+ *            얼굴색은 farmer 색상(farmerColorFor)이라 복수 farmer가 구분된다.
+ *            이동은 X/Y 동시(직선), 거리에 비례하는 시간, 이동 방향으로 회전,
+ *            관수 중엔 물방울이 떨어진다.
  *   잔디   : 최하단 풀잎들.
  */
 @Composable
@@ -186,20 +220,21 @@ fun FarmSceneView(
     var dragOffsetX by remember { mutableStateOf(0f) }
     var dragOffsetY by remember { mutableStateOf(0f) }
 
-    // Farmer가 배정된 식물만 로봇 순찰 대상
-    val assignedIds = remember(displayPlants, slaves) {
-        displayPlants.filter { p -> slaves.any { it.id == p.slave_id } }.map { it.id }
-    }
-    val waypoints = remember(cells, assignedIds) {
-        assignedIds.mapNotNull { id ->
-            cells[id]?.let { cell ->
-                val sideOffset = 0.32f
-                val col = if (cell.col > 0) (cell.col - sideOffset) else (cell.col + sideOffset)
-                Waypoint(cell.row, col)
-            }
+    // Farmer가 배정된 식물만 순찰 대상 — farmer별로 웨이포인트 그룹화.
+    // 복수 farmer면 figure도 1인씩 (얼굴색상 = farmer 색상)으로 구분 표시.
+    val activeFarmers = remember(displayPlants, slaves, cells) {
+        slaves.mapNotNull { s ->
+            val wps = displayPlants
+                .filter { it.slave_id == s.id }
+                .mapNotNull { p -> cells[p.id] }
+                .map { cell ->
+                    val sideOffset = 0.32f
+                    val col = if (cell.col > 0) (cell.col - sideOffset) else (cell.col + sideOffset)
+                    Waypoint(cell.row, col)
+                }
+            if (wps.isEmpty()) null else s to wps
         }
     }
-    val showRobot = waypoints.isNotEmpty()
 
     val infiniteTransition = rememberInfiniteTransition(label = "farm")
 
@@ -209,58 +244,73 @@ fun FarmSceneView(
         label = "sway"
     )
 
-    // 로봇 부드러운 이동을 위한 Animatable (격자 단위 좌표)
-    val robotX = remember { Animatable((FARM_COLS - 1) / 2f) }
-    val robotY = remember { Animatable((FARM_ROWS - 1) / 2f) }
-    val robotScale = remember { Animatable(1f) }
-    val tendingAlpha = remember { Animatable(0f) }
-    val robotFacing = remember { Animatable(1f) }
-    val robotTilt = remember { Animatable(0f) }
+    // farmer별 로봇 상태 — farmer 목록에 따라 생성/제거.
+    // Animatable은 컴포지션 밖 객체라 재구성/웨이포인트 재기동 사이 값이 유지된다.
+    val farmerBots = remember { mutableMapOf<String, FarmerBotState>() }
+    val activeFarmerIds = activeFarmers.map { it.first.id }.toSet()
+    farmerBots.keys.removeAll { it !in activeFarmerIds }
 
-    // 순찰 인덱스 — 웨이포인트 목록이 바뀌어도(식물 이동/추가) 재개, 초기화 안 함.
-    // (과거: LaunchedEffect(waypoints) 재기동마다 idx=0 리셋 → 첫 식물로 점프)
-    var patrolIdx by remember { mutableStateOf(0) }
+    // 눈 깜빡임 — 3.4초 주기, 짧은 한 번 (farmer 전체 공용)
+    val blink by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            keyframes {
+                durationMillis = 3400
+                1f at 0
+                1f at 3050
+                0.15f at 3150
+                1f at 3250
+            },
+            RepeatMode.Restart
+        ),
+        label = "blink"
+    )
 
-    LaunchedEffect(waypoints, showRobot) {
-        if (!showRobot || waypoints.isEmpty()) {
-            robotTilt.snapTo(0f)
-            return@LaunchedEffect
-        }
-        var idx = if (waypoints.size > 1) patrolIdx % waypoints.size else 0
-        while (true) {
-            val wp = waypoints[idx]
-            val dx = wp.col - robotX.value
-            val dy = wp.row - robotY.value
-            val dist = sqrt(dx * dx + dy * dy)
-            if (dist > 0.02f) {
-                // 이동 방향으로 회전
-                robotFacing.animateTo(
-                    if (dx < 0) -1f else 1f,
-                    animationSpec = tween(160, easing = FastOutSlowInEasing)
-                )
-                // 직선 이동 — X/Y 동시 tween (과거: X 완료 후 Y → L자 꺾임),
-                // 시간은 이동 거리에 비례
-                val dur = (260f + dist * 320f).coerceIn(300f, 1500f).roundToInt()
-                robotTilt.animateTo(
-                    if (dx >= 0) 4f else -4f,
-                    animationSpec = tween(dur, easing = FastOutSlowInEasing)
-                )
-                coroutineScope {
-                    launch { robotX.animateTo(wp.col, animationSpec = tween(dur, easing = FastOutSlowInEasing)) }
-                    launch { robotY.animateTo(wp.row.toFloat(), animationSpec = tween(dur, easing = FastOutSlowInEasing)) }
-                }
-            } else {
-                robotTilt.animateTo(0f, animationSpec = tween(150, easing = FastOutSlowInEasing))
+    // farmer별 순찰 루프 — 웨이포인트가 바뀌어도(식물 이동/추가) 순찰 인덱스는
+    // bot 상태에 남아 그 자리에서 재개 (과거: 재기동마다 idx=0 리셋 → 첫 식물로 점프)
+    activeFarmers.forEach { (slave, wps) ->
+        val bot = farmerBots.getOrPut(slave.id) { FarmerBotState() }
+        LaunchedEffect(wps) {
+            if (wps.isEmpty()) {
+                bot.tilt.snapTo(0f)
+                return@LaunchedEffect
             }
-            // 도착 — 관리 액션 (살짝 커짐 + 물방울 + 2초 관수)
-            robotScale.animateTo(1.25f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-            tendingAlpha.animateTo(1f, animationSpec = tween(200, easing = FastOutSlowInEasing))
-            delay(2000)
-            tendingAlpha.animateTo(0f, animationSpec = tween(200, easing = FastOutSlowInEasing))
-            robotScale.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-            delay(500)
-            idx = (idx + 1) % waypoints.size
-            patrolIdx = idx
+            var idx = if (wps.size > 1) bot.patrolIdx % wps.size else 0
+            while (true) {
+                val wp = wps[idx]
+                val dx = wp.col - bot.x.value
+                val dy = wp.row - bot.y.value
+                val dist = sqrt(dx * dx + dy * dy)
+                if (dist > 0.02f) {
+                    // 이동 방향으로 회전
+                    bot.facing.animateTo(
+                        if (dx < 0) -1f else 1f,
+                        animationSpec = tween(160, easing = FastOutSlowInEasing)
+                    )
+                    // 직선 이동 — X/Y 동시 tween (과거: X 완료 후 Y → L자 꺾임),
+                    // 시간은 이동 거리에 비례
+                    val dur = (260f + dist * 320f).coerceIn(300f, 1500f).roundToInt()
+                    bot.tilt.animateTo(
+                        if (dx >= 0) 4f else -4f,
+                        animationSpec = tween(dur, easing = FastOutSlowInEasing)
+                    )
+                    coroutineScope {
+                        launch { bot.x.animateTo(wp.col, animationSpec = tween(dur, easing = FastOutSlowInEasing)) }
+                        launch { bot.y.animateTo(wp.row.toFloat(), animationSpec = tween(dur, easing = FastOutSlowInEasing)) }
+                    }
+                } else {
+                    bot.tilt.animateTo(0f, animationSpec = tween(150, easing = FastOutSlowInEasing))
+                }
+                // 도착 — 관리 액션 (살짝 커짐 + 물방울 + 2초 관수)
+                bot.scale.animateTo(1.25f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+                bot.tending.animateTo(1f, animationSpec = tween(200, easing = FastOutSlowInEasing))
+                delay(2000)
+                bot.tending.animateTo(0f, animationSpec = tween(200, easing = FastOutSlowInEasing))
+                bot.scale.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
+                delay(500)
+                idx = (idx + 1) % wps.size
+                bot.patrolIdx = idx
+            }
         }
     }
 
@@ -567,15 +617,18 @@ fun FarmSceneView(
                 }
             }
 
-            // === 로봇 (배정된 식물이 있을 때만 표시) ===
-            if (showRobot) {
-                val robotPxX = robotX.value * cellW + cellW * 0.5f
-                val robotPxY = robotY.value * cellH + cellH * 0.5f
-                RobotFigure(
-                    facing = robotFacing.value,
-                    tilt = robotTilt.value,
-                    scale = robotScale.value,
-                    tending = tendingAlpha.value,
+            // === farmer 로봇 — farmer 1인당 1대 (배정된 식물이 있을 때만 표시) ===
+            activeFarmers.forEach { (slave, _) ->
+                val bot = farmerBots[slave.id] ?: return@forEach
+                val robotPxX = bot.x.value * cellW + cellW * 0.5f
+                val robotPxY = bot.y.value * cellH + cellH * 0.5f
+                FarmerFigure(
+                    faceColor = farmerColorFor(slave.id),
+                    facing = bot.facing.value,
+                    tilt = bot.tilt.value,
+                    scale = bot.scale.value,
+                    tending = bot.tending.value,
+                    blink = blink,
                     dropFall = dropFall,
                     modifier = Modifier.offset(
                         x = (robotPxX - 22f).dp,
@@ -641,35 +694,38 @@ private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modif
 }
 
 /**
- * 로봇 — 하단 메뉴바의 farmer 탭과 같은 🤖 이모지 피겨.
- * (과거: primitives로 조립한 스틸 헤드+그린 몸통 로봇 — 모양이 어색해 교체)
+ * Farmer 로봇 figure — **얼굴 색상이 farmer 색**(복수 farmer 구별).
+ * Canvas primitives: 안테나 + 헤드(farmer색, 깜빡이는 눈) + 몸통(스틸+화면) + 바퀴.
+ * (과거: 🤖 이모지 단일색 — 복수 farmer의 얼굴색을 구분할 수 없어 교체)
  * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
  * tending(0..1)으로 관수 물방울이 떨어진다.
  */
 @Composable
-private fun RobotFigure(
+private fun FarmerFigure(
+    faceColor: Color,
     facing: Float,
     tilt: Float,
     scale: Float,
     tending: Float,
+    blink: Float,
     dropFall: Float,
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier.size(width = 44.dp, height = 48.dp),
+        modifier.size(width = 44.dp, height = 50.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        Text(
-            "🤖",
-            fontSize = 38.sp,
-            modifier = Modifier
-                .offset(y = 4.dp)
+        Canvas(
+            Modifier
+                .fillMaxSize()
                 .graphicsLayer {
                     scaleX = scale * facing
                     scaleY = scale
                     rotationZ = tilt
                 }
-        )
+        ) {
+            drawFarmerFigure(faceColor, blink)
+        }
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
         if (tending > 0.01f) {
@@ -691,6 +747,58 @@ private fun RobotFigure(
                 }
             }
         }
+    }
+}
+
+/** 44x50dp 기준 figure — canvas 픽셀 단위로 스케일해 그림. */
+private fun DrawScope.drawFarmerFigure(faceColor: Color, blink: Float) {
+    val u = size.width / 44f // canvas px / 1dp
+    val ink = Color(0xFF37474F)
+    // 안테나 (봉 + 빛)
+    drawLine(ink, Offset(22f * u, 9f * u), Offset(22f * u, 4.5f * u), strokeWidth = 1.5f * u)
+    drawCircle(Color(0xFFFFB300).copy(alpha = 0.35f), radius = 3.4f * u, center = Offset(22f * u, 3.5f * u))
+    drawCircle(Color(0xFFFFB300), radius = 1.8f * u, center = Offset(22f * u, 3.5f * u))
+    // 헤드 — 얼굴 = farmer 색상
+    val head = Offset(9f * u, 8f * u) to Size(26f * u, 18f * u)
+    drawRoundRect(faceColor, head.first, head.second, CornerRadius(5f * u))
+    drawRoundRect(ink, head.first, head.second, CornerRadius(5f * u), style = Stroke(width = 1.5f * u))
+    // 눈 (blink — 높이 압축)
+    val eyeR = 2.4f * u
+    val eyeH = (eyeR * 2f * blink).coerceAtLeast(0.6f * u)
+    listOf(16.5f, 27.5f).forEach { cx ->
+        drawOval(
+            Color(0xFF263238),
+            topLeft = Offset(cx * u - eyeR, 17f * u - eyeH / 2f),
+            size = Size(eyeR * 2f, eyeH)
+        )
+    }
+    // 몸통 — 스틸 그라디언트 + 테두리
+    val body = Offset(7f * u, 28f * u) to Size(30f * u, 15f * u)
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            listOf(Color(0xFFB0BEC5), Color(0xFF607D8B)),
+            startY = 28f * u, endY = 43f * u
+        ),
+        topLeft = body.first, size = body.second, cornerRadius = CornerRadius(4f * u)
+    )
+    drawRoundRect(ink, body.first, body.second, CornerRadius(4f * u), style = Stroke(width = 1.5f * u))
+    // 몸통 화면 (녹색 상태 표시줄)
+    drawRoundRect(
+        color = Color(0xFF263238),
+        topLeft = Offset(15f * u, 31.5f * u),
+        size = Size(14f * u, 7.5f * u),
+        cornerRadius = CornerRadius(1.5f * u)
+    )
+    drawRoundRect(
+        color = Color(0xFF76FF03),
+        topLeft = Offset(17f * u, 34.6f * u),
+        size = Size(10f * u, 1.6f * u),
+        cornerRadius = CornerRadius(0.8f * u)
+    )
+    // 바퀴
+    listOf(13f, 31f).forEach { cx ->
+        drawCircle(ink, radius = 3.5f * u, center = Offset(cx * u, 46f * u))
+        drawCircle(Color(0xFFCFD8DC), radius = 1.2f * u, center = Offset(cx * u, 46f * u))
     }
 }
 

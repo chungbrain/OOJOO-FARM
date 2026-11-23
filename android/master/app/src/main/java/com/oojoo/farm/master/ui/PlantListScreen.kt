@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -311,7 +312,7 @@ private fun PlantGridCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(
                         shape = OojooTheme.PillShape,
-                        color = OojooTheme.Green,
+                        color = farmerColorFor(assignedSlave.id),
                         border = BorderStroke(1.5.dp, OojooTheme.Ink),
                         modifier = Modifier.clickable { showAssignDialog = true }
                     ) {
@@ -426,7 +427,16 @@ private fun AssignFarmerDialog(
                                     Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("🤖", fontSize = 20.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier
+                                                .size(22.dp)
+                                                .clip(RoundedCornerShape(50))
+                                                .border(1.5.dp, OojooTheme.Ink, RoundedCornerShape(50))
+                                                .background(farmerColorFor(slave.id))
+                                        )
+                                        Text("🤖", fontSize = 20.sp)
+                                    }
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(slave.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)
