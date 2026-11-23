@@ -50,6 +50,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -81,6 +83,7 @@ import com.oojoo.farm.master.model.WeatherResponse
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import kotlin.random.Random
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val api get() = ApiClient.api
@@ -547,28 +550,62 @@ private fun MetricChip(text: String) {
 @Composable
 fun RainAnimation() {
     val infiniteTransition = rememberInfiniteTransition(label = "rain")
+    // 마스터 루프 — 750ms = 느린 방울 기준 1낙하. 각 방울은 루프당 화면 높이의
+    // 정수 배(1 또는 2)만큼 전진하므로 루프 경계(100→0)에서 모든 방울이 같은
+    // 위치로 감아 seamless 하다. (과거: 45개를 정격 기둥으로 놓고 같은 속도·
+    // 길이(40px)·두께(4px)·완전 수직으로 낙하 — 줄무늬처럼 보여 무작위화)
     val fall by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(animation = tween(800, easing = LinearEasing), repeatMode = androidx.compose.animation.core.RepeatMode.Restart),
-        label = "fall"
+        targetValue = 100f,
+        animationSpec = infiniteRepeatable(animation = tween(750, easing = LinearEasing), repeatMode = androidx.compose.animation.core.RepeatMode.Restart),
+        label = "rainFall"
     )
+    // 방울 파라미터 — 시드 고정이라 재구성돼도 같은 비가 내린다.
+    val drops = remember {
+        val rnd = Random(20261123)
+        List(42) {
+            Drop(
+                xFrac = rnd.nextFloat(),
+                fast = rnd.nextFloat() < 0.35f,
+                len = 9f + rnd.nextFloat() * 9f,
+                alpha = 0.35f + rnd.nextFloat() * 0.35f,
+                width = 1.1f + rnd.nextFloat() * 1.1f,
+                phase = rnd.nextFloat()
+            )
+        }
+    }
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val count = 45
-        val width = size.width
-        val height = size.height
-        for (i in 0 until count) {
-            val startX = (i * (width / count)) + (i * 13 % 20)
-            val yOffset = ((fall + (i * 47)) % height)
+        val w = size.width
+        val h = size.height
+        // 상하 30px 마진 — 스트릭이 완전히 화면 밖으로 나가야 감김 (팝아웃 방지)
+        val travel = h + 30f
+        // 약한 바람 — 구름 흐름(오른쪽→왼쪽)과 같은 방향, 스트릭 기울기도 일치
+        val drift = h * 0.10f
+        for (d in drops) {
+            val p = ((fall / 100f) * (if (d.fast) 2f else 1f) + d.phase) % 1f
+            val y = -30f + p * travel
+            val x = d.xFrac * w - p * drift
+            val k = d.len / travel
             drawLine(
-                color = Color.White.copy(alpha = 0.7f),
-                start = Offset(startX, yOffset),
-                end = Offset(startX, yOffset + 40f),
-                strokeWidth = 4f
+                color = Color(0xFFCFE8FF).copy(alpha = d.alpha),
+                start = Offset(x, y),
+                end = Offset(x - drift * k, y + d.len),
+                strokeWidth = d.width,
+                cap = StrokeCap.Round
             )
         }
     }
 }
+
+/** 빗방울 — xFrac=화면폭 비율, fast=마스터 루프당 2낙하(빠름), len/alpha/width는 무작위. */
+private data class Drop(
+    val xFrac: Float,
+    val fast: Boolean,
+    val len: Float,
+    val alpha: Float,
+    val width: Float,
+    val phase: Float
+)
 
 @Composable
 private fun StarField() {

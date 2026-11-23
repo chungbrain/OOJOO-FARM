@@ -384,14 +384,24 @@ fun FarmSceneView(
 
         val soilColor = Color(0xFFB5905E)
 
-        // === 하늘 ===
+        // === 하늘 — 해와 비는 공존하지 않음 (비 오는 낮엔 ☀️ 대신 🌧️) ===
+        val skyIcon = when {
+            isNight -> "🌙"
+            isRain -> "🌧️"
+            else -> "☀️"
+        }
         Text(
-            if (isNight) "🌙" else "☀️",
+            skyIcon,
             fontSize = 36.sp,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 10.dp, end = 16.dp)
-                .graphicsLayer { scaleX = pulse; scaleY = pulse }
+                // pulse(0.90~1.12)는 해/달만 — 비구름은 그대로
+                .graphicsLayer {
+                    val s = if (isRain) 1f else pulse
+                    scaleX = s
+                    scaleY = s
+                }
                 .alpha(0.95f)
         )
         // === 밤하늘 — 별가루 반짝임 + 북두칠성 ===
@@ -652,18 +662,8 @@ fun FarmSceneView(
             }
         }
 
-        // 비 오버레이
-        if (isRain) {
-            Row(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(top = 80.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                repeat(5) { Text("💧", fontSize = 16.sp, modifier = Modifier.alpha(0.6f)) }
-            }
-        }
+        // 비는 HomeScreen.RainAnimation() 레이어에서 렌더링 (과거: 여기에
+        // 정지된 💧이모지 5개를 한 줄로 배치해두었다가 어색하다는 피드백으로 제거)
     }
 }
 
