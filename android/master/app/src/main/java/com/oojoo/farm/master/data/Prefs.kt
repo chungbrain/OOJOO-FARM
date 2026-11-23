@@ -92,6 +92,41 @@ object Prefs {
         setGalleryItems(ctx, arr.toString())
     }
 
+    // ---------- 농장 씬 식물 위치 (드래그로 옮긴 위치 기억) ----------
+    private const val K_FARM_CELLS = "farmPlantCells"
+
+    /** plantId -> "row,col" JSON 오브젝트. 앱 재시작 후에도 옮겨둔 위치에 배치한다. */
+    fun farmPlantCells(ctx: Context): Map<String, Pair<Int, Int>> = try {
+        val obj = org.json.JSONObject(sp(ctx).getString(K_FARM_CELLS, "{}") ?: "{}")
+        buildMap {
+            for (key in obj.keys()) {
+                val parts = obj.optString(key).split(",")
+                if (parts.size == 2) put(key, parts[0].toInt() to parts[1].toInt())
+            }
+        }
+    } catch (_: Exception) { emptyMap() }
+
+    fun setFarmPlantCell(ctx: Context, plantId: String, row: Int, col: Int) {
+        val obj = try {
+            org.json.JSONObject(sp(ctx).getString(K_FARM_CELLS, "{}") ?: "{}")
+        } catch (_: Exception) { org.json.JSONObject() }
+        obj.put(plantId, "$row,$col")
+        sp(ctx).edit().putString(K_FARM_CELLS, obj.toString()).apply()
+    }
+
+    /** 삭제된 식물의 저장 위치 정리. */
+    fun removeFarmPlantCells(ctx: Context, plantIds: Collection<String>) {
+        if (plantIds.isEmpty()) return
+        val obj = try {
+            org.json.JSONObject(sp(ctx).getString(K_FARM_CELLS, "{}") ?: "{}")
+        } catch (_: Exception) { return }
+        var changed = false
+        for (id in plantIds) {
+            if (obj.remove(id) != null) changed = true
+        }
+        if (changed) sp(ctx).edit().putString(K_FARM_CELLS, obj.toString()).apply()
+    }
+
     // ---------- UI 커스터마이징 ----------
     private const val K_CORNER_RADIUS = "cornerRadius"
     private const val K_SHADOW_OFFSET = "shadowOffset"

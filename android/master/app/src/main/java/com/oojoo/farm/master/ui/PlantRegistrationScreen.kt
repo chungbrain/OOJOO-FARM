@@ -14,13 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.oojoo.farm.master.data.LocalAppStrings
+import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CreatePlantRequest
+import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
@@ -29,11 +32,14 @@ class PlantRegistrationViewModel : ViewModel() {
     private val api get() = ApiClient.api
     val userId get() = Session.userId
     var slaves by mutableStateOf<List<Slave>>(emptyList())
+    var plants by mutableStateOf<List<Plant>>(emptyList())
     var name by mutableStateOf("")
     var species by mutableStateOf("")
     var plantedAt by mutableStateOf("")
     var selectedSlaveId by mutableStateOf<String?>(null)
     var stage by mutableStateOf("seedling")
+    // 농장 배치 위치 — null이면 자동 배치 규칙에 맡김 (선택기에서 기본 추천 제공)
+    var farmCell by mutableStateOf<FarmCell?>(null)
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     var done by mutableStateOf(false)
@@ -42,12 +48,24 @@ class PlantRegistrationViewModel : ViewModel() {
     init { loadSlaves() }
     fun loadSlaves() { viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {} } }
 
-    fun register(onSuccess: () -> Unit = {}) {
+    /** 기존 식물 점유 현황 로드 + 농장 위치 기본 추천(가장 좋은 빈 칸). */
+    fun loadFarmLayout(ctx: android.content.Context) {
+        viewModelScope.launch {
+            try { plants = api.plants(userId).plants } catch (_: Exception) {}
+            if (farmCell == null) {
+                farmCell = pickEmptyFarmCell(computeFarmOccupancy(ctx, plants).values.toSet())
+            }
+        }
+    }
+
+    fun register(ctx: android.content.Context, onSuccess: () -> Unit = {}) {
         if (name.isBlank()) { error = "식물 이름을 입력하세요"; return }
         loading = true; error = null
         viewModelScope.launch {
             try {
-                api.createPlant(CreatePlantRequest(userId, selectedSlaveId, name.trim(), species.trim().ifBlank { null }, plantedAt.trim().ifBlank { null }, stage))
+                val resp = api.createPlant(CreatePlantRequest(userId, selectedSlaveId, name.trim(), species.trim().ifBlank { null }, plantedAt.trim().ifBlank { null }, stage))
+                // 선택한 농장 위치 저장 — 홈 농장 씬이 이 위치에 식물을 배치한다
+                farmCell?.let { c -> Prefs.setFarmPlantCell(ctx, resp.plantId, c.row, c.col) }
                 done = true
                 kotlinx.coroutines.delay(800)  // 등록 완료 메시지를 잠깐 보여줌
                 onSuccess()
@@ -61,6 +79,9 @@ class PlantRegistrationViewModel : ViewModel() {
 @Composable
 fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel = viewModel()) {
     val S = LocalAppStrings.current
+    // 농장 위치 선택기용 — 기존 식물 점유 현황 + 빈 칸 추천
+    val ctx = LocalContext.current
+    LaunchedEffect(Unit) { vm.loadFarmLayout(ctx) }
     val speciesLabels = if (S.isEnglish) mapOf(
         "상추" to "Lettuce", "깻잎" to "Perilla", "바질" to "Basil", "로즈마리" to "Rosemary",
         "허브" to "Herb", "선인장" to "Cactus",
@@ -146,7 +167,16 @@ fun PlantRegistrationScreen(nav: NavController, vm: PlantRegistrationViewModel =
                 }
             }
 
-            GradientButton(text = S.plantRegister, onClick = { vm.register { nav.navigateUp() } }, enabled = !vm.loading && vm.name.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            // 농장 위치 — 3x4 구역 중 배치할 칸 선택 (기본: 가장 좋은 빈 칸 추천)
+            FarmCellPicker(
+                occupied = computeFarmOccupancy(ctx, vm.plants),
+                emojis = vm.plants.associate { it.id to plantEmojiFor(it.species, it.stage) },
+                selected = vm.farmCell,
+                onSelect = { vm.farmCell = it },
+                movingEmoji = plantEmojiFor(vm.species.ifBlank { null }, vm.stage)
+            )
+
+            GradientButton(text = S.plantRegister, onClick = { vm.register(ctx) { nav.navigateUp() } }, enabled = !vm.loading && vm.name.isNotBlank(), modifier = Modifier.fillMaxWidth())
             if (vm.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = OojooTheme.Green) }
             if (vm.done) {
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape) {

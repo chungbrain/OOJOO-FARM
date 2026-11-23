@@ -89,6 +89,14 @@ object FarmerEngine {
     private val _captureRequested = MutableStateFlow(false)
     val captureRequested: StateFlow<Boolean> = _captureRequested.asStateFlow()
 
+    // 실시간 보기 — 마스터의 live_start/live_stop 명령으로 on/off.
+    // on이면 3초마다 최신 프레임을 백엔드(/api/live/:slaveId/frame)에 push하고
+    // 마스터는 같은 주기로 pull해 화면을 갱신한다 (3초 라이브).
+    @Volatile
+    private var liveRelayJob: Job? = null
+    private val LIVE_FRAME_INTERVAL_MS = 3_000L
+    private val LIVE_FRAME_STALE_MS = 5_000L
+
     // ROI 기반 다중 식물 모니터링 결과 (plantId -> 최신 진단)
     data class RoiStatus(
         val plantId: String,
@@ -272,6 +280,16 @@ object FarmerEngine {
                     addLog("[${now()}] 마스터 요청(SSE): 영상 건강진단")
                     diagnoseVideo(id, plantId)
                 }
+                "live_start" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 실시간 보기 시작")
+                    startLiveRelay()
+                    ApiClient.api.commandDone(id)
+                }
+                "live_stop" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 실시간 보기 종료")
+                    stopLiveRelay()
+                    ApiClient.api.commandDone(id)
+                }
             }
         } catch (_: Exception) {}
     }
@@ -337,6 +355,7 @@ object FarmerEngine {
 
     fun stop() {
         MjpegStreamer.stop()
+        stopLiveRelay()
         loops.forEach { it.cancel() }
         loops.clear()
         sseJob?.cancel()
@@ -454,7 +473,11 @@ object FarmerEngine {
                 Prefs.setAutoWater(appCtx, _autoOn.value)
                 Prefs.setCaptureIntervalMinutes(appCtx, p.capture_interval)
                 Prefs.setPestIntervalMinutes(appCtx, p.pest_interval)
-                p.region?.takeIf { it.isNotBlank() }?.let { Prefs.setRegion(appCtx, it) }
+                p.region?.takeIf { it.isNotBlank() }?.let {
+                    // 기기 위치 기반 자동 추론 지역이 우선 — 위치가 없을 때만
+                    // 원격 정책 지역을 fallback으로 쓴다 (자동 설정 값을 덮어쓰지 않게).
+                    if (farmLoc == null) Prefs.setRegion(appCtx, it)
+                }
                 // F4 — 카메라 설치 위치 정책 → 촬영 방향 재적용 (원격 변경 즉시 반영)
                 val prevMount = OrientationPolicy.mount
                 OrientationPolicy.setMount(p.camera_mount ?: OrientationPolicy.MOUNT_AUTO)
@@ -533,13 +556,26 @@ object FarmerEngine {
             val resp = farmLoc?.let {
                 ApiClient.api.weatherByCoords(it.lat, it.lon)
             } ?: ApiClient.api.weather(region)
+            // 지역 자동 추론 — 좌표 기반 응답의 region(백엔드 역지오딩 지역명)으로
+            // farmer 지역을 자동 설정한다. 기기가 위치한 곳이 곧 농장이므로
+            // 마스터가 수동 설정하지 않아도 지역이 잡힌다.
+            // 역지오딩 실패 시의 좌표 폼백("37.12, 127.10" 형태)은 지역명이 아니므로 제외.
+            if (farmLoc != null && resp.region.isNotBlank() &&
+                !COORD_REGION.matches(resp.region) && resp.region != region
+            ) {
+                Prefs.setRegion(appCtx, resp.region)
+                addLog("[${now()}] 지역 자동 설정: ${resp.region}")
+            }
             _weatherFactor.value = resp.weatherFactor
             Prefs.setWeatherFactor(appCtx, resp.weatherFactor)
-            addLog("[${now()}] 날씨 업데이트: $region ${resp.temp?.let { "${it.toInt()}°C" } ?: "?"} (가중치:${"%.2f".format(resp.weatherFactor)})")
+            addLog("[${now()}] 날씨 업데이트: ${resp.region.ifBlank { region }} ${resp.temp?.let { "${it.toInt()}°C" } ?: "?"} (가중치:${"%.2f".format(resp.weatherFactor)})")
         } catch (e: Exception) {
             addLog("[${now()}] 날씨 조회 실패 (캐시 사용): ${e.message}")
         }
     }
+
+    // 역지오딩 실패 시 백엔드가 반환하는 좌표 문자열 형태 — 지역명 자동 설정에서 제외
+    private val COORD_REGION = Regex("^-?\\d+\\.\\d+,\\s*-?\\d+\\.\\d+$")
 
     private suspend fun pollCommands() {
         try {
@@ -594,6 +630,16 @@ object FarmerEngine {
                     "diagnose_video" -> {
                         addLog("[${now()}] 마스터 요청: 영상 건강진단")
                         diagnoseVideo(cmd.id, cmd.plant_id)
+                    }
+                    "live_start" -> {
+                        addLog("[${now()}] 마스터 요청: 실시간 보기 시작")
+                        startLiveRelay()
+                        ApiClient.api.commandDone(cmd.id)
+                    }
+                    "live_stop" -> {
+                        addLog("[${now()}] 마스터 요청: 실시간 보기 종료")
+                        stopLiveRelay()
+                        ApiClient.api.commandDone(cmd.id)
                     }
                 }
             }
@@ -670,6 +716,53 @@ object FarmerEngine {
             ApiClient.api.commandDone(commandId)
         } catch (e: Exception) {
             addLog("[${now()}] 지시 완료 보고 실패: ${e.message}")
+        }
+    }
+
+    // ---------- 실시간 보기 릴레이 ----------
+    // 마스터의 live_start 로 켜지고 live_stop 로 꺼진다. 켜져 있는 동안 3초마다
+    // 최신 카메라 프레임을 백엔드(/api/live/:slaveId/frame)에 push하고,
+    // 마스터는 같은 주기로 pull해 화면을 갱신한다 (3초 라이브).
+    private fun startLiveRelay() {
+        liveRelayJob?.cancel()
+        liveRelayJob = scope.launch {
+            while (isActive) {
+                try {
+                    val frame = latestLiveFrame()
+                    if (frame != null) {
+                        val part = MultipartBody.Part.createFormData(
+                            "frame", "live_${System.currentTimeMillis()}.jpg",
+                            frame.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                        )
+                        ApiClient.api.uploadLiveFrame(slaveId(), part)
+                    }
+                } catch (_: Exception) { /* 오프라인이면 다음 틱에 재시도 */ }
+                delay(LIVE_FRAME_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopLiveRelay() {
+        liveRelayJob?.cancel()
+        liveRelayJob = null
+    }
+
+    /** push할 최신 프레임 — 스트림용 최신 프레임이 살아 있으면 그것을, 아니면 즉시 캡처 fallback. */
+    private suspend fun latestLiveFrame(): ByteArray? {
+        val latest = CameraHolder.latestFrame
+        if (latest != null && System.currentTimeMillis() - CameraHolder.latestFrameAt < LIVE_FRAME_STALE_MS) {
+            return latest
+        }
+        if (!awaitCameraReady(1500)) return null
+        val bitmap = suspendCancellableCoroutine<Bitmap?> { cont ->
+            CameraHolder.captureFrame { b -> if (cont.isActive) cont.resume(b) }
+        } ?: return null
+        return try {
+            val out = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            out.toByteArray()
+        } finally {
+            bitmap.recycle()
         }
     }
 
@@ -897,17 +990,24 @@ object FarmerEngine {
             val location = Prefs.region(appCtx)
             try {
                 PlantAlbum.add(appCtx, pid, file, takenAt, location)
-                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
-                ApiClient.api.uploadPhoto(
-                    slaveId(),
-                    part,
-                    pid.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    location.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    commandId.takeIf { it.isNotBlank() }?.toRequestBody("text/plain".toMediaTypeOrNull())
-                )
-                addLog("[${now()}] 즉시 사진 전송 완료 (${file.length() / 1024}KB)")
+                // 업로드용 축소본 — 고해상도 원본 JPEG이 백엔드 업로드 제한(8MB)을
+                // 넘겨 413(File too large)로 거부되는 것을 방지한다.
+                val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+                try {
+                    val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
+                    ApiClient.api.uploadPhoto(
+                        slaveId(),
+                        part,
+                        pid.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        location.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        commandId.takeIf { it.isNotBlank() }?.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                    addLog("[${now()}] 즉시 사진 전송 완료 (${upFile.length() / 1024}KB)")
+                } finally {
+                    if (upFile != file) upFile.delete()
+                }
             } catch (e: Exception) {
                 addLog("[${now()}] 즉시 사진 업로드 실패: ${e.message}")
             } finally {
@@ -956,19 +1056,27 @@ object FarmerEngine {
         try {
             for (p in plants) {
                 PlantAlbum.add(appCtx, p.id, file, takenAt, location)
-                val reqFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("photo", file.name, reqFile)
-                ApiClient.api.uploadPhoto(
-                    slaveId(),
-                    part,
-                    p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    location.toRequestBody("text/plain".toMediaTypeOrNull())
-                )
             }
-            Prefs.setLastPhotoAt(appCtx, System.currentTimeMillis())
-            _lastAnalysis.value?.let { Prefs.setLastPhotoGreenness(appCtx, it.greenness.toFloat()) }
-            addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${file.length() / 1024}KB)")
+            // 업로드용 축소본 — 모든 식물이 공유. 원본이 업로드 제한(8MB)을 넘기는 것 방지.
+            val upFile = com.oojoo.farm.slave.vision.OrientationUtil.downscaleJpeg(file)
+            try {
+                for (p in plants) {
+                    val reqFile = upFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("photo", upFile.name, reqFile)
+                    ApiClient.api.uploadPhoto(
+                        slaveId(),
+                        part,
+                        p.id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        takenAt.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        location.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                }
+                Prefs.setLastPhotoAt(appCtx, System.currentTimeMillis())
+                _lastAnalysis.value?.let { Prefs.setLastPhotoGreenness(appCtx, it.greenness.toFloat()) }
+                addLog("[${now()}] 성장 사진 저장·전송 (${plants.size}그루, ${upFile.length() / 1024}KB)")
+            } finally {
+                if (upFile != file) upFile.delete()
+            }
         } catch (e: Exception) {
             addLog("[${now()}] 성장 사진 업로드 실패: ${e.message}")
         } finally {

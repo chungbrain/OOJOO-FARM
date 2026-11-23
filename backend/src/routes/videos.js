@@ -49,7 +49,7 @@ const upload = multer({
       cb(null, `${nanoid(16)}${ext}`);
     },
   }),
-  limits: { fileSize: 40 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
 });
 
 function toVideo(row) {

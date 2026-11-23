@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,13 +22,13 @@ import androidx.navigation.NavController
 import com.oojoo.farm.master.data.AppStrings
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.Prefs
-import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.VideoInfoResponse
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.net.Uri
@@ -59,48 +61,107 @@ class LiveCameraViewModel : ViewModel() {
     var photoUrl by mutableStateOf<String?>(null)
     var photoTakenAt by mutableStateOf<String?>(null)
 
-    // 실시간 보기 — slave의 MJPEG 스트림에 LAN 직결
-    var liveUrl by mutableStateOf<String?>(null)
+    // 실시간 보기 — farmer에게 live_start 를 보내 3초 프레임 push를 켜고,
+    // 같은 주기(3초)로 백엔드의 최신 프레임을 받아 화면을 갱신한다 (3초 라이브).
+    var liveFrame by mutableStateOf<android.graphics.Bitmap?>(null)
+    var liveFrameAt by mutableStateOf(0L)
+    var liveActive by mutableStateOf(false)
     var liveError by mutableStateOf<String?>(null)
     var liveLoading by mutableStateOf(false)
     private var liveJob: Job? = null
+    private var liveSlaveId: String? = null
+
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .callTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
 
     fun startLive(slaveId: String) {
-        stopLive()
+        stopLiveLoop()
+        liveSlaveId = slaveId
         liveLoading = true
         liveError = null
+        liveFrame = null
+        liveFrameAt = 0L
+        liveActive = false
         status = "실시간 스트림 준비 중…"
         liveJob = viewModelScope.launch {
+            // farmer에게 라이브 push 시작 지시 (SSE/폴링으로 전달)
             try {
-                val slaves = api.slaves(Session.userId).slaves
-                val url = slaves.firstOrNull { it.id == slaveId }?.stream_url
-                withContext(Dispatchers.Main) {
+                api.sendCommand(CommandRequest(slaveId, null, "live_start"))
+            } catch (e: Exception) {
+                liveLoading = false
+                liveError = e.message
+                status = "실시간 보기 불가"
+                return@launch
+            }
+            // 3초 폴링 — 최신 프레임으로 화면 refresh (라이브화)
+            var misses = 0
+            while (isActive) {
+                val fetchedAt = System.currentTimeMillis()
+                val frame = fetchLiveFrame(slaveId)
+                if (frame != null) {
+                    misses = 0
+                    liveFrame = frame
+                    liveFrameAt = fetchedAt
+                    liveActive = true
+                    liveError = null
                     liveLoading = false
-                    if (url.isNullOrBlank()) {
-                        liveError = "이 Farmer는 스트림 주소를 보고하지 않았습니다 (앱 재기동 후 다시 시도)"
-                        status = "실시간 보기 불가"
-                    } else {
-                        liveUrl = url
-                        status = "실시간 스트리밍 중…"
+                    status = "실시간 스트리밍 중…"
+                } else {
+                    misses++
+                    // 첫 프레임이 15초(5회) 안에 안 오면 farmer 미응답 안내,
+                    // 스트리밍 중 끊기면(3회 연속) 신호 끊김 표시 (마지막 화면 유지)
+                    if (liveFrame == null && misses >= 5) {
+                        liveLoading = false
+                        status = "실시간 신호 없음 — Farmer가 오프라인이거나 카메라가 꺼져 있습니다"
+                    } else if (liveFrame != null && misses >= 3) {
+                        liveActive = false
+                        status = "실시간 신호 없음 — Farmer가 오프라인이거나 카메라가 꺼져 있습니다"
                     }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    liveLoading = false
-                    liveError = e.message
-                    status = "실시간 보기 불가"
-                }
+                delay(3000)
             }
         }
     }
 
     fun stopLive() {
+        stopLiveLoop()
+        val sid = liveSlaveId
+        liveSlaveId = null
+        if (liveFrame != null) status = "실시간 보기 종료"
+        liveFrame = null
+        liveFrameAt = 0L
+        liveActive = false
+        liveLoading = false
+        if (sid != null) {
+            // farmer의 push 루프 종료 지시 (best-effort)
+            viewModelScope.launch {
+                try { api.sendCommand(CommandRequest(sid, null, "live_stop")) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun stopLiveLoop() {
         liveJob?.cancel()
         liveJob = null
-        if (liveUrl != null) status = "실시간 보기 종료"
-        liveUrl = null
-        liveLoading = false
     }
+
+    /** 백엔드에서 farmer의 최신 라이브 프레임(JPEG)을 받아 Bitmap으로 디코딩. 실패/없음이면 null. */
+    private suspend fun fetchLiveFrame(slaveId: String): android.graphics.Bitmap? =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "${ApiClient.baseUrl.trimEnd('/')}/api/live/$slaveId/frame"
+                val request = Request.Builder().url(url).build()
+                httpClient.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    val bytes = resp.body?.bytes() ?: return@withContext null
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            } catch (_: Exception) { null }
+        }
 
     private var sseJob: Job? = null
 
@@ -115,6 +176,9 @@ class LiveCameraViewModel : ViewModel() {
     }
 
     private fun request(slaveId: String, slaveName: String, ctx: android.content.Context, action: String) {
+        // 라이브 스트림이 켜져 있으면 종료 — 촬영 결과가 같은 슬롯에 표시되므로
+        // farmer의 push 루프도 끊고 화면을 촬영 흐름으로 전환한다.
+        stopLive()
         photoMode = action == "capture_photo"
         loading = true
         error = null
@@ -266,6 +330,14 @@ class LiveCameraViewModel : ViewModel() {
         super.onCleared()
         sseJob?.cancel()
         liveJob?.cancel()
+        // 화면 이탈 시 라이브 push가 켜져 있으면 farmer에게 종료 지시 (best-effort —
+        // viewModelScope는 이미 취소되므로 별도 IO 스코프로 전송).
+        val sid = liveSlaveId
+        if (sid != null) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try { api.sendCommand(CommandRequest(sid, null, "live_stop")) } catch (_: Exception) {}
+            }
+        }
     }
 }
 
@@ -286,86 +358,103 @@ fun LiveCameraScreen(nav: NavController, slaveId: String, slaveName: String, vm:
             if (vm.loading) { CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 3.dp) }
             vm.error?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
-            vm.photoUrl?.let { pUrl ->
-                val fullUrl = baseUrl + pUrl
-                Text("${S.photoCapturedPrefix}${vm.photoTakenAt ?: S.justNow}${S.photoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
-                    coil.compose.AsyncImage(
-                        model = fullUrl,
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                }
-                OutlineButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.fillMaxWidth())
-                OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.fillMaxWidth())
+            // 라이브 연결 진행/에러 표시 — 결과 미디어는 아래 슬롯에 유지된다
+            if (vm.liveLoading) {
+                Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 2.dp)
             }
+            vm.liveError?.let { Text("⚠️ $it", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
 
-            vm.videoInfo?.let { v ->
-                val fullUrl = baseUrl + v.url
-                Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
-                    AndroidView(
-                        factory = { context ->
-                            VideoView(context).apply {
-                                setVideoURI(Uri.parse(fullUrl))
-                                setOnPreparedListener { it.isLooping = true; start() }
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+            // 미디어 표시 슬롯 — 3초 영상·사진·실시간 스트림이 같은 위치를 공유한다.
+            // 실시간 보기 중이면 라이브 프레임이 3초 영상이 보이던 바로 그 자리를 차지하고,
+            // 종료하면 직전 결과(3초 영상/사진)로 되돌아온다.
+            when {
+                vm.liveFrame != null -> {
+                    Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            androidx.compose.foundation.Image(
+                                bitmap = vm.liveFrame!!.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            // LIVE 배지 — 신호 끊기면 회색으로 전환 (안내 문장은 상단 상태줄)
+                            Text(
+                                S.liveBadge,
+                                color = if (vm.liveActive) Color(0xFFFF3B30) else Color.White.copy(alpha = 0.6f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.45f), OojooTheme.CardShape)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    Text(S.liveRefreshNote, color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveStop, onClick = { vm.stopLive() }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    }
                 }
-                vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
-                }
-            }
 
-            // 실시간 보기 (slave MJPEG 스트림 LAN 직결 — WebView가 multipart 렌더)
-            if (vm.liveUrl != null || vm.liveLoading || vm.liveError != null) {
-                if (vm.liveLoading) {
-                    Text(mapStatus(vm.status, S), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    CircularProgressIndicator(color = OojooTheme.Green, strokeWidth = 2.dp)
-                }
-                vm.liveError?.let { Text("⚠️ ${mapLiveError(it, S)}", color = OojooTheme.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                vm.liveUrl?.let { lurl ->
+                vm.videoInfo != null -> {
+                    val v = vm.videoInfo!!
+                    val fullUrl = baseUrl + v.url
+                    Text("${S.videoCapturedPrefix}${v.created_at ?: S.justNow}${S.videoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
                         AndroidView(
                             factory = { context ->
-                                android.webkit.WebView(context).apply {
-                                    settings.mediaPlaybackRequiresUserGesture = false
-                                    val html = "<html><body style=\"margin:0;background:#000;width:100%;height:100vh\">" +
-                                        "<img src=\"$lurl\" style=\"width:100%;height:100%;object-fit:cover\"/></body></html>"
-                                    loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+                                VideoView(context).apply {
+                                    setVideoURI(Uri.parse(fullUrl))
+                                    setOnPreparedListener { it.isLooping = true; start() }
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                    vm.savedMsg?.let { Text(mapSavedMsg(it, S), color = OojooTheme.GreenDark, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GradientButton(text = S.liveStop, onClick = { vm.stopLive() }, modifier = Modifier.weight(1f))
-                        if (vm.videoInfo == null && vm.photoUrl == null) {
+                        GradientButton(text = S.recapture, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.gallery, onClick = { nav.navigate("gallery") }, modifier = Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                vm.photoUrl != null -> {
+                    val fullUrl = baseUrl + vm.photoUrl!!
+                    Text("${S.photoCapturedPrefix}${vm.photoTakenAt ?: S.justNow}${S.photoCapturedSuffix}", color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Card(Modifier.fillMaxWidth().height(280.dp).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = Color.Black)) {
+                        coil.compose.AsyncImage(
+                            model = fullUrl,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.recapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.videoCaptureBtn, onClick = { vm.requestAndWatch(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
+                        OutlineButton(text = S.back, onClick = { nav.navigateUp() }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                else -> {
+                    // 아직 결과 없음 — 사진 촬영/실시간 보기로 전환 가능
+                    if (!vm.loading && !vm.liveLoading) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
                             OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                         }
                     }
-                }
-            }
-
-            // 결과 없이 대기 중일 때도 사진 촬영/실시간 보기로 전환 가능
-            if (vm.videoInfo == null && vm.photoUrl == null && vm.liveUrl == null && vm.liveError == null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GradientButton(text = S.liveViewBtn, onClick = { vm.startLive(slaveId) }, modifier = Modifier.weight(1f))
-                    OutlineButton(text = S.photoCapture, onClick = { vm.requestPhoto(slaveId, slaveName, ctx) }, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -386,12 +475,8 @@ private fun mapStatus(s: String, S: AppStrings): String = when (s) {
     "실시간 스트리밍 중…" -> S.liveStreaming
     "실시간 보기 종료" -> S.liveStopped
     "실시간 보기 불가" -> S.liveUnavailable
+    "실시간 신호 없음 — Farmer가 오프라인이거나 카메라가 꺼져 있습니다" -> S.liveNoSignal
     else -> s
-}
-
-private fun mapLiveError(e: String, S: AppStrings): String = when {
-    e.startsWith("이 Farmer") -> S.liveUnsupported
-    else -> e
 }
 
 private fun mapSavedMsg(m: String, S: AppStrings): String = when {

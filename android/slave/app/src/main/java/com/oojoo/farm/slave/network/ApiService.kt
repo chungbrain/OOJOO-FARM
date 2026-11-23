@@ -73,6 +73,15 @@ interface ApiService {
     @POST("api/videos/clip-failed/{slaveId}")
     suspend fun clipFailed(@Path("slaveId") slaveId: String, @Body body: ClipFailedRequest): OkResponse
 
+    // 실시간 보기 — 마스터의 live_start/live_stop 명령으로 세션을 열고
+    // 3초마다 최신 카메라 프레임(JPEG)을 백엔드에 push한다.
+    @Multipart
+    @POST("api/live/{slaveId}/frame")
+    suspend fun uploadLiveFrame(
+        @Path("slaveId") slaveId: String,
+        @Part frame: MultipartBody.Part
+    ): OkResponse
+
     @Multipart
     @POST("api/diagnosis/sessions/{slaveId}")
     suspend fun uploadDiagnosisSession(

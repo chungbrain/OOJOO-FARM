@@ -39,6 +39,9 @@ ml/plant_health/test_internet/images/
 ml/plant_health/datasets/*/*/*.png
 !ml/plant_health/datasets/*/sample/*.png
 
+# runtime dev logs/pids
+.dev-run/
+
 # tooling / automation
 .tools/
 .opencode/*

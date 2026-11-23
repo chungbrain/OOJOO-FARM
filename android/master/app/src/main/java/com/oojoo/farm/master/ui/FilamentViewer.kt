@@ -6,10 +6,10 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -38,21 +38,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 /**
  * 작물 종류(species)와 생장 단계(stage)를 함께 고려한 이모지.
@@ -103,53 +115,26 @@ private fun stageEmoji(stage: String?): String = when (stage) {
     else -> "🌱"
 }
 
-private const val GRID = 4
-
-/** 식물 하나의 4x4 격자 위치 (row, col). row 0=맨 위(뒤), row 3=맨 아래(앞). */
-private data class PlantCell(val row: Int, val col: Int)
-
-/** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
-private data class Waypoint(val row: Int, val col: Float)
-
-/** 격자 중심으로부터의 거리 (유클리드). */
-private fun distance(row: Int, col: Int, centerRow: Float, centerCol: Float): Float {
-    val dr = row - centerRow
-    val dc = col - centerCol
-    return sqrt(dr * dr + dc * dc)
-}
-
-// --- 나무 팻말/로봇 색상 ---
+// --- 나무 팻말 색상 ---
 private val WoodLight = Color(0xFFD2A26B)
 private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
-private val RobotInk = Color(0xFF37474F)
-private val RobotSteelLight = Color(0xFFCFD8DC)
-private val RobotSteelDark = Color(0xFF90A4AE)
-private val RobotGreenTop = Color(0xFF66BB6A)
-private val RobotGreenBottom = Color(0xFF2E7D32)
 
 /**
- * 빈 cell 중 가장 좋은 위치 — 격자 중심에서 가까운 순, 같은 행에 1칸 간격 유지.
- * (새 식물 등록/이동 시 충돌 없이 배치하는 공용 규칙)
+ * 빈 cell 중 가장 좋은 위치는 FarmGrid.kt의 pickEmptyFarmCell 사용.
+ * (과거: 4x4 GRID/PlantCell을 이 파일에서 private으로 정의 — 3x4 공용 정의로 이동)
  */
-private fun pickEmptyCell(used: Set<PlantCell>): PlantCell {
-    val center = (GRID - 1) / 2f
-    val order = (0 until GRID).flatMap { r ->
-        (0 until GRID).map { c -> PlantCell(r, c) to distance(r, c, center, center) }
-    }.sortedBy { it.second }.map { it.first }
-    val spaced = order.firstOrNull { c ->
-        c !in used && used.none { o -> o.row == c.row && kotlin.math.abs(o.col - c.col) <= 1 }
-    }
-    if (spaced != null) return spaced
-    return order.firstOrNull { it !in used } ?: PlantCell(GRID - 1, GRID - 1)
-}
+
+/** 로봇이 순찰할 웨이포인트 — 식물 cell 옆 (같은 행, 옆 칸). */
+private data class Waypoint(val row: Int, val col: Float)
 
 /**
  * 2D emoji farm scene.
  *
  * 레이아웃:
- *   하늘   : 천체/구름 (상단 40%)
- *   바닥   : 4x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
+ *   하늘   : 천체/구름 (상단 40%). 구름은 하늘을 가로질러 흐르고
+ *            새 떼가 가끔 편대로 날아간다. 밤에는 별가루 반짝임 + 북두칠성.
+ *   바닥   : 3x4 격자. 식물이 있는 cell은 밝은 흙색 원형 + 식물 이모지 + 나무 이름표.
  *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다 (점유 cell → 가장 가까운
  *            빈 cell, 격자 가득차면 원위치).
  *   로봇   : 배정된 식물들을 순서대로 방문·관리. 이동은 X/Y 동시(직선), 거리에 비례
@@ -167,10 +152,16 @@ fun FarmSceneView(
     // 등록된 식물이 없으면 빈 농장 표시 (과거: 가짜 데모 식물 4종 렌더링)
     val displayPlants = plants
 
-    // 식물 위치 — 식물 ID 키로 관리. 목록 순서 변화(추가/재정렬)에도 기존 식물은
-    // 움직이지 않고, 새 식물만 빈 cell에 결정적으로 배정, 삭제된 식물의 cell은 해제.
+    // 식물 위치 — 식물 ID 키로 관리. 드래그로 옮겨둔 위치를 SharedPreferences에
+    // 저장해 앱 재시작 후에도 그 자리에 배치한다. 목록 순서 변화(추가/재정렬)에도
+    // 기존 식물은 움직이지 않고, 새 식물만 빈 cell에 결정적으로 배정,
+    // 삭제된 식물의 cell은 해제(+저장 위치 정리).
     // 조합 내 동기 보정(첫 프레임부터 올바른 위치) + 이펙트로 상태 영속화.
-    var cellMap by remember { mutableStateOf<Map<String, PlantCell>>(emptyMap()) }
+    val ctx = LocalContext.current
+    var cellMap by remember {
+        val stored = Prefs.farmPlantCells(ctx).mapValues { (_, rc) -> clampFarmCell(rc.first, rc.second) }
+        mutableStateOf(stored)
+    }
     val currentIds = displayPlants.map { it.id }.toSet()
     val cells = remember(cellMap, currentIds) {
         if (cellMap.keys.containsAll(currentIds) && cellMap.size == currentIds.size) {
@@ -178,13 +169,16 @@ fun FarmSceneView(
         } else {
             val m = cellMap.filterKeys { it in currentIds }.toMutableMap()
             for (p in displayPlants) {
-                if (p.id !in m) m[p.id] = pickEmptyCell(m.values.toSet())
+                if (p.id !in m) m[p.id] = pickEmptyFarmCell(m.values.toSet())
             }
             m
         }
     }
-    LaunchedEffect(currentIds) {
+    LaunchedEffect(cells) {
         if (cellMap != cells) cellMap = cells
+        // 위치 영속화 — 새로 배정/옮겨진 식물 위치 저장, 삭제된 식물의 저장 위치 정리
+        cells.forEach { (id, c) -> Prefs.setFarmPlantCell(ctx, id, c.row, c.col) }
+        Prefs.removeFarmPlantCells(ctx, Prefs.farmPlantCells(ctx).keys.filter { it !in currentIds })
     }
 
     // 드래그 중인 식물 ID (null = 드래그 아님)
@@ -216,8 +210,8 @@ fun FarmSceneView(
     )
 
     // 로봇 부드러운 이동을 위한 Animatable (격자 단위 좌표)
-    val robotX = remember { Animatable((GRID - 1) / 2f) }
-    val robotY = remember { Animatable((GRID - 1) / 2f) }
+    val robotX = remember { Animatable((FARM_COLS - 1) / 2f) }
+    val robotY = remember { Animatable((FARM_ROWS - 1) / 2f) }
     val robotScale = remember { Animatable(1f) }
     val tendingAlpha = remember { Animatable(0f) }
     val robotFacing = remember { Animatable(1f) }
@@ -277,32 +271,52 @@ fun FarmSceneView(
     )
 
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.94f, targetValue = 1.06f,
+        initialValue = 0.90f, targetValue = 1.12f,
         animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Reverse),
         label = "pulse"
     )
 
-    val cloudDrift by infiniteTransition.animateFloat(
-        initialValue = -14f, targetValue = 14f,
-        animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "cloudDrift"
+    // 구름 — 하늘을 가로질러 지속적으로 흐른다.
+    // 한 바퀴 20~26초 — 흐름이 한눈에 보이는 속도.
+    // (과거 42~58초였다가 멈춰 있는 것처럼 보인다는 피드백으로 단축)
+    val cloudF1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud1"
+    )
+    val cloudF2 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud2"
+    )
+    val cloudF3 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(23000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloud3"
     )
 
-    // 로봇 눈 깜빡임 — 3.4초 주기, 짧은 한 번
-    val blink by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            keyframes {
-                durationMillis = 3400
-                1f at 0
-                1f at 3050
-                0.15f at 3150
-                1f at 3250
-            },
-            RepeatMode.Restart
-        ),
-        label = "blink"
+    // 밤하늘 별 반짝임 주기 (별가루 + 북두칠성 공용)
+    val twinkle by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
+        label = "twinkle"
     )
+
+    // 새 떼 — 가끔 하늘을 가로질러 날아간다.
+    // 첫 비행은 2~5초 안에 (도입 확인용), 이후 6~15초 잠복 후 9초 비행.
+    var birdsActive by remember { mutableStateOf(false) }
+    val birdFlight = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        var firstFlight = true
+        while (true) {
+            delay(if (firstFlight) Random.nextLong(2000, 5000) else Random.nextLong(6000, 15000))
+            firstFlight = false
+            birdsActive = true
+            birdFlight.animateTo(1f, animationSpec = tween(9000, easing = LinearEasing))
+            birdsActive = false
+            birdFlight.snapTo(0f)
+        }
+    }
 
     // 관수 중 물방울 낙하 (0 → 16dp 후 리셋)
     val dropFall by infiniteTransition.animateFloat(
@@ -315,8 +329,8 @@ fun FarmSceneView(
         val maxW = maxWidth.value
         val maxH = maxHeight.value
         val groundH = maxH * 0.6f
-        val cellW = maxW / GRID
-        val cellH = groundH / GRID
+        val cellW = maxW / FARM_COLS
+        val cellH = groundH / FARM_ROWS
 
         val soilColor = Color(0xFFB5905E)
 
@@ -330,26 +344,98 @@ fun FarmSceneView(
                 .graphicsLayer { scaleX = pulse; scaleY = pulse }
                 .alpha(0.95f)
         )
-        if (!isNight || isRain) {
-            Text(
-                "☁️", fontSize = 28.sp,
-                modifier = Modifier
+        // === 밤하늘 — 별가루 반짝임 + 북두칠성 ===
+        if (isNight) {
+            // 별 위치 — 시드 고정이라 재구성돼도 같은 자리에 빛난다.
+            val skyStars = remember {
+                val rnd = Random(20261121)
+                List(18) { Triple(rnd.nextFloat(), 0.06f + rnd.nextFloat() * 0.86f, rnd.nextFloat()) }
+            }
+            Canvas(
+                Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 18.dp)
-                    .offset(x = cloudDrift.dp)
-                    .alpha(0.7f)
-            )
-            Text(
-                "☁️", fontSize = 22.sp,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 42.dp, start = 120.dp)
-                    .offset(x = (cloudDrift * 0.6f).dp)
-                    .alpha(0.5f)
-            )
+                    .fillMaxWidth()
+                    .height((maxH - groundH).dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                // 별가루 — 개별 위상으로 각자 다른 속도로 반짝임
+                skyStars.forEach { (sx, sy, phase) ->
+                    val a = 0.25f + 0.75f * (0.5f + 0.5f * sin((twinkle + phase) * 2.0 * PI).toFloat())
+                    drawCircle(
+                        color = Color.White.copy(alpha = a),
+                        radius = 1.6f + phase * 1.6f,
+                        center = Offset(sx * w, sy * h)
+                    )
+                }
+                // 북두칠성 — 국자 4개 별 + 자루 3개 별을 잇는 별자리 라인
+                val dipper = listOf(
+                    0.10f to 0.52f, 0.20f to 0.40f, 0.32f to 0.34f, 0.44f to 0.42f,
+                    0.56f to 0.60f, 0.68f to 0.52f, 0.80f to 0.30f
+                ).map { (x, y) -> Offset(x * w, y * h) }
+                val lineColor = Color.White.copy(alpha = 0.35f)
+                listOf(0 to 1, 1 to 2, 2 to 3, 3 to 0, 0 to 4, 4 to 5, 5 to 6).forEach { (a, b) ->
+                    drawLine(lineColor, dipper[a], dipper[b], strokeWidth = 2f)
+                }
+                dipper.forEachIndexed { i, p ->
+                    drawCircle(Color.White.copy(alpha = 0.95f), radius = if (i % 2 == 0) 5f else 4f, center = p)
+                    drawCircle(Color.White.copy(alpha = 0.22f), radius = 9f, center = p)
+                }
+            }
         }
 
-        // === 4x4 격자 바닥 ===
+        // === 구름 — 하늘을 가로질러 흐른다 (속도/높이가 제각각) ===
+        val cloudDim = if (isNight) 0.4f else 1f
+        val cloudTravel = maxW + 220f
+        // 위상(phase) — 구름 3개가 화면 밖 같은 곳에서 함께 출발하면 처음 ~8초간
+        // 하늘이 텅 비어 보인다. 위상을 엇갈리면 첫 프레임부터 구름이 떠 있고,
+        // 순환 경계(f+phase=1)는 양 끝 화면 밖이라 되돌아감이 눈에 띄지 않는다.
+        fun cloudX(f: Float, phase: Float): Float = (maxW + 80f) - ((f + phase) % 1f) * cloudTravel
+        Text(
+            "☁️", fontSize = 30.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF1, 0f).dp, y = (18f + sway * 1.4f).dp)
+                .alpha(0.75f * cloudDim)
+        )
+        Text(
+            "☁️", fontSize = 22.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF2, 0.4f).dp, y = (48f - sway * 1.1f).dp)
+                .alpha(0.5f * cloudDim)
+        )
+        Text(
+            "☁️", fontSize = 26.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = cloudX(cloudF3, 0.7f).dp, y = (72f + sway * 0.9f).dp)
+                .alpha(0.62f * cloudDim)
+        )
+
+        // === 새 떼 — 가끔 V자 편대로 날아간다. 진행 방향은 구름과 같은 오른쪽→왼쪽 ===
+        // (과거: 🐦 이모지를 왼쪽→오른쪽으로 이동 — 왼쪽을 바라보는 새 모양이
+        //  거꾸로 날아 보였고, 이모지 자체가 앉아 있는 새라 '나는 새'가 아니었음.
+        //  날개를 펄럭이는 날아가는 새 실루엣으로 교체)
+        if (birdsActive) {
+            val f = birdFlight.value
+            val bx = (maxW + 90f) - f * (maxW + 180f)
+            val by = maxH * 0.10f + sin(f * 2.5 * PI).toFloat() * 12f
+            Canvas(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = (bx - 40f).dp, y = (by - 22f).dp)
+                    .size(width = 80.dp, height = 44.dp)
+            ) {
+                // 날개 펄럭임 — 비행 9초 동안 약 9번 (1Hz), 편대마다 위상 엇갈림
+                val flapBase = f * 18.0 * PI
+                drawBird(centerX = 40f, centerY = 20f, scale = 1f, flap = sin(flapBase.toFloat()))
+                drawBird(centerX = 15f, centerY = 33f, scale = 0.8f, flap = sin((flapBase + 1.0).toFloat()))
+                drawBird(centerX = 65f, centerY = 30f, scale = 0.85f, flap = sin((flapBase + 2.0).toFloat()))
+            }
+        }
+
+        // === 3x4 격자 바닥 ===
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -357,9 +443,9 @@ fun FarmSceneView(
                 .height(groundH.dp)
         ) {
             displayPlants.forEachIndexed { i, plant ->
-                val cell = cells[plant.id] ?: PlantCell(0, 0)
+                val cell = cells[plant.id] ?: FarmCell(0, 0)
                 val emoji = plantEmojiFor(plant.species, plant.stage)
-                val fontSize = (16f + (cell.row.toFloat() / (GRID - 1)) * 18f).sp
+                val fontSize = (16f + (cell.row.toFloat() / (FARM_ROWS - 1)) * 18f).sp
                 val soilSize = (minOf(cellW, cellH) * 0.7f).dp
                 val cellLeft = cell.col * cellW
                 val cellTop = cell.row * cellH
@@ -403,13 +489,13 @@ fun FarmSceneView(
                                     // 가까운 빈 cell로, 빈 cell 없으면 원위치.
                                     val dropCx = (dragOffsetX + soilSize.value / 2f) / cellW
                                     val dropCy = (dragOffsetY + soilSize.value / 2f) / cellH
-                                    val desired = PlantCell(
-                                        dropCy.roundToInt().coerceIn(0, GRID - 1),
-                                        dropCx.roundToInt().coerceIn(0, GRID - 1)
+                                    val desired = FarmCell(
+                                        dropCy.roundToInt().coerceIn(0, FARM_ROWS - 1),
+                                        dropCx.roundToInt().coerceIn(0, FARM_COLS - 1)
                                     )
                                     val others = cells.entries.filter { it.key != plant.id }.map { it.value }
                                     val target = if (desired in others) {
-                                        (0 until GRID).flatMap { r -> (0 until GRID).map { c -> PlantCell(r, c) } }
+                                        (0 until FARM_ROWS).flatMap { r -> (0 until FARM_COLS).map { c -> FarmCell(r, c) } }
                                             .filter { c -> c !in others }
                                             .minByOrNull { c ->
                                                 val dx = c.col + 0.5f - dropCx
@@ -421,6 +507,8 @@ fun FarmSceneView(
                                     }
                                     if (target != cell) {
                                         cellMap = cells + (plant.id to target)
+                                        // 옮겨진 위치 기억 — 앱 재시작 후에도 이 자리에 배치
+                                        Prefs.setFarmPlantCell(ctx, plant.id, target.row, target.col)
                                     }
                                     draggingId = null
                                 },
@@ -445,12 +533,16 @@ fun FarmSceneView(
                     )
                 }
 
-                // 이름표 — 나무 팻말, 원 정중앙 아래 배치 (고정 64x24dp: 줄기 7 + 팻말 17).
-                // 맨 아래 행(row GRID-1)은 팻말이 카드 하단으로 잘리지 않게 원 위쪽으로.
+                // 이름표 — 나무 팻말, 원 정중앙 아래 배치. 전체 높이 = 줄기 7 + 몸통.
+                // 몸통 높이는 폰트 확대(fontScale)를 반영해 계산 — 시스템 글자 크기가
+                // 커도 이름 텍스트가 아래로 잘리지 않는다.
+                // 맨 아래 행(row FARM_ROWS-1)은 팻말이 카드 하단으로 잘리지 않게 원 위쪽으로.
+                val fontScale = LocalDensity.current.fontScale
                 val signW = 64f
-                val signH = 24f
+                val signBodyH = 17f * fontScale
+                val signH = signBodyH + 7f
                 val centerX = boxX + soilSize.value / 2f
-                val onTop = cell.row >= GRID - 1
+                val onTop = cell.row >= FARM_ROWS - 1
                 Box(
                     Modifier
                         .offset(
@@ -465,11 +557,11 @@ fun FarmSceneView(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (onTop) {
-                            WoodSign(plant.name)
+                            WoodSign(plant.name, signBodyH)
                             Box(Modifier.size(width = 2.5.dp, height = 7.dp).background(WoodEdge))
                         } else {
                             Box(Modifier.size(width = 2.5.dp, height = 7.dp).background(WoodEdge))
-                            WoodSign(plant.name)
+                            WoodSign(plant.name, signBodyH)
                         }
                     }
                 }
@@ -484,7 +576,6 @@ fun FarmSceneView(
                     tilt = robotTilt.value,
                     scale = robotScale.value,
                     tending = tendingAlpha.value,
-                    blink = blink,
                     dropFall = dropFall,
                     modifier = Modifier.offset(
                         x = (robotPxX - 22f).dp,
@@ -523,13 +614,15 @@ fun FarmSceneView(
     }
 }
 
-/** 나무 팻말 — 고정 폭 64dp, 나무 그라디언트 + 어두운 테두리, 긴 이름은 줄임표시. */
+/** 나무 팻말 — 고정 폭 64dp, 나무 그라디언트 + 어두운 테두리, 긴 이름은 줄임표시.
+ *  이름 텍스트는 상하좌우 모두 가운데 정렬. 몸통 높이(bodyH)는 폰트 확대를
+ *  반영한 값이라 아래쪽이 잘려 보이지 않는다. */
 @Composable
-private fun WoodSign(plantName: String, modifier: Modifier = Modifier) {
+private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modifier) {
     Box(
         modifier
             .width(64.dp)
-            .height(17.dp)
+            .height(bodyH.dp)
             .clip(RoundedCornerShape(3.dp))
             .background(Brush.verticalGradient(listOf(WoodLight, WoodDark)))
             .border(1.dp, WoodEdge, RoundedCornerShape(3.dp)),
@@ -541,14 +634,17 @@ private fun WoodSign(plantName: String, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
             color = Color(0xFFFFF3E0),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
         )
     }
 }
 
 /**
- * 로봇 — primitives로 조립: 안테나(봉+불빛) / 헤드(깜빡이는 눈) / 몸통(그라디언트+화면) / 바퀴.
- * facing(+1/-1)으로 이동 방향 회전, tilt으로 이동 기울기, tending(0..1)으로 관수 물방울.
+ * 로봇 — 하단 메뉴바의 farmer 탭과 같은 🤖 이모지 피겨.
+ * (과거: primitives로 조립한 스틸 헤드+그린 몸통 로봇 — 모양이 어색해 교체)
+ * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
+ * tending(0..1)으로 관수 물방울이 떨어진다.
  */
 @Composable
 private fun RobotFigure(
@@ -556,64 +652,24 @@ private fun RobotFigure(
     tilt: Float,
     scale: Float,
     tending: Float,
-    blink: Float,
     dropFall: Float,
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier.size(width = 44.dp, height = 48.dp)
-            .graphicsLayer {
-                scaleX = scale * facing
-                scaleY = scale
-                rotationZ = tilt
-            },
+        modifier.size(width = 44.dp, height = 48.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 안테나
-            Box(Modifier.size(width = 1.5.dp, height = 5.dp).background(RobotSteelDark))
-            Box(Modifier.size(4.dp).clip(CircleShape).background(Color(0xFFFFB300)).alpha(0.9f))
-            // 헤드
-            Box(
-                Modifier
-                    .padding(top = 1.dp)
-                    .size(width = 22.dp, height = 11.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Brush.verticalGradient(listOf(RobotSteelLight, RobotSteelDark)))
-                    .border(1.dp, RobotInk, RoundedCornerShape(3.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    RobotEye(blink)
-                    RobotEye(blink)
+        Text(
+            "🤖",
+            fontSize = 38.sp,
+            modifier = Modifier
+                .offset(y = 4.dp)
+                .graphicsLayer {
+                    scaleX = scale * facing
+                    scaleY = scale
+                    rotationZ = tilt
                 }
-            }
-            // 몸통
-            Box(
-                Modifier
-                    .padding(top = 1.dp)
-                    .size(width = 27.dp, height = 15.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Brush.verticalGradient(listOf(RobotGreenTop, RobotGreenBottom)))
-                    .border(1.dp, RobotInk, RoundedCornerShape(4.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    Modifier
-                        .size(width = 13.dp, height = 6.dp)
-                        .clip(RoundedCornerShape(1.5.dp))
-                        .background(Color(0xFF263238)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(Modifier.size(width = 9.dp, height = 2.dp).background(Color(0xFF76FF03)))
-                }
-            }
-            // 바퀴
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                RobotWheel()
-                RobotWheel()
-            }
-        }
+        )
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
         if (tending > 0.01f) {
@@ -638,27 +694,23 @@ private fun RobotFigure(
     }
 }
 
-@Composable
-private fun RobotEye(blink: Float) {
-    Box(
-        Modifier
-            .size(3.5.dp)
-            .graphicsLayer { scaleY = blink }
-            .clip(CircleShape)
-            .background(Color(0xFF263238))
-    )
-}
-
-@Composable
-private fun RobotWheel() {
-    Box(
-        Modifier
-            .size(7.dp)
-            .clip(CircleShape)
-            .background(RobotInk)
-            .border(1.dp, RobotSteelDark, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(Modifier.size(2.dp).clip(CircleShape).background(RobotSteelLight))
+/**
+ * 날아가는 새 실루엣 — 몸통 점 + 좌우로 뻗은 곡선 날개(flap으로 펄럭임).
+ * (과거 🐦 이모지 — 앉아 있는 새 모양에 진행 방향과 반대로 날아 보였음)
+ */
+private fun DrawScope.drawBird(centerX: Float, centerY: Float, scale: Float, flap: Float) {
+    val ink = Color(0xFF263238)
+    val s = 10f * scale          // 날개 길이
+    val tip = flap * 4f * scale  // 날개 끝 상하 변위 (펄럭임)
+    drawCircle(ink, radius = 2.4f * scale, center = Offset(centerX, centerY))
+    val leftWing = Path().apply {
+        moveTo(centerX, centerY)
+        quadraticBezierTo(centerX - s * 0.45f, centerY - tip * 0.6f, centerX - s, centerY - tip)
     }
+    val rightWing = Path().apply {
+        moveTo(centerX, centerY)
+        quadraticBezierTo(centerX + s * 0.45f, centerY - tip * 0.6f, centerX + s, centerY - tip)
+    }
+    drawPath(leftWing, ink, style = Stroke(width = 1.8f * scale, cap = StrokeCap.Round))
+    drawPath(rightWing, ink, style = Stroke(width = 1.8f * scale, cap = StrokeCap.Round))
 }
