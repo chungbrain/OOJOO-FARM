@@ -60,6 +60,9 @@ import androidx.compose.ui.unit.sp
 import com.oojoo.farm.master.data.Prefs
 import com.oojoo.farm.master.model.Plant
 import com.oojoo.farm.master.model.Slave
+import com.oojoo.farm.master.model.SlaveIconRequest
+import com.oojoo.farm.master.model.SlavesResponse
+import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -144,14 +147,24 @@ fun defaultFarmerIcon(slaveId: String): String =
     FarmerIconPalette[(slaveId.hashCode() and Int.MAX_VALUE) % FarmerIconPalette.size]
 
 /** farmer별 선택 아이콘 저장 — SnapshotState 맵이라 선택 즉시 모든 화면에 반영된다.
- *  영속화는 Prefs(farmerIcons) — 앱 재시작 후에도 유지. */
+ *  2단 저장: 로컬 Prefs(farmerIcons)로 오프라인에서도 즉시 반영 + 서버(slaves.icon)에
+ *  PUT 해 다른 기기/가구(가족 공유)에서도 같은 아이콘이 유지된다.
+ *  서버 값이 source of truth — fetchSlaves()로 불러올 때마다 syncFromServer. */
 object FarmerIconStore {
     private val overrides = mutableStateMapOf<String, String>()
+
+    /** 로컬 선택 중 아직 서버 push가 완료되지 않은 farmer — fetch 동기화가
+     *  이 선택을 서버의 옛 값으로 되돌리지 않게 막는다. */
+    private val pendingSync = mutableSetOf<String>()
     private var loaded = false
 
     private fun ensureLoaded(ctx: Context) {
         if (!loaded) {
-            Prefs.farmerIcons(ctx).forEach { (k, v) -> overrides[k] = v }
+            Prefs.farmerIcons(ctx).forEach { (k, v) ->
+                overrides[k] = v
+                // 이전 버전(로컬 전용)에서 고른 선택을 서버로 이관.
+                pushToServer(k, v)
+            }
             loaded = true
         }
     }
@@ -164,11 +177,46 @@ object FarmerIconStore {
     fun select(ctx: Context, slaveId: String, icon: String) {
         overrides[slaveId] = icon
         Prefs.setFarmerIcon(ctx, slaveId, icon)
+        pushToServer(slaveId, icon)
     }
 
     fun reset(ctx: Context, slaveId: String) {
         overrides.remove(slaveId)
         Prefs.removeFarmerIcon(ctx, slaveId)
+        pushToServer(slaveId, null)
+    }
+
+    /** 서버 icon 값 반영 — 서버가 비우면(null) 자동 배정으로 되돌린다.
+     *  push가 완료되지 않은 로컬 선택(pendingSync)은 건너뛴다. */
+    fun syncFromServer(serverIcons: Map<String, String?>) {
+        for ((slaveId, icon) in serverIcons) {
+            if (slaveId in pendingSync) continue
+            if (icon.isNullOrBlank()) overrides.remove(slaveId)
+            else overrides[slaveId] = icon
+        }
+    }
+
+    /** 서버에 선택 저장(비동기 write-through). 실패해도 로컬 선택은 유지 —
+     *  pendingSync가 남아 다음 fetch 때 서버 옛 값으로 덮어쓰지 않는다. */
+    @kotlin.OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+    private fun pushToServer(slaveId: String, icon: String?) {
+        pendingSync.add(slaveId)
+        kotlinx.coroutines.GlobalScope.launch {
+            try {
+                ApiClient.api.setSlaveIcon(slaveId, SlaveIconRequest(icon))
+                pendingSync.remove(slaveId)
+            } catch (_: Exception) {
+                // 오프라인 등 — 재시도는 사용자의 다음 선택/fetch에서 자연 처리
+            }
+        }
+    }
+
+    /** slaves 목록 조회 + 아이콘 서버 동기화 — 모든 slaves fetch는 이 함수로 통일해
+     *  어떤 화면(홈/목록/배정 다이얼로그/사진첩)에서도 서버 아이콘이 반영되게 한다. */
+    suspend fun fetchSlaves(userId: String): SlavesResponse {
+        val resp = ApiClient.api.slaves(userId)
+        syncFromServer(resp.slaves.associate { it.id to it.icon })
+        return resp
     }
 }
 

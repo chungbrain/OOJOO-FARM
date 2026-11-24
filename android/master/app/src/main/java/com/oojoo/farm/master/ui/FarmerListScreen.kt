@@ -57,7 +57,7 @@ class FarmerListViewModel : ViewModel() {
     var commandsTarget by mutableStateOf<Slave?>(null)
     var commands by mutableStateOf<List<Command>>(emptyList())
     var commandsLoading by mutableStateOf(false)
-    fun refresh() { loading = true; viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {}; loading = false } }
+    fun refresh() { loading = true; viewModelScope.launch { try { slaves = FarmerIconStore.fetchSlaves(userId).slaves } catch (_: Exception) {}; loading = false } }
     fun pauseSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "pause")); msg = "⏸ 일시정지 지시!" } catch (e: Exception) { msg = e.message } } }
     fun resumeSlave(id: String) { viewModelScope.launch { try { api.sendCommand(CommandRequest(id, null, "resume")); msg = "▶ 재개 지시!" } catch (e: Exception) { msg = e.message } } }
     fun unpair(id: String) { viewModelScope.launch { try { api.unpair(id); msg = "연결 해제됨"; refresh() } catch (e: Exception) { msg = e.message } } }

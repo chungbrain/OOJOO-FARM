@@ -37,6 +37,9 @@ interface ApiService {
     @PUT("api/pairing/{slaveId}")
     suspend fun renameSlave(@Path("slaveId") slaveId: String, @Body body: RenameSlaveRequest): RenameSlaveResponse
 
+    @PUT("api/pairing/{slaveId}/icon")
+    suspend fun setSlaveIcon(@Path("slaveId") slaveId: String, @Body body: SlaveIconRequest): SlaveIconResponse
+
     @GET("api/policy/{slaveId}")
     suspend fun policy(@Path("slaveId") slaveId: String): PolicyResponse
 

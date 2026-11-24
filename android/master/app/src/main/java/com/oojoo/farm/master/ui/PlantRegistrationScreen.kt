@@ -46,7 +46,7 @@ class PlantRegistrationViewModel : ViewModel() {
     val popularSpecies = listOf("상추", "깻잎", "바질", "로즈마리", "허브", "선인장", "방울토마토", "토마토", "대파", "딸기", "고추", "애호박", "호박", "고구마", "감자", "양파")
 
     init { loadSlaves() }
-    fun loadSlaves() { viewModelScope.launch { try { slaves = api.slaves(userId).slaves } catch (_: Exception) {} } }
+    fun loadSlaves() { viewModelScope.launch { try { slaves = FarmerIconStore.fetchSlaves(userId).slaves } catch (_: Exception) {} } }
 
     /** 기존 식물 점유 현황 로드 + 농장 위치 기본 추천(가장 좋은 빈 칸). */
     fun loadFarmLayout(ctx: android.content.Context) {

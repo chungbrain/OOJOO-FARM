@@ -100,7 +100,7 @@ class PlantDetailViewModel : ViewModel() {
                     try { harvests = api.harvestsByPlant(p.id).harvests } catch (_: Exception) {}
                     try { growthClip = api.plantVideos(p.id, "growth").videos.firstOrNull() } catch (_: Exception) {}
                 }
-                try { slaves = api.slaves(Session.userId).slaves } catch (_: Exception) {}
+                try { slaves = FarmerIconStore.fetchSlaves(Session.userId).slaves } catch (_: Exception) {}
                 try { allPlants = api.plants(Session.userId).plants } catch (_: Exception) {}
                 try { weather = api.weather(Session.region) } catch (_: Exception) {}
             } catch (e: Exception) { msg = e.message }

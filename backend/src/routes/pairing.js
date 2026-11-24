@@ -59,7 +59,7 @@ r.get('/:userId', (req, res) => {
   const ids = householdMemberIds(req.params.userId);
   const rows = db.prepare(`
     SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.stream_url,
-           s.lat, s.lon, s.region,
+           s.lat, s.lon, s.region, s.icon,
            s.user_id AS owner_id,
            u.nickname AS owner_name, u.email AS owner_email
     FROM slaves s
@@ -122,6 +122,20 @@ r.put('/:slaveId', (req, res) => {
   }
   db.prepare('UPDATE slaves SET name=? WHERE id=?').run(name.trim(), req.params.slaveId);
   res.json({ ok: true, slaveId: req.params.slaveId, name: name.trim() });
+});
+
+// 마스터: 슬레이브 아이콘 변경 — 마스터의 farmer 아이콘 선택을 서버에 저장해
+// 다른 기기/가구(가족 공유)에서도 같은 아이콘이 보이게 한다.
+// icon: 이모지 문자열(1..8자) 또는 null(자동 배정 복원).
+r.put('/:slaveId/icon', (req, res) => {
+  const { icon } = req.body || {};
+  const slave = db.prepare('SELECT id FROM slaves WHERE id=?').get(req.params.slaveId);
+  if (!slave) return res.status(404).json({ error: 'not found' });
+  if (icon !== null && (typeof icon !== 'string' || icon.length === 0 || icon.length > 8)) {
+    return res.status(400).json({ error: 'icon must be 1..8 chars or null' });
+  }
+  db.prepare('UPDATE slaves SET icon=? WHERE id=?').run(icon, req.params.slaveId);
+  res.json({ ok: true, slaveId: req.params.slaveId, icon: icon ?? null });
 });
 
 // 마스터: 슬레이브 연결 해제(이관/교체) — 관련 행 전부 정리 (오르팬 방지).

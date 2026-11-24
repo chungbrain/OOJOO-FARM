@@ -79,7 +79,7 @@ fun GalleryScreen(nav: NavController) {
     var slaves by remember { mutableStateOf<List<Slave>>(emptyList()) }
     LaunchedEffect(Unit) {
         try { photos = api.userPhotos(Session.userId).photos } catch (_: Exception) { photos = emptyList() }
-        try { slaves = api.slaves(Session.userId).slaves } catch (_: Exception) {}
+        try { slaves = FarmerIconStore.fetchSlaves(Session.userId).slaves } catch (_: Exception) {}
     }
 
     var selectedPath by remember { mutableStateOf<String?>(null) }

@@ -62,7 +62,7 @@ class PlantListViewModel : ViewModel() {
             try {
                 val newPlants = api.plants(userId).plants
                 plants = newPlants
-                slaves = try { api.slaves(userId).slaves } catch (_: Exception) { emptyList() }
+                slaves = try { FarmerIconStore.fetchSlaves(userId).slaves } catch (_: Exception) { emptyList() }
 
                 // Fetch latest analysis for each assigned plant
                 val analysisMap = mutableMapOf<String, com.oojoo.farm.master.model.AnalysisResponse>()

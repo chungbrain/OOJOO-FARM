@@ -132,7 +132,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     userWeather = api.weather(Session.region)
                 }
 
-                slaves = api.slaves(userId).slaves
+                slaves = FarmerIconStore.fetchSlaves(userId).slaves
                 plants = api.plants(userId).plants
 
                 // 2) farmer(농장) 날씨 — 메인 표시 + 씬 그래픽 기준.

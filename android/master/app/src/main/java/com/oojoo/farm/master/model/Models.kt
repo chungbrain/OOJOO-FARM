@@ -59,7 +59,9 @@ data class Slave(
     // farmer(농장) 위치 — 홈의 "농장 날씨" 조회용 (하트비트로 보고)
     val lat: Double? = null,
     val lon: Double? = null,
-    val region: String? = null
+    val region: String? = null,
+    // farmer 아이콘 — 서버에 저장된 사용자 선택 이모지 (null이면 자동 배정)
+    val icon: String? = null
 )
 @Serializable
 data class SlavesResponse(val slaves: List<Slave>)
@@ -92,6 +94,11 @@ data class PolicyResponse(
 data class RenameSlaveRequest(val name: String)
 @Serializable
 data class RenameSlaveResponse(val ok: Boolean = false, val slaveId: String? = null, val name: String? = null)
+
+@Serializable
+data class SlaveIconRequest(val icon: String?)
+@Serializable
+data class SlaveIconResponse(val ok: Boolean = false, val slaveId: String? = null, val icon: String? = null)
 
 @Serializable
 data class CreatePlantRequest(
