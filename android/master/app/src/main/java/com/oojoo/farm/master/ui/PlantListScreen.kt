@@ -315,9 +315,11 @@ private fun PlantGridCard(
             // 화면이 커져도 카드가 비율적으로 확대되지 않게 최대 폭 제한.
             // (수정 전: fillMaxWidth만 써서 셀 폭=화면 폭에 비례해 커졌음)
             // 순서 주의 — widthIn이 fillMaxWidth 바깥에 와야 상한이 적용된다.
+            // 높이는 고정 비율(aspectRatio)을 쓰지 않고 콘텐츠에 맞춘다 —
+            // (수정 전: aspectRatio(0.82f) 고정 높이에 내용이 눌려 하단
+            //  나눔/판매 버튼이 찌그러져 보였음)
             .widthIn(max = 180.dp)
             .fillMaxWidth()
-            .aspectRatio(0.82f)
             .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
             .border(2.dp, OojooTheme.Ink, OojooTheme.CardShape)
             .clip(OojooTheme.CardShape)
@@ -325,7 +327,7 @@ private fun PlantGridCard(
         shape = OojooTheme.CardShape,
         colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth()) {
             // 삭제 버튼 (우상단)
             Surface(
                 shape = CircleShape,
@@ -340,9 +342,9 @@ private fun PlantGridCard(
                 Text("🗑️", fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 1.dp))
             }
             Column(
-                Modifier.fillMaxSize().padding(12.dp),
+                Modifier.fillMaxWidth().padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
             Text(emoji, fontSize = 48.sp, textAlign = TextAlign.Center)
 
@@ -397,14 +399,14 @@ private fun PlantGridCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(
                         shape = OojooTheme.PillShape,
-                        color = farmerColorFor(assignedSlave.id),
+                        color = OojooTheme.GreenBg,
                         border = BorderStroke(1.5.dp, OojooTheme.Ink),
                         modifier = Modifier.clickable { showAssignDialog = true }
                     ) {
                         Text(
-                            "🤖 ${assignedSlave.name}",
+                            "${farmerIconFor(assignedSlave.id)} ${assignedSlave.name}",
                             Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            color = Color.White,
+                            color = OojooTheme.GreenDark,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -454,13 +456,15 @@ private fun PlantGridCard(
                     border = BorderStroke(1.dp, OojooTheme.Ink),
                     modifier = Modifier.weight(1f).clickable { shareType = "share" }
                 ) {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "🤝 ${S.share}",
                             color = OojooTheme.GreenDark,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -470,13 +474,15 @@ private fun PlantGridCard(
                     border = BorderStroke(1.dp, OojooTheme.Ink),
                     modifier = Modifier.weight(1f).clickable { shareType = "sell" }
                 ) {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "🏷️ ${S.sell}",
                             color = OojooTheme.Ink,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -607,16 +613,7 @@ private fun AssignFarmerDialog(
                                     Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            Modifier
-                                                .size(22.dp)
-                                                .clip(RoundedCornerShape(50))
-                                                .border(1.5.dp, OojooTheme.Ink, RoundedCornerShape(50))
-                                                .background(farmerColorFor(slave.id))
-                                        )
-                                        Text("🤖", fontSize = 20.sp)
-                                    }
+                                    Text(farmerIconFor(slave.id), fontSize = 20.sp)
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(slave.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = OojooTheme.Ink)

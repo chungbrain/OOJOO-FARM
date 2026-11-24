@@ -133,10 +133,8 @@ fun GalleryScreen(nav: NavController) {
                                 is AlbumRow.FarmerHeader -> {
                                     val slave = slaves.firstOrNull { it.id == row.slaveId }
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                                        Box(
-                                            Modifier.size(14.dp).clip(RoundedCornerShape(50)).border(1.5.dp, OojooTheme.Ink, RoundedCornerShape(50)).background(farmerColorFor(row.slaveId))
-                                        )
-                                        Spacer(Modifier.width(8.dp))
+                                        Text(farmerIconFor(row.slaveId), fontSize = 15.sp)
+                                        Spacer(Modifier.width(6.dp))
                                         Text(row.name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = OojooTheme.Ink)
                                         Spacer(Modifier.width(8.dp))
                                         Surface(

@@ -121,22 +121,23 @@ private val WoodLight = Color(0xFFD2A26B)
 private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
 
-// --- farmer별 얼굴 색상 (복수 farmer 구별) ---
-// farmer id로 결정되는 안정 색상 — farm scene figure, 식물카드 farmer pill,
-// farmer 목록 어디서든 같은 색을 쓰게 한다.
-private val FarmerPalette = listOf(
-    Color(0xFFE53935), // 빨강
-    Color(0xFFFB8C00), // 주황
-    Color(0xFF7CB342), // 초록
-    Color(0xFF00ACC1), // 시안
-    Color(0xFF1E88E5), // 파랑
-    Color(0xFF8E24AA), // 보라
-    Color(0xFFD81B60), // 분홍
-    Color(0xFF6D4C41)  // 갈색
+// --- farmer별 아이콘 (복수 farmer 구별) ---
+// 아이콘에 색 틴트를 주지 않고 원본 그대로 쓴다. farmer 간 구별은
+// farmer id로 결정되는 안정 아이콘 — farm scene figure, 식물카드 farmer pill,
+// farmer 목록 어디서든 같은 아이콘을 쓰게 한다.
+private val FarmerIconPalette = listOf(
+    "🤖", // 로봇
+    "👾", // 픽셀 로봇
+    "🐝", // 꿀벌
+    "🦊", // 여우
+    "🐻", // 곰
+    "🐸", // 개구리
+    "🐥", // 병아리
+    "🐨"  // 코알라
 )
 
-fun farmerColorFor(slaveId: String): Color =
-    FarmerPalette[(slaveId.hashCode() and Int.MAX_VALUE) % FarmerPalette.size]
+fun farmerIconFor(slaveId: String): String =
+    FarmerIconPalette[(slaveId.hashCode() and Int.MAX_VALUE) % FarmerIconPalette.size]
 
 /**
  * 빈 cell 중 가장 좋은 위치는 FarmGrid.kt의 pickEmptyFarmCell 사용.
@@ -168,7 +169,7 @@ private class FarmerBotState {
  *            식물을 꾹 누르면 드래그해서 위치를 옮길 수 있다 (점유 cell → 가장 가까운
  *            빈 cell, 격자 가득차면 원위치).
  *   로봇   : farmer 1인당 figure 1대 — 자기 배정 식물들을 순서대로 방문·관리.
- *            얼굴색은 farmer 색상(farmerColorFor)이라 복수 farmer가 구분된다.
+ *            아이콘은 farmer별 아이콘(farmerIconFor)이라 복수 farmer가 구분된다.
  *            이동은 X/Y 동시(직선), 거리에 비례하는 시간, 이동 방향으로 회전,
  *            관수 중엔 물방울이 떨어진다.
  *   잔디   : 최하단 풀잎들.
@@ -227,7 +228,7 @@ fun FarmSceneView(
     var dragOffsetY by remember { mutableStateOf(0f) }
 
     // Farmer가 배정된 식물만 순찰 대상 — farmer별로 웨이포인트 그룹화.
-    // 복수 farmer면 figure도 1인씩 (얼굴색상 = farmer 색상)으로 구분 표시.
+    // 복수 farmer면 figure도 1인씩 (아이콘 = farmer별 아이콘)으로 구분 표시.
     val activeFarmers = remember(displayPlants, slaves, cells) {
         slaves.mapNotNull { s ->
             val wps = displayPlants
@@ -623,7 +624,7 @@ fun FarmSceneView(
                 val robotPxX = bot.x.value * cellW + cellW * 0.5f
                 val robotPxY = bot.y.value * cellH + cellH * 0.5f
                 FarmerFigure(
-                    faceColor = farmerColorFor(slave.id),
+                    icon = farmerIconFor(slave.id),
                     facing = bot.facing.value,
                     tilt = bot.tilt.value,
                     scale = bot.scale.value,
@@ -684,15 +685,16 @@ private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modif
 
 /**
  * Farmer 아이콘 — farmer 탭(FarmerListScreen)과 **동일한 스타일**:
- * farmer 색상으로 물든 원 배경 + 잉크 테두리 + 🤖 이모지.
+ * 흰 원 배경 + 잉크 테두리 + farmer별 아이콘 이모지 (색 틴트 없음).
  * (과거: Canvas 프리미티브 커스텀 로봇 — 탭 아이콘과 모양이 달라 교체.
- *  farmer 색 틴트는 유지해 복수 farmer 구별도 그대로 가능하다.)
+ *  과거: farmer 색상으로 원 배경을 물들였으나, 색 틴트 없이 아이콘 원본을
+ *  그대로 쓰고 farmer 간 구별은 아이콘 종류(farmerIconFor)로 하도록 변경.)
  * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
  * tending(0..1)으로 관수 물방울이 떨어진다.
  */
 @Composable
 private fun FarmerFigure(
-    faceColor: Color,
+    icon: String,
     facing: Float,
     tilt: Float,
     scale: Float,
@@ -715,10 +717,10 @@ private fun FarmerFigure(
                 }
                 .clip(RoundedCornerShape(50))
                 .border(2.dp, Color(0xFF2D3436), RoundedCornerShape(50))
-                .background(faceColor.copy(alpha = 0.3f)),
+                .background(OojooTheme.Card),
             contentAlignment = Alignment.Center
         ) {
-            Text("🤖", fontSize = 22.sp)
+            Text(icon, fontSize = 22.sp)
         }
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
