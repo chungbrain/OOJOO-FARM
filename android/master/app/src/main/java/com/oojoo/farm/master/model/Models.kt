@@ -355,7 +355,10 @@ data class CreatePostRequest(
     val image: String? = null,
     // 식물카드 — 원본 식물 + (이미 만든) 성장스토리 동영상
     val plantId: String? = null,
-    val videoId: String? = null
+    val videoId: String? = null,
+    // 장소 — 기본 farmer(농장) 위치. master가 현재 위치로 바꾸면 그 좌표
+    val lat: Double? = null,
+    val lon: Double? = null
 )
 @Serializable
 data class PostIdResponse(val postId: String)

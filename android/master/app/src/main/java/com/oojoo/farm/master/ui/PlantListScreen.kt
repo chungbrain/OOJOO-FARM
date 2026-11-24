@@ -118,8 +118,11 @@ class PlantListViewModel : ViewModel() {
                 var videoId: String? = null
                 try { videoId = api.plantVideos(plant.id, "growth").videos.firstOrNull()?.videoId } catch (_: Exception) {}
                 val photoCount = try { api.plantPhotos(plant.id).photos.size } catch (_: Exception) { 0 }
+                // 장소 — 기본은 farmer(농장) 위치. 배정 farmer 없으면 master 지역.
+                // 좌표가 한쪽만 있으면 반경 검색에서 쓰이지 못해 둘 다/아니면 없음.
                 val farmer = slaves.firstOrNull { it.id == plant.slave_id }
-
+                val postRegion = farmer?.region?.takeIf { it.isNotBlank() } ?: Session.region
+                val hasFarmerCoord = farmer?.lat != null && farmer?.lon != null
                 val created = api.communityCreate(
                     CreatePostRequest(
                         userId = userId,
@@ -128,11 +131,13 @@ class PlantListViewModel : ViewModel() {
                         crop = plant.species,
                         quantity = quantity.trim().ifBlank { null },
                         price = if (type == "sell") price.trim().toIntOrNull() else null,
-                        region = Session.region,
+                        region = postRegion,
                         description = buildGrowthStory(plant, photoCount, farmer?.name),
                         image = plantEmojiFor(plant.species, plant.stage),
                         plantId = plant.id,
-                        videoId = videoId
+                        videoId = videoId,
+                        lat = if (hasFarmerCoord) farmer!!.lat else null,
+                        lon = if (hasFarmerCoord) farmer!!.lon else null
                     )
                 )
                 msg = if (type == "share") "나눔 카드를 이웃에 올렸어요" else "판매 카드를 이웃에 올렸어요"
