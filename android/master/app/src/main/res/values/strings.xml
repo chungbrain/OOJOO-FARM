@@ -474,4 +474,8 @@
     <string name="farm_position_label">농장 위치 (3×4)</string>
     <string name="farm_position_hint">녹색 구역에서 식물을 배치할 칸을 선택하세요</string>
     <string name="farm_position_applied">농장 위치가 저장되었습니다</string>
+    <string name="icon_change_title">Farmer 아이콘 선택</string>
+    <string name="icon_change_hint">아이콘을 눌러 변경하세요. 선택이 없으면 번호 기준으로 자동 지정됩니다.</string>
+    <string name="icon_auto">자동 지정</string>
+    <string name="icon_changed">아이콘이 변경되었습니다</string>
 </resources>

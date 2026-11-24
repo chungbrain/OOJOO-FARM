@@ -474,4 +474,8 @@
     <string name="farm_position_label">Farm position (3×4)</string>
     <string name="farm_position_hint">Pick a spot in the green area to place your plant</string>
     <string name="farm_position_applied">Farm position saved</string>
+    <string name="icon_change_title">Choose Farmer icon</string>
+    <string name="icon_change_hint">Tap an icon to change it. Without a pick, it is assigned automatically.</string>
+    <string name="icon_auto">Auto pick</string>
+    <string name="icon_changed">Icon changed</string>
 </resources>

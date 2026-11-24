@@ -406,6 +406,10 @@ class AppStrings internal constructor(private val context: Context) {
     val healthClassLightLow: String get() = context.getString(R.string.health_class_light_low)
     val healthClassPest: String get() = context.getString(R.string.health_class_pest)
     val healthClassHeat: String get() = context.getString(R.string.health_class_heat)
+    val iconChangeTitle: String get() = context.getString(R.string.icon_change_title)
+    val iconChangeHint: String get() = context.getString(R.string.icon_change_hint)
+    val iconAuto: String get() = context.getString(R.string.icon_auto)
+    val iconChanged: String get() = context.getString(R.string.icon_changed)
 }
 
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> {

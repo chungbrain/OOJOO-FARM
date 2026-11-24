@@ -1,5 +1,6 @@
 package com.oojoo.farm.master.ui
 
+import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -31,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -122,10 +124,11 @@ private val WoodDark = Color(0xFFA9713B)
 private val WoodEdge = Color(0xFF6D4423)
 
 // --- farmer별 아이콘 (복수 farmer 구별) ---
-// 아이콘에 색 틴트를 주지 않고 원본 그대로 쓴다. farmer 간 구별은
-// farmer id로 결정되는 안정 아이콘 — farm scene figure, 식물카드 farmer pill,
-// farmer 목록 어디서든 같은 아이콘을 쓰게 한다.
-private val FarmerIconPalette = listOf(
+// 아이콘에 색 틴트를 주지 않고 원본 그대로 쓴다. farmer 간 구별은 아이콘 종류로 —
+// 사용자가 farmer 목록에서 직접 고른 아이콘(FarmerIconStore)이 우선이고,
+// 미선택 farmer는 id 해시로 안정 배정되는 기본 아이콘을 쓴다.
+// farm scene figure, 식물카드 farmer pill, farmer 목록 어디서든 같은 아이콘.
+val FarmerIconPalette = listOf(
     "🤖", // 로봇
     "👾", // 픽셀 로봇
     "🐝", // 꿀벌
@@ -136,8 +139,45 @@ private val FarmerIconPalette = listOf(
     "🐨"  // 코알라
 )
 
-fun farmerIconFor(slaveId: String): String =
+/** 미선택 farmer의 기본 아이콘 — id 해시로 안정 배정. */
+fun defaultFarmerIcon(slaveId: String): String =
     FarmerIconPalette[(slaveId.hashCode() and Int.MAX_VALUE) % FarmerIconPalette.size]
+
+/** farmer별 선택 아이콘 저장 — SnapshotState 맵이라 선택 즉시 모든 화면에 반영된다.
+ *  영속화는 Prefs(farmerIcons) — 앱 재시작 후에도 유지. */
+object FarmerIconStore {
+    private val overrides = mutableStateMapOf<String, String>()
+    private var loaded = false
+
+    private fun ensureLoaded(ctx: Context) {
+        if (!loaded) {
+            Prefs.farmerIcons(ctx).forEach { (k, v) -> overrides[k] = v }
+            loaded = true
+        }
+    }
+
+    fun icon(ctx: Context, slaveId: String): String {
+        ensureLoaded(ctx)
+        return overrides[slaveId] ?: defaultFarmerIcon(slaveId)
+    }
+
+    fun select(ctx: Context, slaveId: String, icon: String) {
+        overrides[slaveId] = icon
+        Prefs.setFarmerIcon(ctx, slaveId, icon)
+    }
+
+    fun reset(ctx: Context, slaveId: String) {
+        overrides.remove(slaveId)
+        Prefs.removeFarmerIcon(ctx, slaveId)
+    }
+}
+
+/** farmer 아이콘 조회(컴포저블) — 선택 아이콘 > 기본 아이콘. */
+@Composable
+fun farmerIconFor(slaveId: String): String {
+    val ctx = LocalContext.current
+    return FarmerIconStore.icon(ctx, slaveId)
+}
 
 /**
  * 빈 cell 중 가장 좋은 위치는 FarmGrid.kt의 pickEmptyFarmCell 사용.
@@ -685,10 +725,9 @@ private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modif
 
 /**
  * Farmer 아이콘 — farmer 탭(FarmerListScreen)과 **동일한 스타일**:
- * 흰 원 배경 + 잉크 테두리 + farmer별 아이콘 이모지 (색 틴트 없음).
- * (과거: Canvas 프리미티브 커스텀 로봇 — 탭 아이콘과 모양이 달라 교체.
- *  과거: farmer 색상으로 원 배경을 물들였으나, 색 틴트 없이 아이콘 원본을
- *  그대로 쓰고 farmer 간 구별은 아이콘 종류(farmerIconFor)로 하도록 변경.)
+ * 원 배경/테두리 없이 farmer별 아이콘 이모지를 원본 그대로 표시한다.
+ * (과거: farmer 색 틴트 원 배경 → 흰 원 + 잉크 테두리 → 현재: 원 없이
+ *  아이콘만. farmer 간 구별은 아이콘 종류(farmerIconFor)로 한다.)
  * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
  * tending(0..1)으로 관수 물방울이 떨어진다.
  */
@@ -706,22 +745,16 @@ private fun FarmerFigure(
         modifier.size(width = 44.dp, height = 50.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 탭 아이콘(FarmerListScreen 52dp/26sp)과 동일 구성 — 씬 셀에 맞게 축소.
-        Box(
-            Modifier
-                .size(40.dp)
-                .graphicsLayer {
-                    scaleX = scale * facing
-                    scaleY = scale
-                    rotationZ = tilt
-                }
-                .clip(RoundedCornerShape(50))
-                .border(2.dp, Color(0xFF2D3436), RoundedCornerShape(50))
-                .background(OojooTheme.Card),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(icon, fontSize = 22.sp)
-        }
+        // 원 없이 아이콘만 — 애니메이션(반전/기울기/커짐)은 아이콘에 직접 적용.
+        Text(
+            icon,
+            fontSize = 28.sp,
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale * facing
+                scaleY = scale
+                rotationZ = tilt
+            }
+        )
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
         if (tending > 0.01f) {

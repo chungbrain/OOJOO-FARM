@@ -127,6 +127,38 @@ object Prefs {
         if (changed) sp(ctx).edit().putString(K_FARM_CELLS, obj.toString()).apply()
     }
 
+    // ---------- farmer 아이콘 선택 (farmer 목록에서 직접 고른 아이콘) ----------
+    private const val K_FARMER_ICONS = "farmerIcons"
+
+    /** slaveId -> 선택한 아이콘. 미선택 farmer는 ID 해시 기준 자동 아이콘. */
+    fun farmerIcons(ctx: Context): Map<String, String> = try {
+        val obj = org.json.JSONObject(sp(ctx).getString(K_FARMER_ICONS, "{}") ?: "{}")
+        buildMap {
+            for (key in obj.keys()) {
+                val icon = obj.optString(key)
+                if (icon.isNotBlank()) put(key, icon)
+            }
+        }
+    } catch (_: Exception) { emptyMap() }
+
+    fun setFarmerIcon(ctx: Context, slaveId: String, icon: String) {
+        val obj = try {
+            org.json.JSONObject(sp(ctx).getString(K_FARMER_ICONS, "{}") ?: "{}")
+        } catch (_: Exception) { org.json.JSONObject() }
+        obj.put(slaveId, icon)
+        sp(ctx).edit().putString(K_FARMER_ICONS, obj.toString()).apply()
+    }
+
+    /** 선택을 해제 — ID 해시 기준 자동 아이콘으로 되돌린다. */
+    fun removeFarmerIcon(ctx: Context, slaveId: String) {
+        val obj = try {
+            org.json.JSONObject(sp(ctx).getString(K_FARMER_ICONS, "{}") ?: "{}")
+        } catch (_: Exception) { return }
+        if (obj.remove(slaveId) != null) {
+            sp(ctx).edit().putString(K_FARMER_ICONS, obj.toString()).apply()
+        }
+    }
+
     // ---------- UI 커스터마이징 ----------
     private const val K_CORNER_RADIUS = "cornerRadius"
     private const val K_SHADOW_OFFSET = "shadowOffset"

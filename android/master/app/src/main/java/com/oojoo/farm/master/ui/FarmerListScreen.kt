@@ -3,8 +3,10 @@ package com.oojoo.farm.master.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -144,10 +147,16 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                 }
             }
             items(vm.slaves) { s ->
+                var showIconDialog by remember { mutableStateOf(false) }
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(52.dp).clip(RoundedCornerShape(50)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(50)).background(OojooTheme.Card), contentAlignment = Alignment.Center) { Text(farmerIconFor(s.id), fontSize = 26.sp) }
+                            // 아이콘 눌러 선택 다이얼로그 — farmer별 아이콘 변경
+                            Text(
+                                farmerIconFor(s.id),
+                                fontSize = 30.sp,
+                                modifier = Modifier.clickable { showIconDialog = true }
+                            )
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(s.name, fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 15.sp)
@@ -198,6 +207,9 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                                     TextButton(onClick = { showUnpairDialog = false }) { Text(S.cancel) }
                                 }
                             )
+                        }
+                        if (showIconDialog) {
+                            IconPickerDialog(target = s, onDismiss = { showIconDialog = false })
                         }
                     }
                 }
@@ -375,6 +387,71 @@ private fun CommandsDialog(vm: FarmerListViewModel, target: Slave) {
         },
         confirmButton = {
             TextButton(onClick = { vm.closeCommands() }) { Text(S.close, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
+        }
+    )
+}
+
+/**
+ * farmer 아이콘 선택 다이얼로그 — 팔레트 8종 중 하나를 눌러 선택.
+ * 선택 즉시 FarmerIconStore(SnapshotState)에 반영되어 농장 씬 figure,
+ * 식물카드 farmer pill, 사진첩 헤더 등 모든 화면이 갱신된다.
+ * "자동 지정"을 누르면 선택을 해제해 ID 해시 기준 기본 아이콘으로 되돌린다.
+ */
+@Composable
+private fun IconPickerDialog(target: Slave, onDismiss: () -> Unit) {
+    val S = LocalAppStrings.current
+    val ctx = LocalContext.current
+    val current = FarmerIconStore.icon(ctx, target.id)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${S.iconChangeTitle} — '${target.name}'", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(S.iconChangeHint, fontSize = 12.sp, color = OojooTheme.Muted)
+                // 4열 아이콘 그리드 — 선택 항목은 녹색 강조
+                val cols = 4
+                val rows = (FarmerIconPalette.size + cols - 1) / cols
+                for (row in 0 until rows) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (col in 0 until cols) {
+                            val idx = row * cols + col
+                            if (idx < FarmerIconPalette.size) {
+                                val icon = FarmerIconPalette[idx]
+                                val selected = (icon == current)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (selected) OojooTheme.GreenBg else OojooTheme.Card,
+                                    border = BorderStroke(
+                                        if (selected) 2.dp else 1.dp,
+                                        if (selected) OojooTheme.Green else OojooTheme.Line
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            FarmerIconStore.select(ctx, target.id, icon)
+                                            onDismiss()
+                                        }
+                                ) {
+                                    Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                        Text(icon, fontSize = 26.sp)
+                                    }
+                                }
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                FarmerIconStore.reset(ctx, target.id)
+                onDismiss()
+            }) { Text(S.iconAuto, color = OojooTheme.GreenDark, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(S.cancel) }
         }
     )
 }
