@@ -1,5 +1,7 @@
 package com.oojoo.farm.master.ui
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -12,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,16 +27,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppStrings
 import com.oojoo.farm.master.data.LocalAppStrings
+import com.oojoo.farm.master.data.LocationHelper
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
@@ -41,45 +50,104 @@ import kotlinx.coroutines.launch
 private fun typeLabel(t: String?, S: AppStrings) = when (t) { "share" -> S.share; "sell" -> S.sell; "buy" -> S.buy; else -> t ?: "" }
 private fun statusLabel(s: String?, S: AppStrings) = when (s) { "reserved" -> S.reserved; "done" -> S.tradedone; else -> "" }
 
-class CommunityViewModel : ViewModel() {
+class CommunityViewModel(app: Application) : AndroidViewModel(app) {
     private val api get() = ApiClient.api
     var posts by mutableStateOf<List<CommunityPost>>(emptyList())
     var type by mutableStateOf<String?>(null)
     var query by mutableStateOf("")
     var loading by mutableStateOf(false)
+    // 장소 — 기본은 지역 필터(master 지역, Home 위치 자동갱신에 따라 바뀜)
+    // 또는 "내 주변" 반경 검색(현재 위치, 기본 5km)
+    var nearMe by mutableStateOf(false)
+    var nearMeFail by mutableStateOf(false)
+    private var nearMeLat: Double? = null
+    private var nearMeLon: Double? = null
+    private var loadedRegion: String? = null
+    private var loadSeq = 0
+
     init { load() }
+
     fun load() {
-        loading = true
+        val seq = ++loadSeq
+        loading = true; nearMeFail = false
         viewModelScope.launch {
-            try { posts = api.communityPosts(Session.region, type, query.takeIf { it.isNotBlank() }, Session.userId).posts } catch (_: Exception) {}
-            loading = false
+            try {
+                val fetched = if (nearMe) {
+                    // 반경 검색 — region 필터 없이 위치 기준 (5km 내 위치 있는 글만)
+                    if (nearMeLat == null || nearMeLon == null) {
+                        val loc = LocationHelper.resolve(getApplication()) ?: throw Exception("no location")
+                        nearMeLat = loc.lat; nearMeLon = loc.lon
+                    }
+                    api.communityPosts(null, type, query.takeIf { it.isNotBlank() }, Session.userId, nearMeLat, nearMeLon).posts
+                } else {
+                    loadedRegion = Session.region
+                    api.communityPosts(Session.region, type, query.takeIf { it.isNotBlank() }, Session.userId).posts
+                }
+                if (seq == loadSeq) posts = fetched
+            } catch (_: Exception) {
+                if (seq == loadSeq && nearMe) nearMeFail = true
+            }
+            if (seq == loadSeq) loading = false
         }
     }
+
+    /** master 지역이 바뀌면(Home에서 위치 이동으로 자동 갱신) 지역 피드를 다시 로드. */
+    fun regionChanged() {
+        if (!nearMe && loadedRegion != Session.region) load()
+    }
+
+    fun toggleNearMe() {
+        nearMe = !nearMe
+        load()
+    }
+
     fun selectType(t: String?) { type = t; load() }
+    fun search() { load() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
     val S = LocalAppStrings.current
+    // master 지역 변경 감지 — Home에서 위치 이동으로 Session.region 이 갱신되면
+    // 다시 화면에 들어올 때(또는 이 화면에서 복귀할 때) 지역 피드 재로드
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.regionChanged()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { IconButton(onClick = { nav.navigate("messages") }) { Icon(Icons.Default.Message, contentDescription = stringResource(R.string.messages_title), tint = Color.White) }; TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text(if (vm.nearMe) "${S.neighbor} · ${S.nearMeScope}" else "${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { IconButton(onClick = { nav.navigate("messages") }) { Icon(Icons.Default.Message, contentDescription = stringResource(R.string.messages_title), tint = Color.White) }; TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.writePost) } },
         containerColor = OojooTheme.Bg
     ) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { OojooField(vm.query, { vm.query = it }, S.searchCrop) }
+            item {
+                OojooField(
+                    vm.query, { vm.query = it }, S.searchCrop,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { vm.search() })
+                )
+            }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OojooChip(vm.type == null, { vm.selectType(null) }, S.all)
                     OojooChip(vm.type == "share", { vm.selectType("share") }, S.share)
                     OojooChip(vm.type == "sell", { vm.selectType("sell") }, S.sell)
                     OojooChip(vm.type == "buy", { vm.selectType("buy") }, S.buy)
+                    Spacer(Modifier.width(4.dp))
+                    OojooChip(vm.nearMe, { vm.toggleNearMe() }, "📍 ${S.nearMe}")
                 }
+            }
+            if (vm.nearMeFail) {
+                item { Text("⚠️ ${S.nearMeFail}", color = OojooTheme.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             }
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
             if (vm.posts.isEmpty() && !vm.loading) {
-                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text("${Session.region}${S.noPostsSuffix}", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text(if (vm.nearMe) S.noPostsNearMe else "${Session.region}${S.noPostsSuffix}", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
             }
             items(vm.posts) { post ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("community_post/${post.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
@@ -117,7 +185,7 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
                             }
                         }
                         Row {
-                            Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · 📍 ${post.region ?: "-"} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
                             statusLabel(post.status, S).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
                         }
                     }
@@ -224,7 +292,7 @@ fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewMo
     }
 }
 
-class WritePostViewModel : ViewModel() {
+class WritePostViewModel(app: Application) : AndroidViewModel(app) {
     private val api get() = ApiClient.api
     var type by mutableStateOf("share")
     var title by mutableStateOf("")
@@ -235,12 +303,65 @@ class WritePostViewModel : ViewModel() {
     var image by mutableStateOf("🥬")
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
+    // 장소 — 기본은 farmer(농장) 위치. master가 이동하면 "내 위치"로 변경.
+    var farmSlave: Slave? by mutableStateOf(null) // 위치정보 가진 첫 farmer
+    var locMine by mutableStateOf(false)          // true = 내 현재 위치 사용
+    var locBusy by mutableStateOf(false)
+    var locOk: String? by mutableStateOf(null)    // "Seoul (gps)"
+    var locFail by mutableStateOf(false)
+    private var postRegion = Session.region
+    private var postLat: Double? = null
+    private var postLon: Double? = null
+
+    init {
+        viewModelScope.launch {
+            try {
+                val slaves = api.slaves(Session.userId).slaves
+                // region 또는 좌표가 있는 첫 farmer — 그 위치가 기본 장소
+                farmSlave = slaves.firstOrNull { !it.region.isNullOrBlank() || (it.lat != null && it.lon != null) }
+                applyFarmLocation()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun applyFarmLocation() {
+        val s = farmSlave ?: return
+        postRegion = s.region?.takeIf { it.isNotBlank() } ?: Session.region
+        // 좌표는 둘 다 있어야 반경 검색에 쓰인다 — 한쪽만 있으면 안 넘김
+        postLat = if (s.lat != null && s.lon != null) s.lat else null
+        postLon = if (s.lat != null && s.lon != null) s.lon else null
+    }
+
+    fun selectFarmLocation() {
+        locMine = false; locOk = null; locFail = false
+        applyFarmLocation()
+    }
+
+    /** 내 현재 위치(GPS→Network→IP) + 역지리 region — master가 이동한 경우. */
+    fun selectMyLocation() {
+        locMine = true; locBusy = true; locOk = null; locFail = false
+        viewModelScope.launch {
+            try {
+                val loc = LocationHelper.resolve(getApplication()) ?: throw Exception("no location")
+                val w = api.weatherByCoords(loc.lat, loc.lon)
+                postRegion = w.region.ifBlank { Session.region }
+                postLat = loc.lat
+                postLon = loc.lon
+                locOk = "$postRegion (${loc.source})"
+            } catch (_: Exception) {
+                locFail = true // 이전 장소(농장 등) 그대로 유지
+            }
+            locBusy = false
+        }
+    }
+
     fun submit(onDone: () -> Unit) {
         if (title.isBlank()) { error = "제목을 입력하세요"; return }
+        if (locBusy) return
         loading = true; error = null
         viewModelScope.launch {
             try {
-                api.communityCreate(CreatePostRequest(Session.userId, type, title.trim(), crop.trim().ifBlank { null }, quantity.trim().ifBlank { null }, if (type == "sell") price.trim().toIntOrNull() else null, Session.region, description.trim().ifBlank { null }, image))
+                api.communityCreate(CreatePostRequest(Session.userId, type, title.trim(), crop.trim().ifBlank { null }, quantity.trim().ifBlank { null }, if (type == "sell") price.trim().toIntOrNull() else null, postRegion, description.trim().ifBlank { null }, image, lat = postLat, lon = postLon))
                 onDone()
             } catch (e: Exception) { error = e.message ?: "등록 실패" }
             loading = false
@@ -253,7 +374,7 @@ class WritePostViewModel : ViewModel() {
 fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel()) {
     val S = LocalAppStrings.current
     val emojis = listOf("🥬", "🍅", "🌿", "🌱", "🥕", "🌶️", "🍓", "🙂")
-    Scaffold(topBar = { TopAppBar(title = { Text("${S.writePost} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text(S.writePost, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(S.typeLabelGeneric, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -274,7 +395,20 @@ fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel(
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 emojis.forEach { e -> OojooChip(vm.image == e, { vm.image = e }, e) }
             }
-            GradientButton(text = S.postButton, onClick = { vm.submit { nav.navigateUp() } }, enabled = !vm.loading && vm.title.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            // 장소 — 기본은 농장(farmer 위치), master가 이동하면 내 위치로 변경
+            Text(S.writeLocationLabel, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OojooChip(!vm.locMine, { vm.selectFarmLocation() }, "🚜 ${S.writeLocationFarm}")
+                OojooChip(vm.locMine, { vm.selectMyLocation() }, "📍 ${S.writeLocationMe}")
+            }
+            when {
+                vm.locBusy -> Text(S.writeLocationResolving, color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                vm.locFail -> Text(S.writeLocationFail, color = OojooTheme.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                vm.locOk != null -> Text("📍 ${vm.locOk}", color = OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                vm.farmSlave != null -> Text("🌱 ${S.writeLocationFarmOf.format(vm.farmSlave!!.name)}", color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                else -> Text(S.writeLocationNoFarmer, color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            GradientButton(text = S.postButton, onClick = { vm.submit { nav.navigateUp() } }, enabled = !vm.loading && !vm.locBusy && vm.title.isNotBlank(), modifier = Modifier.fillMaxWidth())
             vm.error?.let { Text("⚠️ ${localizeMasterMessage(it, S)}", color = OojooTheme.Red, fontSize = 13.sp) }
         }
     }

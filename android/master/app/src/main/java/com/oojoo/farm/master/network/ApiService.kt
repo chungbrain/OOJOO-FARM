@@ -117,7 +117,11 @@ interface ApiService {
         @Query("region") region: String? = null,
         @Query("type") type: String? = null,
         @Query("q") q: String? = null,
-        @Query("viewerId") viewerId: String? = null
+        @Query("viewerId") viewerId: String? = null,
+        // 내 주변(반경) 검색 — lat/lon 있으면 region 무시(위치 기준, 기본 5km)
+        @Query("lat") lat: Double? = null,
+        @Query("lon") lon: Double? = null,
+        @Query("radius") radius: Double? = null
     ): CommunityPostsResponse
 
     @GET("api/community/posts/{id}")

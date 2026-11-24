@@ -404,6 +404,21 @@
     <string name="plant_share_dialog_hint">A card appears in the Neighbors tab. When the growth-story video is ready it is attached automatically.</string>
     <string name="feed_video_badge">Growth story</string>
 
+    <!-- Neighbors tab location -->
+    <string name="write_location_label">Location</string>
+    <string name="write_location_farm">Farm</string>
+    <string name="write_location_me">My location</string>
+    <string name="write_location_farm_of">%1$s\'s farm</string>
+    <string name="write_location_no_farmer">No farmer location set — posting under your saved region</string>
+    <string name="write_location_resolving">Getting current location…</string>
+    <string name="write_location_fail">Couldn\'t get location — posting under the last selected one</string>
+
+    <!-- Neighbors — nearby search -->
+    <string name="near_me">Near me</string>
+    <string name="near_me_scope">Nearby (5km)</string>
+    <string name="no_posts_near_me">No posts nearby (within 5km)</string>
+    <string name="near_me_fail">Couldn\'t get your location — check location permission</string>
+
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">Video health check</string>
     <string name="diagnosis_title">Video health diagnosis</string>
