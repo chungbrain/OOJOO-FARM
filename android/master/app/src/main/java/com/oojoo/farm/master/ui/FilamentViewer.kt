@@ -6,7 +6,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -39,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -197,22 +195,30 @@ fun FarmSceneView(
         mutableStateOf(stored)
     }
     val currentIds = displayPlants.map { it.id }.toSet()
+    // 식물 목록이 아직 로드 전(빈 목록)이면 저장된 위치를 그대로 유지한다.
+    // 여기서 빈 맵으로 접어두면 로드 직후 전면 재배정이 일어나, 사용자가 저장한
+    // 위치가 매번 초기화되는 사고(위치 기억 기능 무효화)의 원인이 된다.
     val cells = remember(cellMap, currentIds) {
-        if (cellMap.keys.containsAll(currentIds) && cellMap.size == currentIds.size) {
-            cellMap
-        } else {
-            val m = cellMap.filterKeys { it in currentIds }.toMutableMap()
-            for (p in displayPlants) {
-                if (p.id !in m) m[p.id] = pickEmptyFarmCell(m.values.toSet())
+        when {
+            currentIds.isEmpty() -> cellMap
+            cellMap.keys.containsAll(currentIds) && cellMap.size == currentIds.size -> cellMap
+            else -> {
+                val m = cellMap.filterKeys { it in currentIds }.toMutableMap()
+                for (p in displayPlants) {
+                    if (p.id !in m) m[p.id] = pickEmptyFarmCell(m.values.toSet())
+                }
+                m
             }
-            m
         }
     }
     LaunchedEffect(cells) {
         if (cellMap != cells) cellMap = cells
-        // 위치 영속화 — 새로 배정/옮겨진 식물 위치 저장, 삭제된 식물의 저장 위치 정리
-        cells.forEach { (id, c) -> Prefs.setFarmPlantCell(ctx, id, c.row, c.col) }
-        Prefs.removeFarmPlantCells(ctx, Prefs.farmPlantCells(ctx).keys.filter { it !in currentIds })
+        // 위치 영속화 — 새로 배정/옮겨진 식물 위치 저장, 삭제된 식물의 저장 위치 정리.
+        // 목록이 비어 있으면(로드 전) 저장된 위치를 통째로 지우게 되므로 건너뛴다.
+        if (currentIds.isNotEmpty()) {
+            cells.forEach { (id, c) -> Prefs.setFarmPlantCell(ctx, id, c.row, c.col) }
+            Prefs.removeFarmPlantCells(ctx, Prefs.farmPlantCells(ctx).keys.filter { it !in currentIds })
+        }
     }
 
     // 드래그 중인 식물 ID (null = 드래그 아님)
@@ -249,22 +255,6 @@ fun FarmSceneView(
     val farmerBots = remember { mutableMapOf<String, FarmerBotState>() }
     val activeFarmerIds = activeFarmers.map { it.first.id }.toSet()
     farmerBots.keys.removeAll { it !in activeFarmerIds }
-
-    // 눈 깜빡임 — 3.4초 주기, 짧은 한 번 (farmer 전체 공용)
-    val blink by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            keyframes {
-                durationMillis = 3400
-                1f at 0
-                1f at 3050
-                0.15f at 3150
-                1f at 3250
-            },
-            RepeatMode.Restart
-        ),
-        label = "blink"
-    )
 
     // farmer별 순찰 루프 — 웨이포인트가 바뀌어도(식물 이동/추가) 순찰 인덱스는
     // bot 상태에 남아 그 자리에서 재개 (과거: 재기동마다 idx=0 리셋 → 첫 식물로 점프)
@@ -638,7 +628,6 @@ fun FarmSceneView(
                     tilt = bot.tilt.value,
                     scale = bot.scale.value,
                     tending = bot.tending.value,
-                    blink = blink,
                     dropFall = dropFall,
                     modifier = Modifier.offset(
                         x = (robotPxX - 22f).dp,
@@ -694,9 +683,10 @@ private fun WoodSign(plantName: String, bodyH: Float, modifier: Modifier = Modif
 }
 
 /**
- * Farmer 로봇 figure — **얼굴 색상이 farmer 색**(복수 farmer 구별).
- * Canvas primitives: 안테나 + 헤드(farmer색, 깜빡이는 눈) + 몸통(스틸+화면) + 바퀴.
- * (과거: 🤖 이모지 단일색 — 복수 farmer의 얼굴색을 구분할 수 없어 교체)
+ * Farmer 아이콘 — farmer 탭(FarmerListScreen)과 **동일한 스타일**:
+ * farmer 색상으로 물든 원 배경 + 잉크 테두리 + 🤖 이모지.
+ * (과거: Canvas 프리미티브 커스텀 로봇 — 탭 아이콘과 모양이 달라 교체.
+ *  farmer 색 틴트는 유지해 복수 farmer 구별도 그대로 가능하다.)
  * facing(+1/-1)으로 이동 방향 반전, tilt으로 이동 기울기, scale로 도착 시 커짐,
  * tending(0..1)으로 관수 물방울이 떨어진다.
  */
@@ -707,7 +697,6 @@ private fun FarmerFigure(
     tilt: Float,
     scale: Float,
     tending: Float,
-    blink: Float,
     dropFall: Float,
     modifier: Modifier = Modifier
 ) {
@@ -715,16 +704,21 @@ private fun FarmerFigure(
         modifier.size(width = 44.dp, height = 50.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        Canvas(
+        // 탭 아이콘(FarmerListScreen 52dp/26sp)과 동일 구성 — 씬 셀에 맞게 축소.
+        Box(
             Modifier
-                .fillMaxSize()
+                .size(40.dp)
                 .graphicsLayer {
                     scaleX = scale * facing
                     scaleY = scale
                     rotationZ = tilt
                 }
+                .clip(RoundedCornerShape(50))
+                .border(2.dp, Color(0xFF2D3436), RoundedCornerShape(50))
+                .background(faceColor.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
         ) {
-            drawFarmerFigure(faceColor, blink)
+            Text("🤖", fontSize = 22.sp)
         }
 
         // 관수 중 — 아래로 떨어지는 물방울 (떨어질수록 투명)
@@ -747,58 +741,6 @@ private fun FarmerFigure(
                 }
             }
         }
-    }
-}
-
-/** 44x50dp 기준 figure — canvas 픽셀 단위로 스케일해 그림. */
-private fun DrawScope.drawFarmerFigure(faceColor: Color, blink: Float) {
-    val u = size.width / 44f // canvas px / 1dp
-    val ink = Color(0xFF37474F)
-    // 안테나 (봉 + 빛)
-    drawLine(ink, Offset(22f * u, 9f * u), Offset(22f * u, 4.5f * u), strokeWidth = 1.5f * u)
-    drawCircle(Color(0xFFFFB300).copy(alpha = 0.35f), radius = 3.4f * u, center = Offset(22f * u, 3.5f * u))
-    drawCircle(Color(0xFFFFB300), radius = 1.8f * u, center = Offset(22f * u, 3.5f * u))
-    // 헤드 — 얼굴 = farmer 색상
-    val head = Offset(9f * u, 8f * u) to Size(26f * u, 18f * u)
-    drawRoundRect(faceColor, head.first, head.second, CornerRadius(5f * u))
-    drawRoundRect(ink, head.first, head.second, CornerRadius(5f * u), style = Stroke(width = 1.5f * u))
-    // 눈 (blink — 높이 압축)
-    val eyeR = 2.4f * u
-    val eyeH = (eyeR * 2f * blink).coerceAtLeast(0.6f * u)
-    listOf(16.5f, 27.5f).forEach { cx ->
-        drawOval(
-            Color(0xFF263238),
-            topLeft = Offset(cx * u - eyeR, 17f * u - eyeH / 2f),
-            size = Size(eyeR * 2f, eyeH)
-        )
-    }
-    // 몸통 — 스틸 그라디언트 + 테두리
-    val body = Offset(7f * u, 28f * u) to Size(30f * u, 15f * u)
-    drawRoundRect(
-        brush = Brush.verticalGradient(
-            listOf(Color(0xFFB0BEC5), Color(0xFF607D8B)),
-            startY = 28f * u, endY = 43f * u
-        ),
-        topLeft = body.first, size = body.second, cornerRadius = CornerRadius(4f * u)
-    )
-    drawRoundRect(ink, body.first, body.second, CornerRadius(4f * u), style = Stroke(width = 1.5f * u))
-    // 몸통 화면 (녹색 상태 표시줄)
-    drawRoundRect(
-        color = Color(0xFF263238),
-        topLeft = Offset(15f * u, 31.5f * u),
-        size = Size(14f * u, 7.5f * u),
-        cornerRadius = CornerRadius(1.5f * u)
-    )
-    drawRoundRect(
-        color = Color(0xFF76FF03),
-        topLeft = Offset(17f * u, 34.6f * u),
-        size = Size(10f * u, 1.6f * u),
-        cornerRadius = CornerRadius(0.8f * u)
-    )
-    // 바퀴
-    listOf(13f, 31f).forEach { cx ->
-        drawCircle(ink, radius = 3.5f * u, center = Offset(cx * u, 46f * u))
-        drawCircle(Color(0xFFCFD8DC), radius = 1.2f * u, center = Offset(cx * u, 46f * u))
     }
 }
 
