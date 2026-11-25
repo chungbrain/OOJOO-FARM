@@ -55,13 +55,18 @@ r.post('/verify', (req, res) => {
 });
 
 // 마스터: 사용자의 슬레이브 목록 — 가구(가족/친구) 공유 Farmer 포함
+// pairing_code: 이 farmer를 페어링할 때 사용한 코드 (pairings.slave_id 연결).
+// scalar subquery — LEFT JOIN보다 안전: 같은 slave_id 행이 중복되도 목록이
+// 안 벌어지고, unpair 후 잔존(오르반) 행도 slave_id 매칭으로 다른 farmer에 안 샌다.
 r.get('/:userId', (req, res) => {
   const ids = householdMemberIds(req.params.userId);
   const rows = db.prepare(`
     SELECT s.id, s.name, s.online, s.last_seen, s.battery, s.stream_url,
            s.lat, s.lon, s.region, s.icon,
            s.user_id AS owner_id,
-           u.nickname AS owner_name, u.email AS owner_email
+           u.nickname AS owner_name, u.email AS owner_email,
+           (SELECT code FROM pairings WHERE slave_id = s.id
+            ORDER BY created_at DESC LIMIT 1) AS pairing_code
     FROM slaves s
     LEFT JOIN users u ON u.id = s.user_id
     WHERE s.user_id IN (${inSql(ids)})
