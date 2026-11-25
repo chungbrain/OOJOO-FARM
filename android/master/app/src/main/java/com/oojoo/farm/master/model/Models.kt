@@ -61,7 +61,9 @@ data class Slave(
     val lon: Double? = null,
     val region: String? = null,
     // farmer 아이콘 — 서버에 저장된 사용자 선택 이모지 (null이면 자동 배정)
-    val icon: String? = null
+    val icon: String? = null,
+    // 패어링 코드 — 이 farmer를 페어링할 때 사용한 코드 (pairings 연결)
+    val pairing_code: String? = null
 )
 @Serializable
 data class SlavesResponse(val slaves: List<Slave>)

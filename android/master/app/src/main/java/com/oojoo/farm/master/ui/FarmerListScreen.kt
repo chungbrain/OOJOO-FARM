@@ -168,6 +168,7 @@ fun FarmerListScreen(nav: NavController, vm: FarmerListViewModel = viewModel()) 
                                 val bat = s.battery?.let { " · 🔋$it%" } ?: ""
                                 Text("$dot$bat", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 s.last_seen?.let { Text("${S.lastComm}: $it", color = OojooTheme.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                                s.pairing_code?.let { Text("🔗 ${S.pairingCode}: $it", color = OojooTheme.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                             }
                             Box(Modifier.size(12.dp).clip(RoundedCornerShape(50)).border(2.dp, OojooTheme.Ink, RoundedCornerShape(50)).background(if (s.online == 1) OojooTheme.Green else Color.Gray))
                         }
