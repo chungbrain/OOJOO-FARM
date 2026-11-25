@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # OOJOO FARM — APK 빌드 → dist/ (고정 이름, 매 빌드 덮어쓰기)
 #
-#   sh scripts/build-dist.sh             # 빌드 + dist 복사
-#   sh scripts/build-dist.sh --commit    # + git commit (build: debug APKs <태그>)
+#   ./scripts/build-dist.sh                    # 빌드 + dist 복사
+#   ./scripts/build-dist.sh --commit "설명"      # + git commit (build: debug APKs <태그> with <설명>)
 #
 # dist/ 고정 이름 (기존 관례 — 빌드 커밋마다 갱신):
 #   dist/oojoo-farm-master-debug.apk
 #   dist/oojoo-farm-farmer-debug.apk    (slave = farmer 앱)
 #
 # 태그는 KST 날짜 + 당일 시퀀스 (예: 2026112504).
+# bash 스크립트 — './scripts/build-dist.sh' 로 실행 ('sh'는 dash라 pipefail 불가).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
@@ -43,7 +44,10 @@ if [ "${1:-}" = "--commit" ]; then
   today="$(TZ=Asia/Seoul date +%Y%m%d)"
   count=$(git -C "$REPO_ROOT" log --oneline | grep -c "build: debug APKs $today" || true)
   tag="${today}$(printf '%02d' $((count + 1)))"
+  desc="${2:-}"
+  msg="build: debug APKs $tag"
+  [ -n "$desc" ] && msg="$msg with $desc"
   git -C "$REPO_ROOT" add dist/
-  git -C "$REPO_ROOT" commit -m "build: debug APKs $tag"
-  log "committed: $tag"
+  git -C "$REPO_ROOT" commit -m "$msg"
+  log "committed: $msg"
 fi
