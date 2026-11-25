@@ -413,11 +413,12 @@
     <string name="write_location_resolving">현재 위치를 가져오는 중…</string>
     <string name="write_location_fail">위치를 가져오지 못했어요 — 기존 장소로 등록됩니다</string>
 
-    <!-- 이웃 탭 — 내 주변 검색 -->
+    <!-- 이웃 탭 — 내 주변 검색 / 장소 스코프 -->
     <string name="near_me">내 주변</string>
     <string name="near_me_scope">내 주변(5km)</string>
     <string name="no_posts_near_me">내 주변(5km)에 게시물이 없어요</string>
     <string name="near_me_fail">위치를 가져오지 못했어요 — 위치 권한을 확인하세요</string>
+    <string name="my_region">내 지역</string>
 
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">영상 건강진단</string>

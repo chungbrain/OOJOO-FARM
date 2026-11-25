@@ -56,53 +56,81 @@ class CommunityViewModel(app: Application) : AndroidViewModel(app) {
     var type by mutableStateOf<String?>(null)
     var query by mutableStateOf("")
     var loading by mutableStateOf(false)
-    // 장소 — 기본은 지역 필터(master 지역, Home 위치 자동갱신에 따라 바뀜)
-    // 또는 "내 주변" 반경 검색(현재 위치, 기본 5km)
-    var nearMe by mutableStateOf(false)
-    var nearMeFail by mutableStateOf(false)
-    private var nearMeLat: Double? = null
-    private var nearMeLon: Double? = null
+    // 장소 스코프 — 기본은 FARM(farmer 위치). MINE(master 지역) / NEAR(내 주변 반경)은 추가 선택.
+    var scope by mutableStateOf(SCOPE_FARM)
+    var nearFail by mutableStateOf(false)
+    var farmRegion by mutableStateOf<String?>(null) // 위치정보 가진 첫 farmer의 region — 탭의 기본 지역
+    private var nearLat: Double? = null
+    private var nearLon: Double? = null
     private var loadedRegion: String? = null
     private var loadSeq = 0
 
-    init { load() }
+    init {
+        // 기본 지역 = farmer가 있는 위치 — farmer를 먼저 조회해 region을 잡은 뒤 피드 로드
+        viewModelScope.launch {
+            try {
+                val slaves = api.slaves(Session.userId).slaves
+                farmRegion = slaves.firstOrNull { !it.region.isNullOrBlank() }?.region
+            } catch (_: Exception) {}
+            load()
+        }
+    }
+
+    /** 유효한 region 필터 — FARM: farmer 위치(없으면 master 지역 폴백), MINE: master 지역. */
+    private fun effectiveRegion(): String? = when (scope) {
+        SCOPE_MINE -> Session.region
+        else -> farmRegion ?: Session.region
+    }
+
+    /** 앱바/빈 상태 표시용 현재 스코프 라벨. */
+    fun scopeTitle(S: AppStrings): String = when (scope) {
+        SCOPE_NEAR -> S.nearMeScope
+        else -> effectiveRegion() ?: S.myRegion
+    }
 
     fun load() {
         val seq = ++loadSeq
-        loading = true; nearMeFail = false
+        loading = true; nearFail = false
         viewModelScope.launch {
             try {
-                val fetched = if (nearMe) {
+                val fetched = if (scope == SCOPE_NEAR) {
                     // 반경 검색 — region 필터 없이 위치 기준 (5km 내 위치 있는 글만)
-                    if (nearMeLat == null || nearMeLon == null) {
+                    if (nearLat == null || nearLon == null) {
                         val loc = LocationHelper.resolve(getApplication()) ?: throw Exception("no location")
-                        nearMeLat = loc.lat; nearMeLon = loc.lon
+                        nearLat = loc.lat; nearLon = loc.lon
                     }
-                    api.communityPosts(null, type, query.takeIf { it.isNotBlank() }, Session.userId, nearMeLat, nearMeLon).posts
+                    api.communityPosts(null, type, query.takeIf { it.isNotBlank() }, Session.userId, nearLat, nearLon).posts
                 } else {
-                    loadedRegion = Session.region
-                    api.communityPosts(Session.region, type, query.takeIf { it.isNotBlank() }, Session.userId).posts
+                    loadedRegion = effectiveRegion()
+                    api.communityPosts(loadedRegion, type, query.takeIf { it.isNotBlank() }, Session.userId).posts
                 }
                 if (seq == loadSeq) posts = fetched
             } catch (_: Exception) {
-                if (seq == loadSeq && nearMe) nearMeFail = true
+                if (seq == loadSeq && scope == SCOPE_NEAR) nearFail = true
             }
             if (seq == loadSeq) loading = false
         }
     }
 
-    /** master 지역이 바뀌면(Home에서 위치 이동으로 자동 갱신) 지역 피드를 다시 로드. */
+    /** master 지역이 바뀌면(Home에서 위치 이동으로 자동 갱신) "내 지역" 스코프라면 다시 로드. */
     fun regionChanged() {
-        if (!nearMe && loadedRegion != Session.region) load()
+        if (scope == SCOPE_MINE && loadedRegion != Session.region) load()
     }
 
-    fun toggleNearMe() {
-        nearMe = !nearMe
+    fun selectScope(s: String) {
+        if (scope == s) return
+        scope = s
         load()
     }
 
     fun selectType(t: String?) { type = t; load() }
     fun search() { load() }
+
+    companion object {
+        const val SCOPE_FARM = "farm" // 기본 — farmer가 있는 위치
+        const val SCOPE_MINE = "mine" // master가 있는 지역 (추가)
+        const val SCOPE_NEAR = "near" // 내 주변 (현재 위치 반경 검색)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +148,7 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (vm.nearMe) "${S.neighbor} · ${S.nearMeScope}" else "${S.neighbor} · ${Session.region}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { IconButton(onClick = { nav.navigate("messages") }) { Icon(Icons.Default.Message, contentDescription = stringResource(R.string.messages_title), tint = Color.White) }; TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
+        topBar = { TopAppBar(title = { Text("${S.neighbor} · ${vm.scopeTitle(S)}", color = Color.White, fontWeight = FontWeight.Bold) }, actions = { IconButton(onClick = { nav.navigate("messages") }) { Icon(Icons.Default.Message, contentDescription = stringResource(R.string.messages_title), tint = Color.White) }; TextButton(onClick = { nav.navigate("community_write") }) { Text(S.writePost, color = Color.White) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         floatingActionButton = { FloatingActionButton(onClick = { nav.navigate("community_write") }, containerColor = OojooTheme.Green, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = S.writePost) } },
         containerColor = OojooTheme.Bg
     ) { p ->
@@ -138,16 +166,22 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
                     OojooChip(vm.type == "share", { vm.selectType("share") }, S.share)
                     OojooChip(vm.type == "sell", { vm.selectType("sell") }, S.sell)
                     OojooChip(vm.type == "buy", { vm.selectType("buy") }, S.buy)
-                    Spacer(Modifier.width(4.dp))
-                    OojooChip(vm.nearMe, { vm.toggleNearMe() }, "📍 ${S.nearMe}")
                 }
             }
-            if (vm.nearMeFail) {
+            item {
+                // 장소 스코프 — 기본은 farmer 위치, master 지역/내 주변은 추가 선택
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OojooChip(vm.scope == CommunityViewModel.SCOPE_FARM, { vm.selectScope(CommunityViewModel.SCOPE_FARM) }, "🚜 ${S.writeLocationFarm}")
+                    OojooChip(vm.scope == CommunityViewModel.SCOPE_MINE, { vm.selectScope(CommunityViewModel.SCOPE_MINE) }, "🏠 ${S.myRegion}")
+                    OojooChip(vm.scope == CommunityViewModel.SCOPE_NEAR, { vm.selectScope(CommunityViewModel.SCOPE_NEAR) }, "📍 ${S.nearMe}")
+                }
+            }
+            if (vm.nearFail) {
                 item { Text("⚠️ ${S.nearMeFail}", color = OojooTheme.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             }
             if (vm.loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) } }
             if (vm.posts.isEmpty() && !vm.loading) {
-                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text(if (vm.nearMe) S.noPostsNearMe else "${Session.region}${S.noPostsSuffix}", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
+                item { Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) { Text(if (vm.scope == CommunityViewModel.SCOPE_NEAR) S.noPostsNearMe else "${vm.scopeTitle(S)}${S.noPostsSuffix}", Modifier.padding(24.dp), color = OojooTheme.Ink) } }
             }
             items(vm.posts) { post ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("community_post/${post.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {

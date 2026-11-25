@@ -339,6 +339,7 @@ class AppStrings internal constructor(private val context: Context) {
     val nearMeScope: String get() = context.getString(R.string.near_me_scope)
     val noPostsNearMe: String get() = context.getString(R.string.no_posts_near_me)
     val nearMeFail: String get() = context.getString(R.string.near_me_fail)
+    val myRegion: String get() = context.getString(R.string.my_region)
     val liveCameraPrefix: String get() = context.getString(R.string.live_camera_prefix)
     val liveCameraSuffix: String get() = context.getString(R.string.live_camera_suffix)
     val statusWaiting: String get() = context.getString(R.string.status_waiting)

@@ -413,11 +413,12 @@
     <string name="write_location_resolving">Getting current location…</string>
     <string name="write_location_fail">Couldn\'t get location — posting under the last selected one</string>
 
-    <!-- Neighbors — nearby search -->
+    <!-- Neighbors — nearby search / location scope -->
     <string name="near_me">Near me</string>
     <string name="near_me_scope">Nearby (5km)</string>
     <string name="no_posts_near_me">No posts nearby (within 5km)</string>
     <string name="near_me_fail">Couldn\'t get your location — check location permission</string>
+    <string name="my_region">My region</string>
 
     <!-- Video diagnosis review -->
     <string name="diagnosis_btn">Video health check</string>
