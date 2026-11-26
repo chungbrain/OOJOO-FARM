@@ -379,6 +379,20 @@
     <string name="growth_clip_need_photos">You need accumulated photos to make a short clip.</string>
     <string name="growth_clip_no_farmer">No Farmer is assigned.</string>
     <string name="growth_clip_ready_label">Growth story</string>
+    <string name="growth_album_count">%1$d photos</string>
+    <string name="growth_album_view_all">View all</string>
+    <string name="growth_album_all_title">All photos</string>
+    <string name="growth_album_play">Play</string>
+    <string name="growth_album_pause">Pause</string>
+    <string name="growth_album_range">%1$s – %2$s · %3$d days of growth</string>
+    <string name="growth_album_dday">Day %1$d</string>
+    <string name="growth_album_prev">Previous photo</string>
+    <string name="growth_album_next">Next photo</string>
+    <string name="growth_album_fullscreen">Full screen</string>
+    <string name="growth_album_zoom_hint">Double-tap or pinch to zoom</string>
+    <string name="growth_album_fmt_day">EEE, MMM d</string>
+    <string name="growth_album_fmt_day_year">EEE, MMM d, yyyy</string>
+    <string name="growth_album_fmt_short">M/d</string>
 
     <!-- Plant RoI (region of interest) -->
     <string name="roi_button">Set region</string>

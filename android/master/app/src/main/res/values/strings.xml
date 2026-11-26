@@ -379,6 +379,20 @@
     <string name="growth_clip_need_photos">누적된 사진이 있어야 숏클립을 만들 수 있어요.</string>
     <string name="growth_clip_no_farmer">담당 Farmer가 없습니다.</string>
     <string name="growth_clip_ready_label">성장 스토리</string>
+    <string name="growth_album_count">%1$d장</string>
+    <string name="growth_album_view_all">전체 보기</string>
+    <string name="growth_album_all_title">전체 사진</string>
+    <string name="growth_album_play">성장 재생</string>
+    <string name="growth_album_pause">멈춤</string>
+    <string name="growth_album_range">%1$s ~ %2$s · %3$d일간의 기록</string>
+    <string name="growth_album_dday">D+%1$d</string>
+    <string name="growth_album_prev">이전 사진</string>
+    <string name="growth_album_next">다음 사진</string>
+    <string name="growth_album_fullscreen">크게 보기</string>
+    <string name="growth_album_zoom_hint">두 번 탭하거나 두 손가락으로 벌리면 확대돼요</string>
+    <string name="growth_album_fmt_day">M월 d일 (E)</string>
+    <string name="growth_album_fmt_day_year">yyyy년 M월 d일 (E)</string>
+    <string name="growth_album_fmt_short">M.d</string>
 
     <!-- Plant RoI (관심영역) -->
     <string name="roi_button">관심영역 설정</string>

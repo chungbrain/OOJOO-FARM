@@ -437,57 +437,23 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
 
             item {
                 val ctx = LocalContext.current
-                Text(stringResource(R.string.growth_album_title), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink)
-                Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.growth_album_hint), color = OojooTheme.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                if (vm.photos.isEmpty()) {
-                    Text(stringResource(R.string.growth_album_empty), color = OojooTheme.Muted, fontSize = 13.sp)
-                } else {
-                    val rows = vm.photos.chunked(3)
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rows.forEach { row ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { photo ->
-                                    Column(Modifier.weight(1f)) {
-                                        AsyncImage(
-                                            model = ApiClient.baseUrl.trimEnd('/') + photo.url,
-                                            contentDescription = photo.taken_at,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(0.75f)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .border(1.5.dp, OojooTheme.Ink, RoundedCornerShape(12.dp))
-                                        )
-                                        Text(
-                                            listOfNotNull(photo.taken_at, photo.location).joinToString(" · "),
-                                            color = OojooTheme.Muted,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 2
-                                        )
-                                    }
-                                }
-                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
+                // 성장 사진첩 — 대표 사진 스와이프 + 썸네일 띠 + 전체 보기/전체 화면 뷰어 (GrowthAlbum.kt)
+                GrowthAlbumCard(photos = vm.photos, plantedAt = vm.plant?.planted_at) {
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // RoI(관심영역) — Farmer 사진 위에 지정, 저장 시 slave가 크롭해 CNN 감시
+                        OutlineButton(
+                            text = stringResource(if (vm.plant?.roi != null) R.string.roi_button_set else R.string.roi_button),
+                            onClick = { nav.navigate("roi_editor/$plantId") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        GradientButton(
+                            text = stringResource(if (vm.clipMaking) R.string.growth_clip_making else R.string.growth_clip_action),
+                            onClick = { vm.requestGrowthClip(ctx) },
+                            enabled = !vm.clipMaking && vm.plant?.slave_id != null,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // RoI(관심영역) — Farmer 사진 위에 지정, 저장 시 slave가 크롭해 CNN 감시
-                    OutlineButton(
-                        text = stringResource(if (vm.plant?.roi != null) R.string.roi_button_set else R.string.roi_button),
-                        onClick = { nav.navigate("roi_editor/$plantId") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    GradientButton(
-                        text = stringResource(if (vm.clipMaking) R.string.growth_clip_making else R.string.growth_clip_action),
-                        onClick = { vm.requestGrowthClip(ctx) },
-                        enabled = !vm.clipMaking && vm.plant?.slave_id != null,
-                        modifier = Modifier.weight(1f)
-                    )
                 }
                 vm.growthClip?.let { clip ->
                     Spacer(Modifier.height(10.dp))
