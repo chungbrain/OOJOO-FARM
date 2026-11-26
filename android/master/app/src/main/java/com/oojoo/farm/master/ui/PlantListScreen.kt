@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,7 @@ import com.oojoo.farm.master.model.UpdatePlantRequest
 import com.oojoo.farm.master.model.AttachVideoRequest
 import com.oojoo.farm.master.model.CommandRequest
 import com.oojoo.farm.master.model.CreatePostRequest
+import com.oojoo.farm.master.model.DetectorModuleInfo
 import com.oojoo.farm.master.network.ApiClient
 import kotlinx.coroutines.launch
 
@@ -55,6 +57,34 @@ class PlantListViewModel : ViewModel() {
     var analyses by mutableStateOf<Map<String, com.oojoo.farm.master.model.AnalysisResponse>>(emptyMap())
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
+    // 온디바이스 검출 모듈 — 카드에서 연 관리 다이얼로그용 (plantId → 목록, 빈 목록 = 불러오기 실패)
+    var detectorModules by mutableStateOf<Map<String, List<DetectorModuleInfo>>>(emptyMap())
+    var detectorBusy by mutableStateOf<String?>(null)
+
+    fun loadDetectors(plantId: String) {
+        viewModelScope.launch {
+            val list = try { api.plantDetectors(plantId).modules } catch (_: Exception) { emptyList() }
+            detectorModules = detectorModules + (plantId to list)
+        }
+    }
+
+    /** 식물 카드에서 모듈 추가/삭제 — 서버가 farmer 에 재동기화 명령을 보내 모델을 받거나 정리한다. */
+    fun toggleDetector(plant: Plant, moduleId: String, enable: Boolean, name: String, ctx: android.content.Context) {
+        if (detectorBusy != null) return
+        detectorBusy = moduleId
+        viewModelScope.launch {
+            try {
+                val r = if (enable) api.addDetector(plant.id, moduleId) else api.removeDetector(plant.id, moduleId)
+                detectorModules = detectorModules + (plant.id to r.modules)
+                val ids = r.modules.filter { it.enabled }.map { it.id }
+                plants = plants.map { if (it.id == plant.id) it.copy(detectors = ids) else it }
+                msg = ctx.getString(if (enable) R.string.detector_added else R.string.detector_removed, name)
+            } catch (e: Exception) {
+                msg = ctx.getString(R.string.detector_toggle_failed, e.message ?: "")
+            }
+            detectorBusy = null
+        }
+    }
 
     fun refresh() {
         loading = true; msg = null
@@ -267,6 +297,7 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
             items(vm.plants, key = { it.id }) { plant ->
                 // 카드 폭이 제한(max 180dp)되므로, 넓은 화면에서는 셀 안에 가운데 정렬
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val ctx = LocalContext.current
                     PlantGridCard(
                         plant = plant,
                         slaves = vm.slaves,
@@ -274,7 +305,11 @@ fun PlantListScreen(nav: NavController, vm: PlantListViewModel = viewModel()) {
                         onClick = { nav.navigate("plant_detail/${plant.id}") },
                         onAssignSlave = { slaveId -> vm.assignSlave(plant, slaveId) },
                         onDelete = { vm.deletePlant(plant) },
-                        onSharePlant = { type, qty, price -> vm.sharePlant(plant, type, qty, price) }
+                        onSharePlant = { type, qty, price -> vm.sharePlant(plant, type, qty, price) },
+                        detectorModules = vm.detectorModules[plant.id],
+                        detectorBusy = vm.detectorBusy,
+                        onOpenDetectors = { vm.loadDetectors(plant.id) },
+                        onToggleDetector = { id, enable, name -> vm.toggleDetector(plant, id, enable, name, ctx) }
                     )
                 }
             }
@@ -301,7 +336,11 @@ private fun PlantGridCard(
     onClick: () -> Unit,
     onAssignSlave: (String?) -> Unit,
     onDelete: () -> Unit,
-    onSharePlant: (type: String, quantity: String, price: String) -> Unit
+    onSharePlant: (type: String, quantity: String, price: String) -> Unit,
+    detectorModules: List<DetectorModuleInfo>? = null,
+    detectorBusy: String? = null,
+    onOpenDetectors: () -> Unit = {},
+    onToggleDetector: (moduleId: String, enable: Boolean, name: String) -> Unit = { _, _, _ -> }
 ) {
     val S = LocalAppStrings.current
     val stageK = mapOf(
@@ -314,6 +353,7 @@ private fun PlantGridCard(
     var showAssignDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var shareType by remember { mutableStateOf<String?>(null) }
+    var showDetectorDialog by remember { mutableStateOf(false) }
 
     Card(
         Modifier
@@ -396,6 +436,26 @@ private fun PlantGridCard(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
+            }
+
+            // 온디바이스 AI 검출 모듈 — 눌러서 추가/삭제 (구버전 서버면 숨김)
+            plant.detectors?.let { ids ->
+                Surface(
+                    shape = OojooTheme.PillShape,
+                    color = OojooTheme.Card,
+                    border = BorderStroke(1.5.dp, OojooTheme.Ink),
+                    modifier = Modifier
+                        .clip(OojooTheme.PillShape)
+                        .clickable { onOpenDetectors(); showDetectorDialog = true }
+                ) {
+                    Text(
+                        stringResource(R.string.detector_pill, ids.size),
+                        Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = OojooTheme.Ink,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
             }
 
             // Farmer 배정 상태 / 건강 상태 표시
@@ -521,6 +581,20 @@ private fun PlantGridCard(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text(S.cancel) }
             }
+        )
+    }
+
+    if (showDetectorDialog) {
+        val en = S.isEnglish
+        val nameOf = { id: String -> detectorModules?.firstOrNull { it.id == id }?.displayName(en) ?: id }
+        DetectorManageDialog(
+            plantName = plant.name,
+            modules = detectorModules,
+            busyId = detectorBusy,
+            hasFarmer = plant.slave_id != null,
+            onAdd = { id -> onToggleDetector(id, true, nameOf(id)) },
+            onRemove = { id -> onToggleDetector(id, false, nameOf(id)) },
+            onDismiss = { showDetectorDialog = false }
         )
     }
 

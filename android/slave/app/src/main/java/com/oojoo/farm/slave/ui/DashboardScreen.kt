@@ -139,11 +139,10 @@ fun DashboardScreen(nav: NavController) {
                                 Text("🌱 ${s.plantName}", Modifier.weight(1f), color = OojooTheme.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Text(s.updatedAt, color = OojooTheme.Muted, fontSize = 11.sp)
                             }
-                            // F1/F2 — 건강등급(5단계) + 해충발생(4단계, 별도 모델) 요약
-                            if (s.healthGradeKo != null) {
+                            // master 가 이 식물에 켠 검출 모듈(건강·해충·관수 …)의 최신 판독 요약
+                            s.moduleSummary?.let { summary ->
                                 Text(
-                                    "① 건강: ${s.healthGradeKo} (${(s.gradeConfidence * 100).toInt()}%)" +
-                                        (s.pestLevelKo?.let { "  ·  🐛 해충: $it" } ?: ""),
+                                    "🧠 $summary",
                                     color = when (s.healthGrade) {
                                         "poor", "very_poor" -> OojooTheme.Red
                                         "fair" -> OojooTheme.Amber

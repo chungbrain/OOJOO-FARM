@@ -9,6 +9,9 @@ import com.oojoo.farm.slave.hardware.Hardware
 import com.oojoo.farm.slave.model.*
 import com.oojoo.farm.slave.network.ApiClient
 import com.oojoo.farm.slave.album.PlantAlbum
+import com.oojoo.farm.slave.detect.DetectorIds
+import com.oojoo.farm.slave.detect.DetectorManager
+import com.oojoo.farm.slave.detect.Triggers
 import com.oojoo.farm.slave.vision.AnalysisResult
 import com.oojoo.farm.slave.vision.CameraHolder
 import com.oojoo.farm.slave.vision.CameraHost
@@ -22,6 +25,7 @@ import com.oojoo.farm.slave.vision.PlantRoi
 import com.oojoo.farm.slave.vision.RoiStore
 import com.oojoo.farm.slave.vision.VideoFrameSampler
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,7 +120,9 @@ object FarmerEngine {
         val gradeConfidence: Double = 0.0,
         val pestLevel: String? = null,
         val pestLevelKo: String? = null,
-        val pestConfidence: Double = 0.0
+        val pestConfidence: Double = 0.0,
+        // 켜진 검출 모듈의 최신 판독 요약 (예: "🌿 건강 · 🐛 해충없음 · 💧 적정 · 주기 ~28h")
+        val moduleSummary: String? = null
     )
 
     private val _roiStatuses = MutableStateFlow<List<RoiStatus>>(emptyList())
@@ -143,6 +149,10 @@ object FarmerEngine {
     )
     private val roiGradeState = mutableMapOf<String, RoiGradeState>()
     private val GRADE_CONFIRM_CYCLES = 2
+
+    // 이벤트 후 재판독 지연 — 해충 퇴치 1분 뒤, 관수 30분 뒤(잎이 회복될 시간)
+    private val PEST_RECHECK_MS = 60_000L
+    private val WATER_RECHECK_MS = 30 * 60_000L
 
     // ROI 모니터링에서 물 필요/해충 감지 시 각 식물 알림 debounce
     private val roiLastNotify = mutableMapOf<String, Long>()
@@ -257,6 +267,7 @@ object FarmerEngine {
                     Hardware.controller.fan(10_000L)
                     addLog("[${now()}] 마스터 지시(SSE): Fan 퇴치")
                     postEventSafe("pest_control", mapOf("response" to "fan_manual"))
+                    requestDetectors(Triggers.PEST_RESPONSE, plantId, setOf(DetectorIds.PEST), PEST_RECHECK_MS)
                     ApiClient.api.commandDone(id)
                 }
                 "laser" -> {
@@ -264,7 +275,18 @@ object FarmerEngine {
                     _pendingLaser.value = false
                     addLog("[${now()}] 마스터 승인(SSE): Laser 퇴치")
                     postEventSafe("pest_control", mapOf("response" to "laser_approved"))
+                    requestDetectors(Triggers.PEST_RESPONSE, plantId, setOf(DetectorIds.PEST), PEST_RECHECK_MS)
                     ApiClient.api.commandDone(id)
+                }
+                "detectors_sync" -> {
+                    addLog("[${now()}] 마스터 변경(SSE): 식물·검출 모듈 재동기화")
+                    refreshPlants(initial = false)
+                    markCommandDone(id)
+                }
+                "run_detectors" -> {
+                    addLog("[${now()}] 마스터 요청(SSE): 검출 모듈 지금 판독")
+                    requestDetectors(Triggers.RUN_NOW, plantId, null)
+                    markCommandDone(id)
                 }
                 "capture_photo" -> {
                     addLog("[${now()}] 마스터 요청(SSE): 즉시 사진 촬영")
@@ -303,6 +325,8 @@ object FarmerEngine {
         // F1/F2 — 건강등급(5단계) + 해충(4단계) 모델 초기화 (OJP1 공유 런타임)
         HealthGradeNet.init(appCtx)
         PestNet.init(appCtx)
+        // 온디바이스 검출 모듈 — 마지막 카탈로그/관수 주기 기록 복원 (모델은 식물 동기화 때 준비)
+        DetectorManager.init(appCtx)
         ApiClient.setBaseUrl(Prefs.serverUrl(appCtx))
         ApiClient.setSessionKey(Prefs.sessionKey(appCtx))
         _autoOn.value = Prefs.autoWater(appCtx)
@@ -336,8 +360,11 @@ object FarmerEngine {
                 if (_autoOn.value) tick()
                 maybeCaptureGrowthPhoto()
                 ensureCamera()
-                // 5분마다 원격 정책 재동기화 (ROI 진단 주기 등 즉시 반영)
-                if (++tickCount % 10 == 0) syncPolicy()
+                // 5분마다 원격 정책 + 식물(RoI·검출 모듈) 재동기화
+                if (++tickCount % 10 == 0) {
+                    syncPolicy()
+                    refreshPlants(initial = false)
+                }
                 delay(30_000L)
             }
         })
@@ -461,21 +488,40 @@ object FarmerEngine {
     }
 
     private fun loadPlant() {
-        scope.launch {
-            try {
-                val resp = ApiClient.api.slavePlants(slaveId())
-                _plants.value = resp.plants
-                _plant.value = resp.plants.firstOrNull()
-                syncRoisFromMaster(resp.plants)
-                val chosen = _plant.value
-                PlantHealthNet.setSpecies(chosen?.species ?: chosen?.name)
-                chosen?.let {
-                    val mid = PlantHealthNet.speciesId
-                    addLog("[${now()}] 식물 연결: ${it.name} (${resp.plants.size}그루) 모델:${mid ?: "heuristic"}")
-                }
-            } catch (e: Exception) {
-                addLog("[${now()}] 식물 조회 실패: ${e.message}")
+        scope.launch { refreshPlants(initial = true) }
+    }
+
+    /**
+     * 식물 목록 재조회 → RoI 동기화 → 검출 모듈 동기화(모델 다운로드/정리).
+     * 시작 시, 5분마다(10틱), 서버의 detectors_sync 명령(모듈 추가·삭제, RoI·배정·종 변경) 때 호출.
+     * 오프라인이면 마지막으로 받은 식물 목록(없으면 로컬 RoI)으로 모듈을 준비해 판독을 이어간다.
+     */
+    private suspend fun refreshPlants(initial: Boolean) {
+        var plants: List<Plant>? = null
+        try {
+            val resp = ApiClient.api.slavePlants(slaveId())
+            plants = resp.plants
+            val prevFirst = _plant.value?.id
+            _plants.value = resp.plants
+            _plant.value = resp.plants.firstOrNull()
+            syncRoisFromMaster(resp.plants)
+            val chosen = _plant.value
+            PlantHealthNet.setSpecies(chosen?.species ?: chosen?.name)
+            if (initial || chosen?.id != prevFirst) chosen?.let {
+                val mid = PlantHealthNet.speciesId
+                addLog("[${now()}] 식물 연결: ${it.name} (${resp.plants.size}그루) 모델:${mid ?: "heuristic"}")
             }
+        } catch (e: Exception) {
+            if (initial) addLog("[${now()}] 식물 조회 실패: ${e.message}")
+        }
+        try {
+            val rois = RoiStore.list(appCtx)
+            val list = plants ?: DetectorManager.cachedPlants()
+                ?: rois.map { Plant(id = it.plantId, name = it.plantName, species = it.species) }
+            DetectorManager.sync(slaveId(), list, rois.map { it.plantId }.toSet(), cache = plants != null)
+                ?.let { addLog("[${now()}] 🧠 검출 모듈: $it") }
+        } catch (e: Exception) {
+            addLog("[${now()}] 검출 모듈 동기화 실패: ${e.message}")
         }
     }
 
@@ -553,7 +599,9 @@ object FarmerEngine {
         _status.value = "관찰 중…"
         val result = _lastAnalysis.value
         if (result != null) {
-            if (result.needWater && _autoOn.value) {
+            // 전체 화면 판정에 따른 자동 관수/해충 대응은 master 가 어떤 식물에든 해당 검출 모듈을
+            // 켜 두었을 때만 — 모든 식물에서 모듈을 삭제했으면 그 판정으로 움직이지 않는다
+            if (result.needWater && _autoOn.value && DetectorManager.anyEnabled(DetectorIds.WATERING)) {
                 // 히스테리시스(상승 엣지) + 쿨다운: 같은 needWater 가 지속되는 동안
                 // 또는 직전 관수 직후에는 재관수하지 않는다.
                 val nowMs = System.currentTimeMillis()
@@ -586,7 +634,7 @@ object FarmerEngine {
             }
             // 해충 감지 주기 — 원격 정책 pest_interval(5~120분, 기본 15분) 을 따른다.
             val pestCooldownMs = Prefs.pestIntervalMinutes(appCtx) * 60L * 1000L
-            if (result.pestSuspected && nowMs - lastPestNotify > pestCooldownMs) {
+            if (result.pestSuspected && nowMs - lastPestNotify > pestCooldownMs && DetectorManager.anyEnabled(DetectorIds.PEST)) {
                 lastPestNotify = nowMs
                 handlePest()
             }
@@ -595,6 +643,8 @@ object FarmerEngine {
 
     // 해충 대응: Fan 자동(정책) / Laser 는 승인 필요 시 대기, 아니면 자율 실행
     private fun handlePest() {
+        // 퇴치 후 해충 모듈 재확인 (1분 뒤)
+        requestDetectors(Triggers.PEST_RESPONSE, null, setOf(DetectorIds.PEST), PEST_RECHECK_MS)
         if (_fanAuto.value) {
             Hardware.controller.fan(10_000L)
             addLog("[${now()}] 🐛 해충 감지 → Fan 자동 퇴치(10초)")
@@ -667,6 +717,7 @@ object FarmerEngine {
                         Hardware.controller.fan(10_000L)
                         addLog("[${now()}] 마스터 지시: Fan 퇴치 실행")
                         postEventSafe("pest_control", mapOf("response" to "fan_manual"))
+                        requestDetectors(Triggers.PEST_RESPONSE, cmd.plant_id, setOf(DetectorIds.PEST), PEST_RECHECK_MS)
                         ApiClient.api.commandDone(cmd.id)
                     }
                     "laser" -> {
@@ -674,7 +725,18 @@ object FarmerEngine {
                         _pendingLaser.value = false
                         addLog("[${now()}] 마스터 승인: Laser 퇴치 실행")
                         postEventSafe("pest_control", mapOf("response" to "laser_approved"))
+                        requestDetectors(Triggers.PEST_RESPONSE, cmd.plant_id, setOf(DetectorIds.PEST), PEST_RECHECK_MS)
                         ApiClient.api.commandDone(cmd.id)
+                    }
+                    "detectors_sync" -> {
+                        addLog("[${now()}] 마스터 변경: 식물·검출 모듈 재동기화")
+                        refreshPlants(initial = false)
+                        markCommandDone(cmd.id)
+                    }
+                    "run_detectors" -> {
+                        addLog("[${now()}] 마스터 요청: 검출 모듈 지금 판독")
+                        requestDetectors(Triggers.RUN_NOW, cmd.plant_id, null)
+                        markCommandDone(cmd.id)
                     }
                     "capture_photo" -> {
                         addLog("[${now()}] 마스터 요청: 즉시 사진 촬영")
@@ -745,6 +807,12 @@ object FarmerEngine {
             addLog("[${_lastWater.value}] $source 관수 ${amount}ml (날씨가중치:${"%.2f".format(factor)})")
             // 백엔드 보고 (오프라인이면 큐에 적재 후 재연결 시 동기화)
             wateringLogSafe(pid, amount, source, factor)
+            // 관수 주기 기록 + 관수 이벤트 판독 (즉시 1회 + 30분 뒤 회복 확인)
+            if (pid != null) {
+                DetectorManager.onWatered(pid)
+                requestDetectors(Triggers.WATERED, pid, setOf(DetectorIds.WATERING, DetectorIds.HEALTH))
+                requestDetectors(Triggers.WATERED_FOLLOWUP, pid, setOf(DetectorIds.WATERING), WATER_RECHECK_MS)
+            }
             postEventSafe(
                 if (source == "auto") "auto_water" else "manual_water",
                 mapOf("amount" to "$amount", "weatherFactor" to "%.2f".format(factor), "confidence" to "%.2f".format(confidence)),
@@ -830,171 +898,282 @@ object FarmerEngine {
 
     private var lastPhotoAttempt = 0L
 
-    /** ROI 편집 화면에서 저장 후 호출 — 즉시 재로드. */
+    // ---------- ROI 판독 루프 (주기 + 이벤트) ----------
+    // 주기: 원격 정책 roi_interval 마다 모든 ROI × 켜진 검출 모듈.
+    // 이벤트: 모듈 추가·master '지금 판독'·관수·해충 퇴치·건강 악화 시 해당 식물/모듈만 즉시(또는 지연) 판독.
+    private val roiWake = Channel<Unit>(Channel.CONFLATED)
+    private val roiMutex = Mutex()
+    @Volatile private var lastPeriodicAt = 0L
+
+    /** ROI 편집 화면에서 저장 후 / 마스터 RoI 동기화 후 호출 — 다음 회차를 주기 회차로 즉시 실행. */
     fun onRoisChanged() {
-        scope.launch { runRoiMonitoring() }
+        lastPeriodicAt = 0L
+        roiWake.trySend(Unit)
+    }
+
+    /** 검출 모듈 판독 요청 (이벤트 계기). plantId=null → 모든 식물, modules=null → 켜진 모듈 전부. */
+    private fun requestDetectors(trigger: String, plantId: String?, modules: Set<String>?, delayMs: Long = 0L) {
+        DetectorManager.request(trigger, plantId, modules, delayMs)
+        roiWake.trySend(Unit)
     }
 
     /**
      * ROI 기반 다중 식물 모니터링 루프.
-     * 설정된 각 ROI를 프레임에서 잘라 해당 식물의 모델로 주기적으로 진단한다.
+     * 다음 주기와 가장 이른 이벤트 요청 중 먼저 오는 시각까지 기다렸다가(또는 즉시 깨워져) 판독한다.
      * 주기는 원격 정책(roi_interval)에서 동적으로 변경 가능하다.
-     * ROI가 없으면 기존 단일 식물 흐름(_lastAnalysis)을 그대로 사용한다.
      */
     private suspend fun roiMonitorLoop() {
+        lastPeriodicAt = System.currentTimeMillis()
         while (coroutineContext.isActive) {
-            delay(_roiIntervalSec.value * 1000L)
+            val periodMs = _roiIntervalSec.value * 1000L
+            val wait = DetectorManager.planner.waitMs(System.currentTimeMillis(), lastPeriodicAt, periodMs)
+            if (wait > 0) withTimeoutOrNull(wait) { roiWake.receive() }
+            val nowMs = System.currentTimeMillis()
+            val periodic = nowMs - lastPeriodicAt >= periodMs - 500
+            if (periodic) lastPeriodicAt = nowMs
             try {
-                runRoiMonitoring()
-            } catch (_: Exception) {}
+                runRoiMonitoring(periodic)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "roi monitoring failed: ${e.message}")
+            }
         }
     }
 
-    private suspend fun runRoiMonitoring() {
-        val rois = RoiStore.list(appCtx)
+    private suspend fun runRoiMonitoring(periodic: Boolean) = roiMutex.withLock {
+        val rois = RoiStore.list(appCtx).filter { it.isValid() }
+        val roiIds = rois.map { it.plantId }.toSet()
+        // 계획은 항상 먼저 계산(기한 지난 요청 소모) — ROI 없는 식물의 요청이 남아 루프가 헛돌지 않게
+        val plan = DetectorManager.planner.plan(
+            System.currentTimeMillis(),
+            DetectorManager.enabledSnapshot().filterKeys { it in roiIds },
+            periodic
+        )
         if (rois.isEmpty()) {
             if (_roiStatuses.value.isNotEmpty()) _roiStatuses.value = emptyList()
-            return
+            return@withLock
         }
-        if (!awaitCameraReady(1500)) return
+        if (!periodic && plan.isEmpty()) return@withLock
+        if (!awaitCameraReady(1500)) {
+            DetectorManager.planner.requeue(plan, System.currentTimeMillis() + 30_000L)
+            return@withLock
+        }
 
-        val bitmap = suspendCancellableCoroutine<android.graphics.Bitmap?> { cont ->
+        val bitmap = suspendCancellableCoroutine<Bitmap?> { cont ->
             CameraHolder.captureFrame { b -> if (cont.isActive) cont.resume(b) }
-        } ?: return
+        }
+        if (bitmap == null) {
+            DetectorManager.planner.requeue(plan, System.currentTimeMillis() + 30_000L)
+            return@withLock
+        }
 
         try {
-            val newStatuses = mutableListOf<RoiStatus>()
+            val prevStatuses = _roiStatuses.value.associateBy { it.plantId }
+            val statuses = mutableListOf<RoiStatus>()
             val nowMs = System.currentTimeMillis()
             for (roi in rois) {
-                if (!roi.isValid()) continue
-                val result = PlantAnalyzer.analyzeRoi(bitmap, roi)
-                val status = RoiStatus(
-                    plantId = roi.plantId,
-                    plantName = roi.plantName,
-                    healthStatus = result.healthStatus,
-                    greenness = result.greenness,
-                    needWater = result.needWater,
-                    pestSuspected = result.pestSuspected,
-                    modelId = result.modelId,
-                    updatedAt = now(),
-                    // F1/F2 — 등급(5단계) + 해충(4단계, 별도 모델)
-                    healthGrade = result.healthGrade,
-                    healthGradeKo = result.healthGradeKo,
-                    gradeConfidence = result.gradeConfidence,
-                    pestLevel = result.pestLevel,
-                    pestLevelKo = result.pestLevelKo,
-                    pestConfidence = result.pestConfidence
-                )
-                newStatuses += status
-
-                // 마스터 표시용: 식물별 진단 결과를 백엔드에 업로드 (5분 스로틀, 이상 시 즉시)
-                val lastUp = roiLastUpload[roi.plantId] ?: 0L
-                val pestNow = result.pestSuspected ||
-                    (result.pestLevel != null && result.pestLevel != "none")
-                val abnormal = result.needWater || pestNow ||
-                    (result.healthGrade == "poor" || result.healthGrade == "very_poor")
-                if (nowMs - lastUp > ROI_UPLOAD_THROTTLE || (abnormal && nowMs - lastUp > 60_000L)) {
-                    roiLastUpload[roi.plantId] = nowMs
-                    try {
-                        ApiClient.api.reportAnalysis(
-                            AnalysisReportRequest(
-                                slaveId = slaveId(),
-                                plantId = roi.plantId,
-                                analysis = AnalysisPayload(
-                                    greenness = result.greenness,
-                                    brightness = result.brightness,
-                                    healthStatus = result.healthStatus,
-                                    needWater = result.needWater,
-                                    confidence = result.confidence,
-                                    fruitRipeness = result.fruitRipeness,
-                                    pestSuspected = result.pestSuspected,
-                                    modelId = result.modelId,
-                                    // F1/F2 — 등급 + 해충 (별도 모델 결과)
-                                    healthGrade = result.healthGrade,
-                                    healthGradeKo = result.healthGradeKo,
-                                    gradeConfidence = result.gradeConfidence,
-                                    pestLevel = result.pestLevel,
-                                    pestLevelKo = result.pestLevelKo,
-                                    pestConfidence = result.pestConfidence,
-                                    pestModelId = result.pestModelId
-                                )
-                            )
-                        )
-                    } catch (_: Exception) { /* 오프라인이면 다음 주기에 재시도 */ }
+                val triggers = plan[roi.plantId].orEmpty()
+                if (!periodic && triggers.isEmpty()) {
+                    // 이벤트 회차는 요청된 식물만 판독 — 나머지는 직전 상태 유지
+                    prevStatuses[roi.plantId]?.let { statuses += it }
+                    continue
                 }
-
-                // F3 — 건강등급/해충 전이 감지 (연속 관측 확정) → health_change 마스터 알림.
-                // 등급과 해충 상태가 모두 판정된 경우에만 추적한다.
-                val gradeNow = result.healthGrade
-                val pestNowLevel = result.pestLevel
-                if (gradeNow != null && pestNowLevel != null) {
-                    val st = roiGradeState[roi.plantId]
-                    when {
-                        st == null -> roiGradeState[roi.plantId] = RoiGradeState(gradeNow, pestNowLevel)
-                        st.grade == gradeNow && st.pestLevel == pestNowLevel -> {
-                            st.pendingGrade = null; st.pendingPestLevel = null; st.pendingCount = 0
-                        }
-                        else -> {
-                            if (st.pendingGrade == gradeNow && st.pendingPestLevel == pestNowLevel) st.pendingCount++
-                            else { st.pendingGrade = gradeNow; st.pendingPestLevel = pestNowLevel; st.pendingCount = 1 }
-                            if (st.pendingCount >= GRADE_CONFIRM_CYCLES) {
-                                val pestChanged = st.pestLevel != pestNowLevel
-                                val payload = mutableMapOf(
-                                    "from" to st.grade, "to" to gradeNow,
-                                    "fromKo" to HealthGradeNet.labelKo(st.grade),
-                                    "toKo" to (result.healthGradeKo ?: HealthGradeNet.labelKo(gradeNow)),
-                                    "confidence" to "%.2f".format(result.gradeConfidence),
-                                    "modelId" to HealthGradeNet.MODEL_ID,
-                                    "greenness" to "%.2f".format(result.greenness)
-                                )
-                                if (pestChanged) {
-                                    payload["pestFrom"] = st.pestLevel
-                                    payload["pestTo"] = pestNowLevel
-                                    payload["pestLevelKo"] = (result.pestLevelKo ?: PestNet.labelKo(pestNowLevel))
-                                    payload["pestConfidence"] = "%.2f".format(result.pestConfidence)
-                                    payload["pestModelId"] = PestNet.MODEL_ID
-                                }
-                                addLog("[${now()}] ROI 전이 [${roi.plantName}]: ${payload["fromKo"]} → ${payload["toKo"]}" +
-                                    (if (pestChanged) " (해충: ${payload["pestLevelKo"]})" else ""))
-                                postEventSafe("health_change", payload, roi.plantId)
-                                st.grade = gradeNow; st.pestLevel = pestNowLevel
-                                st.pendingGrade = null; st.pendingPestLevel = null; st.pendingCount = 0
-                            }
-                        }
-                    }
+                val crop = PlantAnalyzer.cropRoi(bitmap, roi)
+                val base: AnalysisResult
+                val fresh: Map<String, DetectorManager.Output>
+                try {
+                    base = PlantAnalyzer.analyzeCrop(crop, roi)
+                    fresh = DetectorManager.run(roi.plantId, triggers, crop, base.needWater, nowMs)
+                } finally {
+                    crop.recycle()
                 }
-
-                // ROI별 이벤트 알림 (식물당 15분 debounce)
-                val lastN = roiLastNotify[roi.plantId] ?: 0L
-                if (nowMs - lastN > 15 * 60 * 1000L) {
-                    if (result.needWater) {
-                        roiLastNotify[roi.plantId] = nowMs
-                        addLog("[${now()}] ROI 진단 [${roi.plantName}]: ${result.healthStatus} → 물 부족")
-                        postEventSafe("water_low", mapOf("health" to result.healthStatus), roi.plantId)
-                        // 식물별 자동 관수 — 물이 필요한 해당 식물을 관수하고 그 식물에 귀속시킨다.
-                        // (단일 밸브이므로 전역 쿨다운으로 범람 방지 — AUTO_WATER_COOLDOWN 당 최대 1회)
-                        if (_autoOn.value && nowMs - lastAutoWaterMs >= AUTO_WATER_COOLDOWN) {
-                            lastAutoWaterMs = nowMs
-                            val ok = attemptWater("auto", result.confidence, null, roi.plantId)
-                            addLog("[${now()}] ROI 자동 관수 [${roi.plantName}]: ${if (ok) "완료" else "실패(하드웨어)"}")
-                        }
-                    }
-                    if (pestNow) {
-                        roiLastNotify[roi.plantId] = nowMs
-                        addLog("[${now()}] ROI 진단 [${roi.plantName}]: 해충 의심 (${result.pestLevelKo ?: "감지"})")
-                        postEventSafe(
-                            "pest_detected",
-                            mapOf("health" to result.healthStatus) +
-                                (result.pestLevelKo?.let { mapOf("pestLevelKo" to it) } ?: emptyMap()),
-                            roi.plantId
-                        )
-                    }
-                }
+                statuses += handleRoiResult(roi, base, fresh, triggers, periodic, nowMs)
             }
-            _roiStatuses.value = newStatuses
+            _roiStatuses.value = statuses
         } finally {
             bitmap.recycle()
         }
+    }
+
+    /**
+     * ROI 하나의 판독 결과 처리 — 상태 표시·분석 업로드·건강 전이 알림·물/해충 이벤트·모듈 결과 보고.
+     * 건강등급/해충/관수 판단은 master 가 이 식물에 켠 모듈의 결과만 쓴다(꺼진 모듈은 알림도 없음).
+     */
+    private suspend fun handleRoiResult(
+        roi: PlantRoi,
+        base: AnalysisResult,
+        fresh: Map<String, DetectorManager.Output>,
+        triggers: Map<String, String>,
+        periodic: Boolean,
+        nowMs: Long
+    ): RoiStatus {
+        val pid = roi.plantId
+        val on = DetectorManager.enabledFor(pid)
+        val latest = DetectorManager.latestFor(pid)
+        val grade = latest[DetectorIds.HEALTH]
+        val pest = latest[DetectorIds.PEST]
+        val water = latest[DetectorIds.WATERING]
+        val wateringOn = DetectorIds.WATERING in on
+        val pestOn = DetectorIds.PEST in on
+        val pestNow = pestOn && (base.pestSuspected || (pest != null && pest.label != "none"))
+        val result = base.copy(
+            needWater = wateringOn && water?.label == "dry",
+            pestSuspected = pestNow,
+            healthGrade = grade?.label,
+            healthGradeKo = grade?.labelKo,
+            gradeConfidence = grade?.confidence ?: 0.0,
+            pestLevel = pest?.label,
+            pestLevelKo = pest?.labelKo,
+            pestConfidence = pest?.confidence ?: 0.0,
+            pestModelId = pest?.let { DetectorIds.PEST }
+        )
+        val status = RoiStatus(
+            plantId = pid,
+            plantName = roi.plantName,
+            healthStatus = result.healthStatus,
+            greenness = result.greenness,
+            needWater = result.needWater,
+            pestSuspected = result.pestSuspected,
+            modelId = result.modelId,
+            updatedAt = now(),
+            healthGrade = result.healthGrade,
+            healthGradeKo = result.healthGradeKo,
+            gradeConfidence = result.gradeConfidence,
+            pestLevel = result.pestLevel,
+            pestLevelKo = result.pestLevelKo,
+            pestConfidence = result.pestConfidence,
+            moduleSummary = moduleSummary(pid, latest)
+        )
+
+        // 마스터 표시용: 식물별 진단 결과를 백엔드에 업로드 (5분 스로틀, 이상 시 즉시)
+        val lastUp = roiLastUpload[pid] ?: 0L
+        val abnormal = result.needWater || pestNow ||
+            (result.healthGrade == "poor" || result.healthGrade == "very_poor")
+        if (nowMs - lastUp > ROI_UPLOAD_THROTTLE || (abnormal && nowMs - lastUp > 60_000L)) {
+            roiLastUpload[pid] = nowMs
+            try {
+                ApiClient.api.reportAnalysis(
+                    AnalysisReportRequest(
+                        slaveId = slaveId(),
+                        plantId = pid,
+                        analysis = AnalysisPayload(
+                            greenness = result.greenness,
+                            brightness = result.brightness,
+                            healthStatus = result.healthStatus,
+                            needWater = result.needWater,
+                            confidence = result.confidence,
+                            fruitRipeness = result.fruitRipeness,
+                            pestSuspected = result.pestSuspected,
+                            modelId = result.modelId,
+                            healthGrade = result.healthGrade,
+                            healthGradeKo = result.healthGradeKo,
+                            gradeConfidence = result.gradeConfidence,
+                            pestLevel = result.pestLevel,
+                            pestLevelKo = result.pestLevelKo,
+                            pestConfidence = result.pestConfidence,
+                            pestModelId = result.pestModelId
+                        )
+                    )
+                )
+            } catch (_: Exception) { /* 오프라인이면 다음 주기에 재시도 */ }
+        }
+
+        // F3 — 건강등급/해충 전이 감지 (연속 관측 확정) → health_change 마스터 알림.
+        // 건강상태 판별 모듈이 이번 회차에 판독했을 때만 추적한다. 해충 모듈이 꺼져 있으면 해충 상태는 유지로 본다.
+        fresh[DetectorIds.HEALTH]?.let { g -> trackGradeTransition(roi, g, fresh[DetectorIds.PEST] ?: pest, result) }
+
+        // 모듈별 이벤트 알림 (식물당 15분 debounce) — 이번 회차에 판독한 모듈만
+        val lastN = roiLastNotify[pid] ?: 0L
+        if (nowMs - lastN > 15 * 60 * 1000L) {
+            val freshWater = fresh[DetectorIds.WATERING]
+            if (freshWater?.label == "dry") {
+                roiLastNotify[pid] = nowMs
+                addLog("[${now()}] 💧 관수 모듈 [${roi.plantName}]: 물 부족")
+                postEventSafe("water_low", mapOf("health" to result.healthStatus, "modelId" to DetectorIds.WATERING), pid)
+                // 식물별 자동 관수 — 물이 필요한 해당 식물을 관수하고 그 식물에 귀속시킨다.
+                // (단일 밸브이므로 전역 쿨다운으로 범람 방지 — AUTO_WATER_COOLDOWN 당 최대 1회)
+                if (_autoOn.value && nowMs - lastAutoWaterMs >= AUTO_WATER_COOLDOWN) {
+                    lastAutoWaterMs = nowMs
+                    val ok = attemptWater("auto", freshWater.confidence, null, pid)
+                    addLog("[${now()}] ROI 자동 관수 [${roi.plantName}]: ${if (ok) "완료" else "실패(하드웨어)"}")
+                }
+            }
+            val freshPest = fresh[DetectorIds.PEST]
+            val pestFresh = pestOn && ((freshPest != null && freshPest.label != "none") || (periodic && base.pestSuspected))
+            if (pestFresh) {
+                roiLastNotify[pid] = nowMs
+                addLog("[${now()}] 🐛 해충 모듈 [${roi.plantName}]: 해충 의심 (${result.pestLevelKo ?: "감지"})")
+                postEventSafe(
+                    "pest_detected",
+                    mapOf("health" to result.healthStatus) +
+                        (result.pestLevelKo?.let { mapOf("pestLevelKo" to it) } ?: emptyMap()),
+                    pid
+                )
+            }
+        }
+
+        // 모듈 판독 결과 → master (라벨 변화·이벤트 계기면 즉시, 같으면 5분에 1회)
+        DetectorManager.report(slaveId(), pid, fresh, triggers)
+        return status
+    }
+
+    private fun trackGradeTransition(roi: PlantRoi, g: DetectorManager.Output, pest: DetectorManager.Output?, result: AnalysisResult) {
+        val gradeNow = g.label
+        val st = roiGradeState[roi.plantId]
+        val pestNowLevel = pest?.label ?: st?.pestLevel ?: "none"
+        when {
+            st == null -> roiGradeState[roi.plantId] = RoiGradeState(gradeNow, pestNowLevel)
+            st.grade == gradeNow && st.pestLevel == pestNowLevel -> {
+                st.pendingGrade = null; st.pendingPestLevel = null; st.pendingCount = 0
+            }
+            else -> {
+                if (st.pendingGrade == gradeNow && st.pendingPestLevel == pestNowLevel) st.pendingCount++
+                else { st.pendingGrade = gradeNow; st.pendingPestLevel = pestNowLevel; st.pendingCount = 1 }
+                if (st.pendingCount >= GRADE_CONFIRM_CYCLES) {
+                    val pestChanged = st.pestLevel != pestNowLevel
+                    val payload = mutableMapOf(
+                        "from" to st.grade, "to" to gradeNow,
+                        "fromKo" to HealthGradeNet.labelKo(st.grade),
+                        "toKo" to g.labelKo,
+                        "confidence" to "%.2f".format(g.confidence),
+                        "modelId" to DetectorIds.HEALTH,
+                        "greenness" to "%.2f".format(result.greenness)
+                    )
+                    if (pestChanged && pest != null) {
+                        payload["pestFrom"] = st.pestLevel
+                        payload["pestTo"] = pestNowLevel
+                        payload["pestLevelKo"] = pest.labelKo
+                        payload["pestConfidence"] = "%.2f".format(pest.confidence)
+                        payload["pestModelId"] = DetectorIds.PEST
+                    }
+                    addLog("[${now()}] ROI 전이 [${roi.plantName}]: ${payload["fromKo"]} → ${payload["toKo"]}" +
+                        (if (pestChanged && pest != null) " (해충: ${payload["pestLevelKo"]})" else ""))
+                    postEventSafe("health_change", payload, roi.plantId)
+                    // 등급이 나빠졌으면 원인 확인 — 해충·관수 모듈을 바로 판독
+                    val order = HealthGradeNet.LABELS
+                    if (order.indexOf(gradeNow) > order.indexOf(st.grade)) {
+                        requestDetectors(Triggers.HEALTH_DROP, roi.plantId, setOf(DetectorIds.PEST, DetectorIds.WATERING))
+                    }
+                    st.grade = gradeNow; st.pestLevel = pestNowLevel
+                    st.pendingGrade = null; st.pendingPestLevel = null; st.pendingCount = 0
+                }
+            }
+        }
+    }
+
+    /** 농부 대시보드용 한 줄 요약 — 켜진 모듈의 최신 판독 (+ 관수 주기). */
+    private fun moduleSummary(pid: String, latest: Map<String, DetectorManager.Output>): String? {
+        val on = DetectorManager.enabledFor(pid)
+        val parts = on.mapNotNull { m ->
+            val icon = DetectorManager.moduleOf(m)?.icon ?: return@mapNotNull null
+            latest[m]?.let { "$icon ${it.labelKo}" } ?: "$icon …"
+        }.toMutableList()
+        if (parts.isEmpty()) return null
+        if (DetectorIds.WATERING in on) {
+            DetectorManager.waterSnapshot(pid)?.avgDryHours?.let { parts += "주기 ~${"%.0f".format(it)}h" }
+        }
+        return parts.joinToString(" · ")
     }
 
     /** 카메라 준비 대기 (바인딩 진행 중일 수 있어 잠깐 재시도). */

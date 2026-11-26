@@ -80,6 +80,16 @@ interface ApiService {
     @POST("api/commands")
     suspend fun sendCommand(@Body body: CommandRequest): CommandResponse
 
+    // 온디바이스 검출 모듈 — 식물별 목록(켜짐·준비 상태·최신 결과) / 추가 / 삭제
+    @GET("api/detectors/plant/{plantId}")
+    suspend fun plantDetectors(@Path("plantId") plantId: String): PlantDetectorsResponse
+
+    @POST("api/detectors/plant/{plantId}/{moduleId}")
+    suspend fun addDetector(@Path("plantId") plantId: String, @Path("moduleId") moduleId: String): PlantDetectorsResponse
+
+    @DELETE("api/detectors/plant/{plantId}/{moduleId}")
+    suspend fun removeDetector(@Path("plantId") plantId: String, @Path("moduleId") moduleId: String): PlantDetectorsResponse
+
     @GET("api/commands/history/{slaveId}")
     suspend fun commandHistory(@Path("slaveId") slaveId: String): CommandsResponse
 

@@ -174,55 +174,31 @@ object PlantAnalyzer {
         )
     }
 
-    /**
-     * ROI 단위 분석 — 전체 프레임 bitmap에서 roi 영역만 잘라 진단한다.
-     * roi에 지정된 식물의 모델이 있으면 그 모델로 CNN 추론하고,
-     * 없으면 휴리스틱(색 통계)으로 판정한다.
-     * 함께 F1(건강등급 5단계, HealthGradeNet)과 F2(해충발생 4단계, PestNet —
-     * 건강진단과 별도 모델)를 같은 crop 으로 추론해 결과에 병합한다.
-     */
-    fun analyzeRoi(bitmap: Bitmap, roi: PlantRoi): AnalysisResult {
+    /** 프레임에서 ROI(정규화 좌표) 영역을 잘라낸다 — 호출자가 recycle 한다. */
+    fun cropRoi(bitmap: Bitmap, roi: PlantRoi): Bitmap {
         val bw = bitmap.width
         val bh = bitmap.height
         val left = (roi.x * bw).toInt().coerceIn(0, bw - 2)
         val top = (roi.y * bh).toInt().coerceIn(0, bh - 2)
         val width = (roi.w * bw).toInt().coerceIn(2, bw - left)
         val height = (roi.h * bh).toInt().coerceIn(2, bh - top)
+        return Bitmap.createBitmap(bitmap, left, top, width, height)
+    }
 
-        val crop = Bitmap.createBitmap(bitmap, left, top, width, height)
-        val result = try {
-            val heuristic = analyzeBitmap(crop)
-            val modelId = PlantHealthNet.modelIdFor(roi.species ?: roi.plantName)
-            val dl = modelId?.let { PlantHealthNet.diagnoseWithModel(it, crop) }
-            val base = if (dl != null) {
-                AnalysisResult(
-                    heuristic.greenness, heuristic.brightness,
-                    "${dl.labelKo} (${(dl.confidence * 100).toInt()}%)",
-                    dl.needWater, dl.confidence, heuristic.fruitRipeness,
-                    dl.pestSuspected, dl.condition, dl.modelId
-                )
-            } else {
-                heuristic
-            }
-            // F1/F2 — 등급(5단계) + 해충(4단계) 별도 모델 추론 (동일 crop 재사용)
-            val grade = HealthGradeNet.infer(crop)
-            val pest = PestNet.infer(crop)
-            if (grade == null && pest == null) {
-                base
-            } else {
-                base.copy(
-                    healthGrade = grade?.grade,
-                    healthGradeKo = grade?.gradeKo,
-                    gradeConfidence = grade?.confidence ?: 0.0,
-                    pestLevel = pest?.level,
-                    pestLevelKo = pest?.levelKo,
-                    pestConfidence = pest?.confidence ?: 0.0,
-                    pestModelId = pest?.modelId
-                )
-            }
-        } finally {
-            crop.recycle()
-        }
-        return result
+    /**
+     * ROI 크롭 기본 분석 — roi 에 지정된 식물의 종별 모델이 있으면 CNN(원인 진단),
+     * 없으면 휴리스틱(색 통계)으로 판정한다.
+     * 건강등급·해충·관수 판독은 master 가 켠 검출 모듈(detect/DetectorManager)이 같은 크롭으로 따로 한다.
+     */
+    fun analyzeCrop(crop: Bitmap, roi: PlantRoi): AnalysisResult {
+        val heuristic = analyzeBitmap(crop)
+        val modelId = PlantHealthNet.modelIdFor(roi.species ?: roi.plantName)
+        val dl = modelId?.let { PlantHealthNet.diagnoseWithModel(it, crop) } ?: return heuristic
+        return AnalysisResult(
+            heuristic.greenness, heuristic.brightness,
+            "${dl.labelKo} (${(dl.confidence * 100).toInt()}%)",
+            dl.needWater, dl.confidence, heuristic.fruitRipeness,
+            dl.pestSuspected, dl.condition, dl.modelId
+        )
     }
 }

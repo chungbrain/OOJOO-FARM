@@ -1,6 +1,7 @@
 package com.oojoo.farm.slave.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class PairingVerifyRequest(val code: String, val name: String? = null)
@@ -66,7 +67,9 @@ data class Plant(
     val planted_at: String? = null,
     val stage: String? = null,
     /** 마스터가 farmer 사진 위에 설정한 관심영역 — 정규화 {x,y,w,h} 0..1 */
-    val roi: RoiBox? = null
+    val roi: RoiBox? = null,
+    /** 마스터가 이 식물에 켠 온디바이스 검출 모듈 id. null = 구버전 서버(기본 세트로 동작) */
+    val detectors: List<String>? = null
 )
 @Serializable
 data class PlantsResponse(val plants: List<Plant>)
@@ -176,3 +179,77 @@ data class AnalysisReportResponse(val analysisId: String)
 
 @Serializable
 data class DiagnosisSessionResponse(val sessionId: String)
+
+// ---------- 온디바이스 검출 모듈 (GET /api/detectors) ----------
+
+/** 모델 파일 참조 — url 은 서버 상대경로, sha256 으로 무결성 검증. url/sha 가 비면 앱 내장(assets) 모델. */
+@Serializable
+data class ModelRef(
+    val file: String,
+    val url: String = "",
+    val sha256: String = "",
+    val size: Long = 0
+)
+
+@Serializable
+data class DetectorModule(
+    val id: String,
+    val icon: String = "",
+    val name: String = "",
+    val nameEn: String = "",
+    val labels: List<String> = emptyList(),
+    val labelsKo: List<String> = emptyList(),
+    val labelsEn: List<String> = emptyList(),
+    val triggers: List<String> = emptyList(),
+    val inputSize: Int = 48,
+    val perSpecies: Boolean = false,
+    val model: ModelRef? = null,
+    /** perSpecies 모듈: 종 id → 모델 (예: basil → basil.bin) */
+    val speciesModels: Map<String, ModelRef>? = null,
+    /** perSpecies 모듈 모델의 출력 클래스 순서 */
+    val speciesOutputs: List<String>? = null,
+    val available: Boolean = true
+)
+
+@Serializable
+data class DetectorCatalogResponse(
+    val modules: List<DetectorModule> = emptyList(),
+    val defaults: List<String> = emptyList()
+)
+
+@Serializable
+data class DetectorResultItem(
+    val moduleId: String,
+    val label: String,
+    val confidence: Double? = null,
+    /** 판독 계기: periodic | module_added | run_now | watered | watered_followup | pest_response | health_drop | roi_changed */
+    val trigger: String = "periodic",
+    val modelSha: String? = null,
+    val detail: JsonObject? = null
+)
+
+@Serializable
+data class DetectorResultsRequest(
+    val slaveId: String,
+    val plantId: String,
+    val results: List<DetectorResultItem>
+)
+
+@Serializable
+data class DetectorResultsResponse(val accepted: Int = 0, val skipped: Int = 0)
+
+/** 모듈 모델 준비 상태: downloading | ready | error | unsupported | no_roi */
+@Serializable
+data class DetectorStateItem(
+    val plantId: String,
+    val moduleId: String,
+    val state: String,
+    val detail: String? = null,
+    val modelSha: String? = null
+)
+
+@Serializable
+data class DetectorStateRequest(val slaveId: String, val states: List<DetectorStateItem>)
+
+@Serializable
+data class AcceptedResponse(val accepted: Int = 0)

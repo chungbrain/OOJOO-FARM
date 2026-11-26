@@ -156,3 +156,52 @@ simulation/
   → farmer: camera_mount 정책 기반 가로/세로 자동 촬영
   → POST /api/photos/upload → photo_ready SSE → master 표시
 ```
+
+## 8. F6 — 온디바이스 상태검출 모듈 (master 에서 식물별 추가/삭제)
+
+> 작성: 2026-11-26. 건강등급(F1)·해충(F2)·관수 감시를 "모듈"로 묶어 master 가 식물마다 켜고 끈다.
+> 모듈을 켜면 farmer 가 서버에서 모델을 내려받아(sha256 검증) 그 식물의 RoI 를 판독하고 결과를 돌려준다.
+
+### 8.1 모듈 카탈로그 (서버가 단일 원천 — `backend/src/lib/detectors.js`)
+
+| id | 이름 | 모델 | 출력 라벨 |
+|---|---|---|---|
+| `health_grade` | 🌿 건강상태 판별 | `health_grade.bin` | very_healthy / healthy / fair / poor / very_poor |
+| `pest` | 🐛 해충 검출 | `pest.bin` | none / light / moderate / severe |
+| `watering` | 💧 관수 주기 모니터링 | 식물 종별 모델 `<species>.bin` (6클래스 중 water_low/water_high 해석) | dry / ok / wet |
+
+- 모델 파일은 `backend/models/*.bin` (앱 assets 와 같은 OJP1). 재학습 후 `node scripts/sync-detector-models.mjs` 로 맞춘다 — 불일치는 백엔드 테스트가 잡는다.
+- 분류형 모듈은 카탈로그의 `labels` 순서가 모델 출력 순서다 → 서버에 새 분류 모듈을 추가해도 farmer 앱 수정 없이 동작.
+- 기본 세트: 이 기능 이전 식물/신규 식물은 3종 모두 켜짐 (`plants.detectors_json` NULL = 기본값) — 기존 동작과 같다.
+
+### 8.2 API
+
+| 메서드 | 경로 | 호출자 | 설명 |
+|---|---|---|---|
+| GET | `/api/detectors` | farmer | 카탈로그 (모델 url·sha256·크기) |
+| GET | `/api/detectors/models/:file` | farmer | 모델 파일 (카탈로그 파일만, ETag=sha256) |
+| GET | `/api/detectors/plant/:plantId` | master | 모듈별 켜짐·farmer 준비 상태·최신 결과·서버 관수 간격 |
+| POST / DELETE | `/api/detectors/plant/:plantId/:moduleId` | master | 추가 / 삭제 → farmer 에 `detectors_sync` 명령 (대기 중이면 재사용) |
+| GET | `/api/detectors/plant/:plantId/history` | master | 결과 이력 |
+| POST | `/api/detectors/results` | farmer(세션키) | 판독 결과 (자기 식물만, 라벨 검증, 꺼진 모듈 결과는 버림) |
+| POST | `/api/detectors/state` | farmer(세션키) | 모델 준비 상태 downloading / ready / error / unsupported / no_roi |
+
+- `GET /api/plants/slave/:slaveId` 의 각 식물에 `detectors: [id…]` 가 붙는다.
+- 식물의 RoI·담당 farmer·종이 바뀌어도 서버가 `detectors_sync` 를 보내 farmer 가 즉시 재동기화한다.
+- master `run_detectors` 명령 = 지금 판독.
+
+### 8.3 Farmer 동작 (`android/slave/.../detect/`)
+
+1. **동기화** (시작·5분마다·`detectors_sync` 명령): 식물 목록의 `detectors` → 모듈별 모델 준비 (`ModelStore`: `{sha256}.bin` 보관, 크기·해시 불일치면 저장 안 함) → 상태 보고. 꺼진 모듈의 모델 파일은 정리.
+2. **판독 계기** (`DetectorPlanner`):
+   - 주기: 정책 `roi_interval` 마다 모든 RoI × 켜진 모듈
+   - 이벤트: 모듈 추가 직후 / master 지금 판독 / 관수 직후 + 30분 뒤 / Fan·Laser 퇴치 1분 뒤 / 건강등급 악화 확정 시 해충·관수
+3. **결과 보고** (`ReportGate`): 이벤트 계기·라벨 변화는 즉시, 같은 라벨은 5분에 1회.
+4. **관수 주기** (`WateringCycleTracker`): 관수 시각 → 'dry' 연속 2회 확정 시각의 간격을 식물별로 최근 5회 보관 → 평균 마름 주기·다음 관수 예상. 관수 후 1시간 안의 dry 는 주기로 치지 않는다.
+5. 꺼진 모듈은 알림도 없다 — 건강 전이(health_change)는 건강상태 모듈, water_low·RoI 자동관수는 관수 모듈, pest_detected 는 해충 모듈이 켜진 식물만. 전체 화면 판정의 자동관수/해충 대응도 어느 식물에든 해당 모듈이 켜져 있을 때만.
+6. **호환**: 서버가 `/api/detectors` 를 모르면(구버전) 앱 내장 모델로 3종 모두 켠 기존 동작을 유지하고 보고는 생략. 오프라인이면 마지막 카탈로그·식물 목록과 받아 둔 모델로 계속 판독.
+
+### 8.4 Master UI
+
+- 식물 카드: `🧠 AI n` 버튼 → 모듈 목록 다이얼로그에서 추가/삭제 (삭제는 확인).
+- 식물 상세: "AI 검출 모듈" 카드 — 모듈별 최신 판독(라벨·신뢰도·시각·계기), 준비 상태(모델 받는 중 / RoI 필요 / 종 모델 없음 등), 관수 주기, `지금 판독`.

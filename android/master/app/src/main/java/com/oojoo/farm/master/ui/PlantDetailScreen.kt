@@ -70,6 +70,11 @@ class PlantDetailViewModel : ViewModel() {
     var clipMaking by mutableStateOf(false)
     var loading by mutableStateOf(false)
     var msg by mutableStateOf<String?>(null)
+    // 온디바이스 검출 모듈 — null = 서버 미지원/불러오기 전 (카드 숨김)
+    var detectors by mutableStateOf<List<DetectorModuleInfo>?>(null)
+    var detectorBusy by mutableStateOf<String?>(null)
+    var detectorRunning by mutableStateOf(false)
+    private var detectorWatch: Job? = null
     var slaves by mutableStateOf<List<Slave>>(emptyList())
     var editing by mutableStateOf(false)
     var saving by mutableStateOf(false)
@@ -106,6 +111,7 @@ class PlantDetailViewModel : ViewModel() {
                         eventsComplete = if (r.days != null) !r.truncated else r.events.size < 50
                     } catch (_: Exception) {}
                     try { latestAnalysis = api.latestAnalysis(p.id) } catch (_: Exception) {}
+                    try { detectors = api.plantDetectors(p.id).modules } catch (_: Exception) {}
                     try { photos = api.plantPhotos(p.id).photos } catch (_: Exception) {}
                     try { harvests = api.harvestsByPlant(p.id).harvests } catch (_: Exception) {}
                     try { growthClip = api.plantVideos(p.id, "growth").videos.firstOrNull() } catch (_: Exception) {}
@@ -271,6 +277,76 @@ class PlantDetailViewModel : ViewModel() {
         sseJob?.cancel()
     }
 
+    fun reloadDetectors() {
+        val p = plant ?: return
+        viewModelScope.launch { try { detectors = api.plantDetectors(p.id).modules } catch (_: Exception) {} }
+    }
+
+    /** 모듈 추가/삭제 — 추가면 farmer 가 모델을 받고 첫 판독을 보낼 때까지 잠시 지켜본다. */
+    fun toggleDetector(moduleId: String, enable: Boolean, name: String, ctx: android.content.Context) {
+        val p = plant ?: return
+        if (detectorBusy != null) return
+        detectorBusy = moduleId
+        viewModelScope.launch {
+            try {
+                val r = if (enable) api.addDetector(p.id, moduleId) else api.removeDetector(p.id, moduleId)
+                detectors = r.modules
+                plant = p.copy(detectors = r.modules.filter { it.enabled }.map { it.id })
+                msg = ctx.getString(if (enable) R.string.detector_added else R.string.detector_removed, name)
+                if (enable && p.slave_id != null) {
+                    detectorWatch?.cancel()
+                    detectorWatch = viewModelScope.launch {
+                        pollDetectors(60_000L) { mods ->
+                            val m = mods.firstOrNull { it.id == moduleId } ?: return@pollDetectors true
+                            m.latest != null || m.state?.state in setOf("error", "no_roi")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                msg = ctx.getString(R.string.detector_toggle_failed, e.message ?: "")
+            }
+            detectorBusy = null
+        }
+    }
+
+    /** master '지금 판독' — farmer 가 켜진 모듈을 바로 판독해 결과를 보낼 때까지 기다린다(최대 45초). */
+    fun runDetectorsNow(ctx: android.content.Context) {
+        val p = plant ?: return
+        val sId = p.slave_id ?: return
+        if (detectorRunning) return
+        val before = detectors.orEmpty().filter { it.enabled }.associate { it.id to it.latest?.id }
+        val changed = { m: DetectorModuleInfo -> m.latest?.id != null && m.latest.id != before[m.id] }
+        detectorRunning = true
+        viewModelScope.launch {
+            try {
+                api.sendCommand(CommandRequest(sId, p.id, "run_detectors"))
+            } catch (e: Exception) {
+                msg = ctx.getString(R.string.detector_run_failed, e.message ?: "")
+                detectorRunning = false
+                return@launch
+            }
+            pollDetectors(45_000L) { mods ->
+                mods.filter { it.enabled }.all { changed(it) || it.state?.state in setOf("error", "no_roi") }
+            }
+            val got = detectors.orEmpty().any { it.enabled && changed(it) }
+            msg = ctx.getString(if (got) R.string.detector_run_done else R.string.detector_run_timeout)
+            detectorRunning = false
+        }
+    }
+
+    /** 조건을 만족할 때까지 3초마다 다시 읽는다. */
+    private suspend fun pollDetectors(timeoutMs: Long, done: (List<DetectorModuleInfo>) -> Boolean): Boolean {
+        val p = plant ?: return false
+        val until = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < until) {
+            delay(3_000L)
+            val mods = try { api.plantDetectors(p.id).modules } catch (_: Exception) { continue }
+            detectors = mods
+            if (done(mods)) return true
+        }
+        return false
+    }
+
     fun quickWater() {
         val p = plant ?: return
         val sId = p.slave_id ?: run { msg = "담당 Farmer 없음"; return }
@@ -385,6 +461,34 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                 } else if (vm.loading) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = OojooTheme.Green) }
                 } else { Text(S.plantNotFound) }
+            }
+
+            // 온디바이스 AI 검출 모듈 — 판독 결과 + 관리(추가/삭제) + 지금 판독
+            vm.detectors?.let { mods ->
+                item {
+                    val ctx = LocalContext.current
+                    var showManage by remember { mutableStateOf(false) }
+                    DetectorModulesCard(
+                        modules = mods,
+                        hasFarmer = vm.plant?.slave_id != null,
+                        running = vm.detectorRunning,
+                        onManage = { showManage = true; vm.reloadDetectors() },
+                        onRunNow = { vm.runDetectorsNow(ctx) }
+                    )
+                    if (showManage) {
+                        val en = S.isEnglish
+                        val nameOf = { id: String -> mods.firstOrNull { it.id == id }?.displayName(en) ?: id }
+                        DetectorManageDialog(
+                            plantName = vm.plant?.name ?: "",
+                            modules = mods,
+                            busyId = vm.detectorBusy,
+                            hasFarmer = vm.plant?.slave_id != null,
+                            onAdd = { id -> vm.toggleDetector(id, true, nameOf(id), ctx) },
+                            onRemove = { id -> vm.toggleDetector(id, false, nameOf(id), ctx) },
+                            onDismiss = { showManage = false }
+                        )
+                    }
+                }
             }
 
             item {

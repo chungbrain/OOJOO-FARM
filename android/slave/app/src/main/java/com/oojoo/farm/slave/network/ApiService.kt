@@ -3,6 +3,7 @@ package com.oojoo.farm.slave.network
 import com.oojoo.farm.slave.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.*
 
 interface ApiService {
@@ -74,6 +75,20 @@ interface ApiService {
 
     @GET("api/photos/plant/{plantId}")
     suspend fun plantPhotos(@Path("plantId") plantId: String): PlantPhotosResponse
+
+    // 온디바이스 검출 모듈 — 카탈로그 / 모델 파일(sha256 검증) / 판독 결과 / 모델 준비 상태
+    @GET("api/detectors")
+    suspend fun detectorCatalog(): DetectorCatalogResponse
+
+    @Streaming
+    @GET
+    suspend fun downloadModel(@Url url: String): ResponseBody
+
+    @POST("api/detectors/results")
+    suspend fun reportDetectorResults(@Body body: DetectorResultsRequest): DetectorResultsResponse
+
+    @POST("api/detectors/state")
+    suspend fun reportDetectorState(@Body body: DetectorStateRequest): AcceptedResponse
 
     @POST("api/videos/clip-failed/{slaveId}")
     suspend fun clipFailed(@Path("slaveId") slaveId: String, @Body body: ClipFailedRequest): OkResponse

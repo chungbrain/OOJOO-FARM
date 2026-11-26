@@ -1,6 +1,7 @@
 package com.oojoo.farm.master.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class UserRequest(val id: String? = null, val nickname: String? = null, val region: String? = null)
@@ -150,7 +151,9 @@ data class Plant(
     val roi: RoiBox? = null,
     val owner_name: String? = null,
     val owner_email: String? = null,
-    val shared: Int = 0
+    val shared: Int = 0,
+    /** 켜진 온디바이스 검출 모듈 id (구버전 서버면 null) */
+    val detectors: List<String>? = null
 )
 
 @Serializable
@@ -675,3 +678,58 @@ data class TossStartResponse(val approvalUrl: String)
 data class TossStatusRequest(val userId: String, val orderId: String)
 @Serializable
 data class TossStatusResponse(val status: String)
+
+// ---------- 온디바이스 검출 모듈 (GET /api/detectors/plant/:plantId) ----------
+@Serializable
+data class DetectorResult(
+    val id: String = "",
+    val moduleId: String = "",
+    val label: String = "",
+    val confidence: Double? = null,
+    /** 판독 계기: periodic | module_added | run_now | watered | watered_followup | pest_response | health_drop | roi_changed */
+    val trigger: String? = null,
+    val modelSha: String? = null,
+    val detail: JsonObject? = null,
+    val createdAt: String? = null
+)
+@Serializable
+data class DetectorState(
+    /** downloading | ready | error | unsupported | no_roi */
+    val state: String = "",
+    val detail: String? = null,
+    val modelSha: String? = null,
+    val updatedAt: String? = null
+)
+@Serializable
+data class WaterCycleInfo(
+    val lastWateredAt: String? = null,
+    val avgIntervalHours: Double? = null,
+    val intervals: Int = 0
+)
+@Serializable
+data class DetectorModuleInfo(
+    val id: String,
+    val icon: String = "",
+    val name: String = "",
+    val nameEn: String = "",
+    val description: String = "",
+    val descriptionEn: String = "",
+    val labels: List<String> = emptyList(),
+    val labelsKo: List<String> = emptyList(),
+    val labelsEn: List<String> = emptyList(),
+    val available: Boolean = true,
+    val perSpecies: Boolean = false,
+    val modelSize: Long? = null,
+    val enabled: Boolean = false,
+    val addedAt: String? = null,
+    val state: DetectorState? = null,
+    val latest: DetectorResult? = null,
+    val cycle: WaterCycleInfo? = null
+)
+@Serializable
+data class PlantDetectorsResponse(
+    val plantId: String = "",
+    val slaveId: String? = null,
+    val commandId: String? = null,
+    val modules: List<DetectorModuleInfo> = emptyList()
+)

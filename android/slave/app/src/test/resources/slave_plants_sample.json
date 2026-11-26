@@ -1,0 +1,21 @@
+{
+ "plants": [
+  {
+   "id": "EZT4sqep9Wym",
+   "user_id": "3GRbZTA1FICG",
+   "slave_id": "Nf4QwJ--OKYJ",
+   "name": "바질",
+   "species": "basil",
+   "planted_at": null,
+   "stage": "seedling",
+   "created_at": "2026-11-26 03:50:58",
+   "roi_json": null,
+   "roi": null,
+   "detectors": [
+    "health_grade",
+    "pest",
+    "watering"
+   ]
+  }
+ ]
+}

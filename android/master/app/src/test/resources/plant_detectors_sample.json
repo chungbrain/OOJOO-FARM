@@ -1,0 +1,132 @@
+{
+ "plantId": "EZT4sqep9Wym",
+ "slaveId": "Nf4QwJ--OKYJ",
+ "modules": [
+  {
+   "id": "health_grade",
+   "icon": "🌿",
+   "name": "건강상태 판별",
+   "nameEn": "Health check",
+   "description": "잎 색·밀도·시듦을 보고 건강등급을 5단계로 판별합니다. 등급이 바뀌면 알림을 보냅니다.",
+   "descriptionEn": "Grades plant health in 5 levels from leaf color, density and wilting. Alerts when the grade changes.",
+   "labels": [
+    "very_healthy",
+    "healthy",
+    "fair",
+    "poor",
+    "very_poor"
+   ],
+   "labelsKo": [
+    "매우건강",
+    "건강",
+    "보통",
+    "나쁨",
+    "매우나쁨"
+   ],
+   "labelsEn": [
+    "Very healthy",
+    "Healthy",
+    "Fair",
+    "Poor",
+    "Very poor"
+   ],
+   "available": true,
+   "perSpecies": false,
+   "modelSize": 20064,
+   "enabled": true,
+   "addedAt": null,
+   "state": null,
+   "latest": null,
+   "cycle": null
+  },
+  {
+   "id": "pest",
+   "icon": "🐛",
+   "name": "해충 검출",
+   "nameEn": "Pest detection",
+   "description": "식해 구멍·검은 반점으로 해충 발생 정도를 4단계로 판독합니다. 건강등급과 별개 모델입니다.",
+   "descriptionEn": "Rates pest damage in 4 levels from bite holes and dark spots. Separate from the health model.",
+   "labels": [
+    "none",
+    "light",
+    "moderate",
+    "severe"
+   ],
+   "labelsKo": [
+    "해충없음",
+    "경미발생",
+    "보통발생",
+    "심각발생"
+   ],
+   "labelsEn": [
+    "None",
+    "Light",
+    "Moderate",
+    "Severe"
+   ],
+   "available": true,
+   "perSpecies": false,
+   "modelSize": 19964,
+   "enabled": true,
+   "addedAt": null,
+   "state": {
+    "state": "downloading",
+    "detail": "pest.bin",
+    "modelSha": null,
+    "updatedAt": "2026-11-26 03:50:58"
+   },
+   "latest": null,
+   "cycle": null
+  },
+  {
+   "id": "watering",
+   "icon": "💧",
+   "name": "관수 주기 모니터링",
+   "nameEn": "Watering cycle",
+   "description": "식물 종에 맞는 모델로 물 부족·과다를 판독하고, 관수 후 다시 마르기까지의 주기를 추적합니다.",
+   "descriptionEn": "Reads dry/overwatered state with a species model and tracks how long the plant takes to dry out after watering.",
+   "labels": [
+    "dry",
+    "ok",
+    "wet"
+   ],
+   "labelsKo": [
+    "물 부족",
+    "적정",
+    "물 과다"
+   ],
+   "labelsEn": [
+    "Dry",
+    "OK",
+    "Overwatered"
+   ],
+   "available": true,
+   "perSpecies": true,
+   "modelSize": 20164,
+   "enabled": true,
+   "addedAt": null,
+   "state": null,
+   "latest": {
+    "id": "Ki78m4lYjelK",
+    "moduleId": "watering",
+    "label": "dry",
+    "confidence": 0.71,
+    "trigger": "watered_followup",
+    "modelSha": "abc",
+    "detail": {
+     "source": "species:basil",
+     "hoursSinceWater": 26.5,
+     "avgDryHours": 28,
+     "cycles": 2,
+     "nextInHours": 1.5
+    },
+    "createdAt": "2026-11-26 03:50:58"
+   },
+   "cycle": {
+    "lastWateredAt": "2026-11-26 03:50:58",
+    "avgIntervalHours": 0,
+    "intervals": 1
+   }
+  }
+ ]
+}
