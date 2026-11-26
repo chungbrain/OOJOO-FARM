@@ -23,7 +23,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -58,6 +61,8 @@ class PlantDetailViewModel : ViewModel() {
     var plant by mutableStateOf<Plant?>(null)
     var waterings by mutableStateOf<List<Watering>>(emptyList())
     var events by mutableStateOf<List<FarmEvent>>(emptyList())
+    // 최근 EVENT_WINDOW_DAYS일 이벤트가 빠짐없이 왔는지 (구버전 서버는 최신 50건만 → 통계 창을 줄여 표시)
+    var eventsComplete by mutableStateOf(false)
     var latestAnalysis by mutableStateOf<AnalysisResponse?>(null)
     var weather by mutableStateOf<WeatherResponse?>(null)
     var photos by mutableStateOf<List<PlantPhoto>>(emptyList())
@@ -94,7 +99,12 @@ class PlantDetailViewModel : ViewModel() {
                 plant = api.plant(plantId)
                 plant?.let { p ->
                     try { waterings = api.waterings(p.id).waterings } catch (_: Exception) {}
-                    if (p.slave_id != null) try { events = api.events(p.slave_id).events } catch (_: Exception) {}
+                    if (p.slave_id != null) try {
+                        val r = api.events(p.slave_id, days = EVENT_WINDOW_DAYS)
+                        events = r.events
+                        // days 미지원(구버전) 서버: 50건 미만이면 전체 이력이 온 것
+                        eventsComplete = if (r.days != null) !r.truncated else r.events.size < 50
+                    } catch (_: Exception) {}
                     try { latestAnalysis = api.latestAnalysis(p.id) } catch (_: Exception) {}
                     try { photos = api.plantPhotos(p.id).photos } catch (_: Exception) {}
                     try { harvests = api.harvestsByPlant(p.id).harvests } catch (_: Exception) {}
@@ -331,6 +341,9 @@ class PlantDetailViewModel : ViewModel() {
 fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewModel = viewModel()) {
     val S = LocalAppStrings.current
     LaunchedEffect(plantId) { vm.load(plantId) }
+    // 성장 스토리 카드를 사진첩 카드와 같은 높이로 맞추기 위해 사진첩 카드 높이를 잰다
+    val density = LocalDensity.current
+    var albumHeightPx by remember { mutableIntStateOf(0) }
     Scaffold(
         topBar = { TopAppBar(title = { Text(S.plantDetail, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) },
         containerColor = OojooTheme.Bg
@@ -438,7 +451,11 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
             item {
                 val ctx = LocalContext.current
                 // 성장 사진첩 — 대표 사진 스와이프 + 썸네일 띠 + 전체 보기/전체 화면 뷰어 (GrowthAlbum.kt)
-                GrowthAlbumCard(photos = vm.photos, plantedAt = vm.plant?.planted_at) {
+                GrowthAlbumCard(
+                    photos = vm.photos,
+                    plantedAt = vm.plant?.planted_at,
+                    modifier = Modifier.onSizeChanged { albumHeightPx = it.height }
+                ) {
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // RoI(관심영역) — Farmer 사진 위에 지정, 저장 시 slave가 크롭해 CNN 감시
@@ -455,29 +472,14 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                         )
                     }
                 }
-                vm.growthClip?.let { clip ->
-                    Spacer(Modifier.height(10.dp))
-                    Text(stringResource(R.string.growth_clip_ready_label), fontWeight = FontWeight.Bold, color = OojooTheme.GreenDark)
-                    val playUrl = ApiClient.baseUrl.trimEnd('/') + clip.url
-                    AndroidView(
-                        factory = { c ->
-                            VideoView(c).apply {
-                                setVideoPath(playUrl)
-                                setOnPreparedListener { it.isLooping = true; start() }
-                            }
-                        },
-                        update = { view ->
-                            if (view.tag != playUrl) {
-                                view.tag = playUrl
-                                view.setVideoPath(playUrl)
-                                view.start()
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(280.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .border(2.dp, OojooTheme.Ink, RoundedCornerShape(16.dp))
+            }
+
+            // 성장 스토리 숏클립 — 사진첩 카드와 같은 크기의 카드
+            vm.growthClip?.let { clip ->
+                item {
+                    GrowthClipCard(
+                        playUrl = ApiClient.baseUrl.trimEnd('/') + clip.url,
+                        height = with(density) { albumHeightPx.toDp() }
                     )
                 }
             }
@@ -598,31 +600,8 @@ fun PlantDetailScreen(nav: NavController, plantId: String, vm: PlantDetailViewMo
                 }
             }
 
-            item { Text(S.recentEvents, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OojooTheme.Ink) }
-            if (vm.events.isEmpty()) { item { Text(S.noEvents, color = OojooTheme.Muted, fontSize = 13.sp) } }
-            else {
-                item {
-                    Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
-                        Column(Modifier.padding(16.dp)) {
-                            vm.events.take(20).forEachIndexed { index, e ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(24.dp)) {
-                                        Box(Modifier.size(10.dp).clip(CircleShape).background(OojooTheme.Green))
-                                        if (index != vm.events.take(20).lastIndex) {
-                                            Box(Modifier.width(2.dp).height(40.dp).background(OojooTheme.Line))
-                                        }
-                                    }
-                                    Spacer(Modifier.width(8.dp))
-                                    Column(Modifier.padding(bottom = 12.dp)) {
-                                        Text(notiLabel(e.type, S), fontWeight = FontWeight.Bold, color = OojooTheme.Ink, fontSize = 14.sp)
-                                        Text(e.created_at ?: "", color = OojooTheme.Muted, fontSize = 11.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // 최근 이벤트 — 통계(그룹별 건수) → 일별 시계열 → 유형별 → 최근 기록 (EventStats.kt)
+            item { EventStatsCard(events = vm.events, complete = vm.eventsComplete) }
 
             item {
                 vm.msg?.let { Text(localizeMasterMessage(it, S), fontSize = 13.sp, color = OojooTheme.Green) }
@@ -730,6 +709,68 @@ private fun PlantEditCard(vm: PlantDetailViewModel) {
     }
 }
 
+/**
+ * 성장 스토리 숏클립 카드 — 성장 사진첩 카드와 같은 가로·세로 크기.
+ * 클립은 세로(720×1280)라 영상 영역 안에 비율을 유지한 채 가운데 맞춘다 (남는 곳은 검은 여백).
+ * @param height 사진첩 카드의 실제 높이 (아직 측정 전이면 0 → 기본 높이)
+ */
+@Composable
+private fun GrowthClipCard(playUrl: String, height: Dp) {
+    val frame = RoundedCornerShape(16.dp)
+    Card(
+        Modifier.fillMaxWidth()
+            .height(if (height > 0.dp) height else 480.dp)
+            .shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape)
+            .border(2.dp, OojooTheme.Ink, OojooTheme.CardShape)
+            .clip(OojooTheme.CardShape),
+        shape = OojooTheme.CardShape,
+        colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)
+    ) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🎬", fontSize = 18.sp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.growth_clip_ready_label),
+                    fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = OojooTheme.Ink
+                )
+            }
+            Text(
+                stringResource(R.string.growth_clip_subtitle),
+                color = OojooTheme.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier.fillMaxWidth()
+                    .weight(1f)
+                    .clip(frame)
+                    .border(2.dp, OojooTheme.Ink, frame)
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                AndroidView(
+                    factory = { c ->
+                        VideoView(c).apply {
+                            tag = playUrl
+                            setVideoPath(playUrl)
+                            setOnPreparedListener { it.isLooping = true; start() }
+                        }
+                    },
+                    update = { view ->
+                        if (view.tag != playUrl) {
+                            view.tag = playUrl
+                            view.setVideoPath(playUrl)
+                            view.start()
+                        }
+                    },
+                    // wrapContentSize: VideoView가 영상 비율대로 스스로 크기를 정하고 가운데 놓이게
+                    modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun HarvestDialog(vm: PlantDetailViewModel) {
     val S = LocalAppStrings.current
@@ -801,5 +842,7 @@ fun notiLabel(t: String, S: com.oojoo.farm.master.data.AppStrings): String = whe
     "anomaly" -> S.notiAnomaly
     "capture" -> S.notiCapture
     "health_change" -> S.notiHealthChange
+    "water_low" -> S.notiWaterLow
+    "pest_control" -> S.notiPestControl
     else -> t
 }

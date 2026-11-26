@@ -126,6 +126,8 @@
     <string name="noti_anomaly">⚠️ Anomaly</string>
     <string name="noti_capture">📷 Capture</string>
     <string name="noti_health_change">🌿 Health change</string>
+    <string name="noti_water_low">💧 Low moisture</string>
+    <string name="noti_pest_control">🛡️ Pest response</string>
     <string name="health_grade_label">Health grade</string>
     <string name="pest_level_label">Pest level</string>
     <string name="farmer_manage">🤖 Manage Farmers</string>
@@ -393,6 +395,28 @@
     <string name="growth_album_fmt_day">EEE, MMM d</string>
     <string name="growth_album_fmt_day_year">EEE, MMM d, yyyy</string>
     <string name="growth_album_fmt_short">M/d</string>
+    <string name="growth_clip_subtitle">A growth clip made from album photos and BGM</string>
+
+    <!-- Event stats (plant detail) -->
+    <string name="event_group_water">Watering</string>
+    <string name="event_group_pest">Pests</string>
+    <string name="event_group_growth">Growth &amp; device</string>
+    <string name="event_count">%1$d</string>
+    <string name="event_stats_period">Last %1$d days · %2$d events</string>
+    <string name="event_stats_partial">Based on the latest %1$d events (earlier days are missing)</string>
+    <string name="event_stats_chart_title">Events per day</string>
+    <string name="event_stats_chart_desc">Bar chart of daily event counts for the last %1$d days. Tap a bar to see that day by type.</string>
+    <string name="event_stats_empty_period">No events in the last %1$d days</string>
+    <string name="event_stats_today">Today</string>
+    <string name="event_stats_show_table">Table</string>
+    <string name="event_stats_show_chart">Chart</string>
+    <string name="event_stats_date">Date</string>
+    <string name="event_stats_total">Total</string>
+    <string name="event_stats_by_type">By type</string>
+    <string name="event_stats_other">Other</string>
+    <string name="event_stats_latest">Latest</string>
+    <string name="event_stats_more">Show more (%1$d)</string>
+    <string name="event_stats_less">Show less</string>
 
     <!-- Plant RoI (region of interest) -->
     <string name="roi_button">Set region</string>

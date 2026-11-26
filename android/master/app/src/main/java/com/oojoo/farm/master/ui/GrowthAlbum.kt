@@ -104,7 +104,7 @@ private fun PlantPhoto.fullUrl(): String = ApiClient.baseUrl.trimEnd('/') + url
 private fun PlantPhoto.thumbUrl(): String = ApiClient.baseUrl.trimEnd('/') + (thumb_url ?: url)
 
 /** 화면에 쓰는 날짜 포맷 묶음 — 앱 언어(ko/en)에 맞춘 패턴은 strings.xml 에 둔다. */
-private class AlbumFormats(val locale: Locale, dayPattern: String, dayYearPattern: String, shortPattern: String) {
+internal class AlbumFormats(val locale: Locale, dayPattern: String, dayYearPattern: String, shortPattern: String) {
     private val day = DateTimeFormatter.ofPattern(dayPattern, locale)
     private val dayYear = DateTimeFormatter.ofPattern(dayYearPattern, locale)
     private val short = DateTimeFormatter.ofPattern(shortPattern, locale)
@@ -117,7 +117,7 @@ private class AlbumFormats(val locale: Locale, dayPattern: String, dayYearPatter
 }
 
 @Composable
-private fun rememberAlbumFormats(): AlbumFormats {
+internal fun rememberAlbumFormats(): AlbumFormats {
     val locale = LocalConfiguration.current.locales[0]
     val dayP = stringResource(R.string.growth_album_fmt_day)
     val dayYearP = stringResource(R.string.growth_album_fmt_day_year)

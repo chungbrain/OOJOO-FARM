@@ -163,7 +163,12 @@ data class EventRequest(
 @Serializable
 data class EventIdResponse(val eventId: String)
 @Serializable
-data class EventsResponse(val events: List<FarmEvent>)
+data class EventsResponse(
+    val events: List<FarmEvent>,
+    // ?days=N 를 지원하는 서버만 채움 — null 이면 구버전(최신 50건만)
+    val days: Int? = null,
+    val truncated: Boolean = false
+)
 @Serializable
 data class FarmEvent(
     val id: String,

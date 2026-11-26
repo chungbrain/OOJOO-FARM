@@ -65,7 +65,11 @@ interface ApiService {
     suspend fun reportEvent(@Body body: EventRequest): EventIdResponse
 
     @GET("api/events/{slaveId}")
-    suspend fun events(@Path("slaveId") slaveId: String): EventsResponse
+    suspend fun events(
+        @Path("slaveId") slaveId: String,
+        // 최근 N일 창 (이벤트 통계/시계열용). null = 기존 최신 50건
+        @Query("days") days: Int? = null
+    ): EventsResponse
 
     @POST("api/watering/log")
     suspend fun wateringLog(@Body body: WateringLogRequest): WateringLogIdResponse

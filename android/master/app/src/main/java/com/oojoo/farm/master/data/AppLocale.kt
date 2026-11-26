@@ -183,6 +183,8 @@ class AppStrings internal constructor(private val context: Context) {
     val notiAnomaly: String get() = context.getString(R.string.noti_anomaly)
     val notiCapture: String get() = context.getString(R.string.noti_capture)
     val notiHealthChange: String get() = context.getString(R.string.noti_health_change)
+    val notiWaterLow: String get() = context.getString(R.string.noti_water_low)
+    val notiPestControl: String get() = context.getString(R.string.noti_pest_control)
     val healthGradeLabel: String get() = context.getString(R.string.health_grade_label)
     val pestLevelLabel: String get() = context.getString(R.string.pest_level_label)
     val farmerManage: String get() = context.getString(R.string.farmer_manage)
