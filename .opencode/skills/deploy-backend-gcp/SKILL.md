@@ -42,3 +42,11 @@ $gcloud = "$env:LOCALAPPDATA\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"
 - SSH heredoc은 Windows cmd를 거치며 깨짐 — `printf` 한 줄 방식 사용
 - 첫 SSH 접속 시 호스트 키 캐시 프롬프트 → `echo y |` 로 응답
 - 소스 pull은 배포 단계이므로 반드시 로컬 push 선행
+
+## 2026-11-26 추가 메모
+
+- VM repo 소유자는 `wooju-family` — 다른 계정으로 접속했으면 `sudo -u wooju-family git pull --ff-only`, `sudo -u wooju-family npm install`
+  (그냥 `git pull` 하면 `dubious ownership` / 권한 오류).
+- 모델 업로드 토큰은 systemd drop-in `/etc/systemd/system/oojoo.service.d/model-manager.conf` 의 `Environment=MODEL_MANAGER_TOKEN=…`.
+  바꾸면 `sudo systemctl daemon-reload && sudo systemctl restart oojoo`, 로컬 model-manager 설정(`ml/model-manager/.local/config.json`)도 같은 값으로.
+- 배포 확인: `/health`, `/api/detectors`(검출 모듈 카탈로그), `/api/models`(모델 레지스트리).

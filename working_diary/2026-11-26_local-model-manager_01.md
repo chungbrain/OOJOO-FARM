@@ -49,7 +49,19 @@
 - 화면: 임시 백엔드 + 로컬 도구(임시 레지스트리/저장소)를 헤드리스 Edge 로 캡처 — 목록(로컬 최신/서버 배포/GitHub 상태), 학습·업로드·배포(버전별 서버 상태·업로드/배포/롤백 버튼, GitHub 패널), 성능(현장 추이는 서버에서)
 - 앱(farmer/master) 코드 변경 없음 → APK 재빌드 없음
 
+## GCP 재배포 (같은 날)
+
+- 이 PC 에 gcloud 594.0.1 설치(winget) → 사용자 로그인 → `gcloud config set project oojoo-farm`.
+  `gcloud compute ssh` 가 이 PC 의 SSH 키를 만들어 **프로젝트 메타데이터**에 등록(접속 계정 `samsung`, gcloud 번들 plink 사용).
+- VM repo 소유자가 `wooju-family` 라 `sudo -u wooju-family git pull --ff-only` / `npm install`. `415fd01` → **`8fbdabb`**.
+- 업로드 토큰: 무작위 64자 생성 → 서버 systemd drop-in `/etc/systemd/system/oojoo.service.d/model-manager.conf`
+  (`Environment=MODEL_MANAGER_TOKEN=…`, 600) + 같은 값을 로컬 `ml/model-manager/.local/config.json` 에 저장(커밋 안 됨).
+  이 PC 의 git 에 커밋 이름이 없어 로컬 설정의 GitHub 커밋 이름/이메일을 이 저장소 커밋과 같은 chungbrain 으로 둠.
+- `daemon-reload` + 재시작 → `active`. 확인: `/health` ok, `/api/detectors` 3모듈·종 모델 14, `/api/models` 16개,
+  토큰 없는 업로드 401 / 토큰 있는 업로드 200, 서버 `/model-manager` 404(로컬로 옮김).
+- master 앱의 식물 카드 `🧠 AI n` 버튼·식물 상세 AI 검출 모듈 카드는 서버가 검출 모듈 API 를 모르면 숨기게 돼 있어,
+  이 재배포 전에는 보이지 않았다 (master APK 2026112603 이상 필요).
+
 ## 남은 작업
 
-- GCP 재배포 — 이 PC 에 gcloud 설치(594.0.1)는 했고 로그인(`gcloud auth login`) 대기 중. 배포 때 서버 `MODEL_MANAGER_TOKEN` 설정 + 같은 값을 로컬 설정에 저장
 - 실사진으로 내장 모델 '다시 평가'
