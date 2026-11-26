@@ -15,8 +15,11 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-Material3-42A5F5?logo=jetpackcompose&logoColor=white" />
   <img src="https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/AI-On--device%20CNN%20(OJP1)-FF6F00" />
-  <img src="https://img.shields.io/badge/release-1.0.2026112011-blue" />
+  <img src="https://img.shields.io/badge/build-2026112604-blue" />
+  <img src="https://img.shields.io/badge/backend-GCP%2034.50.40.104-4285F4?logo=googlecloud&logoColor=white" />
 </p>
+
+<p align="center"><b>English</b> · <a href="README_kor.md">한국어</a></p>
 
 <p align="center">
   <a href="https://www.youtube.com/shorts/wbNv0V2V0TQ">
@@ -47,7 +50,45 @@ The two devices are linked by a randomly generated pairing code — no complex s
 
 ---
 
-## What's New (Build 2026112011)
+## What's New (Builds 2026112012 – 2026112604)
+
+**On-device detector modules — added and removed per plant from the Master** (build 2026112603)
+- Every plant runs a set of on-device detection modules: 🌿 **health check** (5 grades), 🐛 **pest detection** (4 levels) and 💧 **watering cycle** (dry / ok / overwatered, plus how long the plant takes to dry out after watering and when it will need water next). Detector modules created in the model-manager show up in the same list.
+- Add or remove modules from the plant card (`🧠 AI n`) or the **AI detector** card on plant detail. The server tells the Farmer right away; the Farmer downloads the module's OJP1 model from the server (size + SHA-256 verified, cached by hash, deleted once no plant uses it) and starts reading that plant's RoI.
+- Readings run on the RoI interval **and on events** — module added, Master "Read now", right after watering (+30 min follow-up), 1 min after Fan/Laser, and when a health-grade drop is confirmed. Results return to the Master immediately on a label change or event, otherwise every 5 min, together with readiness states (downloading / ready / RoI needed / no species model).
+- Alerts follow the modules: health-change alerts need the health module, water-low alerts and per-RoI auto-watering need the watering module, pest alerts need the pest module.
+- Older servers keep working: the Farmer falls back to its bundled models with the previous always-on behavior.
+
+**Local model-manager — train on your PC, publish to the server and GitHub** (2026-11-26)
+- `scripts\model-manager.bat` → http://127.0.0.1:4900. Manage labels and training photos (direct upload, Farmer photos cropped by the plant RoI, human-confirmed diagnosis frames), fine-tune OJP1 models locally, and compare every new version with its starting version on the same validation photos.
+- Handles **new plant species** (e.g. a monstera species model, matched through its name aliases), **new states to monitor** (add a label such as aphids — the model gains an output) and **performance drops** (add photos of the failing state and retrain).
+- Performance view: validation accuracy / macro-F1 / per-class recall / confusion matrix, accuracy on photos added after a version, field confidence per day and per version, agreement with human-confirmed diagnoses, and "retrain recommended" signals.
+- Everything is stored as files in `ml/registry/` (models, labels, photos with their train/val split, versions with metrics). One click uploads a version with its labels, metrics and train/val photos to the server (token-protected) and optionally deploys it; another click commits that model's folder to GitHub.
+
+**Master app**
+- Growth album redesign — hero pager, thumbnail strip, grid view, full-screen pinch-zoom viewer — and a growth-story clip card of the same size.
+- Recent events shown as statistics first: per-group KPI tiles, a 14-day daily stacked chart (tap/drag, table view), per-type ranking, latest records in local time.
+- Per-plant RoI editor on Farmer photos; 3×4 farm scene with draggable plant positions, animated sky (clouds, birds, rain, night stars) and per-Farmer icons (picker, synced to the server).
+- Live camera view — direct MJPEG stream on the LAN, or a server relay refreshed every 3 s.
+- Neighbor tab defaults to the farm's location (plus my location and nearby search); plant-card share/sell posts carry the growth-story video.
+- Farmer cards show the pairing code; home weather split into farm weather and my weather.
+
+**Farmer app**
+- Per-plant RoI monitoring synced with the Master (re-synced every 5 min and on change), region auto-detect from device location, album photos published to the gallery (`Pictures/oojoo`), 480 px thumbnails, and keeps working with the screen off (camera rebind + restart on boot).
+
+**Backend**
+- `/api/detectors` (module catalog, model files, per-plant modules, results), `/api/models` (version releases with datasets, deploy/rollback, field performance), `/api/events/:slaveId?days=N`, RoI and thumbnail APIs, server-relayed live frames, and the `/admin` monitoring page.
+- Running on GCP (`http://34.50.40.104:4000`), which is the default server baked into both apps.
+
+**ML**
+- 14 species models from a one-command deterministic pipeline, plus the 5-grade health and 4-level pest models; Python ↔ JS ↔ Kotlin parity tests keep training, simulation and on-device inference identical.
+
+Per-change notes live in [`working_diary/`](working_diary/); feature specs in [`docs/farmer-features.md`](docs/farmer-features.md) and [`docs/model-manager.md`](docs/model-manager.md).
+
+<details>
+<summary><b>Earlier builds</b> (2026081910 – 2026112011)</summary>
+
+### What's New (Build 2026112011)
 
 - **FCM push notifications (code-complete, config-gated)** — Slave alerts (`health_change`, `water_low`, `pest_detected`, `harvest_ready`, plus `water_failed` and `battery_low` so they arrive even when the SSE channel is down) now also go out over Firebase Cloud Messaging to the owner and every household member's registered devices. Backend uses the FCM v1 HTTP API with a service-account JWT (zero new dependencies); the Master renders pushes through the same label/color mapping as in-app alerts. No `google-services.json` needed to build — fill in the backend env (`FCM_PROJECT_ID`, `FCM_SERVICE_ACCOUNT`) and the app's `FirebaseCfg` and push is live with zero code changes.
 - **Toss Payments adapter (code-complete, config-gated)** — Marketplace checkout can now run on a real payment gateway behind `PG_MODE=toss` (+ `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`). Orders start as `pending_payment` (no stock decrement); the server creates the payment and hands the client an approval URL, then closes the loop via server-side confirm, Toss webhook (HMAC-verified over the raw body), or client status polling — whichever lands first. Marking an order paid is idempotent: confirm and webhook firing together still decrement stock exactly once. Without `PG_MODE`, checkout is the instant-pay demo, byte-for-byte as before.
@@ -55,7 +96,7 @@ The two devices are linked by a randomly generated pairing code — no complex s
 - **Personalization one-command** — `ml/plant_health/personalize.sh --species basil` runs the whole loop (backend DB → human-confirmed diagnosis frames → on-device model fine-tune → round-trip verify) and refuses to run when there are no confirmed frames.
 - **Test growth** — Backend integration tests 61 → 83 (FCM 6, payments 16), simulation tests 15 → 24; all green.
 
-## What's New (Build 2026112010)
+### What's New (Build 2026112010)
 
 - **Watering safety (Farmer)** — Auto-watering is now edge-triggered: it fires only on the rising edge of the AI's water-need signal (false→true) with a 30-minute re-water cooldown, so a persistent "dry" reading can no longer re-open the valve every 30 seconds. Manual and Master-commanded waterings also refresh the cooldown so they never stack.
 - **Hardware reliability (Farmer)** — Watering is no longer reported as "done" when the BLE hardware is offline: it posts a `water_failed` event instead, and the ESP32 connection now auto-reconnects (5s after a drop, 15s scan timeout re-scan, duplicate-scan guard, GATT cleanup). The offline event/watering queue is now mutex-serialized so no records are lost to a concurrent flush.
@@ -66,7 +107,7 @@ The two devices are linked by a randomly generated pairing code — no complex s
 - **ML** — The weakest model (cactus, val 0.611) was retrained with a verified seed (val 0.685); `train.py` now takes `--seed` for reproducibility; the personalization pipeline (export → split → finetune) is covered by a 16-assert E2E test.
 - **Dead code & bloat removed** — Unreachable onboarding route, 8.3 MB of unused GLB assets, and several dead composables deleted.
 
-## What's New (Build 2026081910)
+### What's New (Build 2026081910)
 
 - **On-device plant health CNN × 8 species** — a tiny custom CNN (custom `OJP1` format, ~20 KB per model) now runs entirely on the Farmer phone for cherry tomato, basil, cactus, herb (rosemary), strawberry, pepper, pumpkin, and zucchini. It classifies 6 health causes — `healthy`, `water_low`, `water_high`, `light_low`, `pest`, `heat` — and auto-triggers watering or the Fan accordingly. Retrained on pot-invariant data so planter color doesn't skew predictions, and evaluated on a held-out Creative-Commons web photo test split.
 - **Household sharing** — the Master owner invites family/friends with a 6-digit code; members co-own and co-operate the same Farmers, plants, and notifications (watering, Fan, laser, camera).
@@ -77,6 +118,8 @@ The two devices are linked by a randomly generated pairing code — no complex s
 - **ML tooling** — browser-based labeling tool (`ml/plant_health/label_web/`), dataset fetchers, fine-tuning scripts, and per-species training metrics under `ml/plant_health/metrics/`.
 
 See [`docs/builds/`](docs/builds/) for per-build release notes.
+
+</details>
 
 ---
 
@@ -100,24 +143,27 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 ## Architecture
 
 ```
-┌─────────────────────────┐         ┌──────────────────────────────┐
-│      Master App          │         │     Slave App (Farmer)        │
-│  (Your phone)            │  Pair   │  (Fixed device at plant)       │
-│                          │  Code   │                              │
-│  · Dashboard / Remote    │ ◀─────▶ │  · Continuous Camera Capture  │
-│  · Harvest / Pest Alerts │  Sync   │  · On-Device Health CNN (OJP1)│
-│  · Household Sharing     │         │  · Growth Album + Clip Render │
-│  · Community / Market    │         │  · Auto Water / Pest Control  │
-│  · Farmer Pairing        │         │  · Hardware Control (BLE)     │
-└─────────────────────────┘         └──────────────┬───────────────┘
-        ▲                                            │ BLE / Wi-Fi
-        │ Push / Status                               │
-        │                                            ▼
-   ┌────┴────┐                            ┌────────────────────┐
-    │  Cloud   │  Weather API, Accounts,    │ External Hardware   │
-    │  Backend │  Household, Photos,        │ (Valve/Fan/Laser)   │
-    │  (Node)  │  Community, Market         └────────────────────┘
-    └─────────┘
+┌────────────────────────────┐                     ┌────────────────────────────────┐
+│ Master App (your phone)    │                     │ Slave App — Farmer             │
+│ · Farm scene / dashboard   │                     │ (fixed device at the plants)   │
+│ · Plant cards: add/remove  │                     │ · Camera + per-plant RoI       │
+│   AI detector modules      │                     │ · Detector modules (OJP1):     │
+│ · Events, album, clips     │                     │   health · pest · watering     │
+│ · Household / community /  │                     │ · Auto water / pest control    │
+│   marketplace              │                     │ · Growth album + clip render   │
+└─────────────┬──────────────┘                     │ · Live MJPEG stream (:8613)    │
+              │ REST + SSE                         └───────┬──────────────┬─────────┘
+              ▼                                            │ REST + SSE   │ BLE
+┌──────────────────────────────────────────────┐           │ (models are  ▼
+│ Cloud backend — Node + SQLite (GCP)          │◀──────────┘  SHA-256   ┌──────────────────┐
+│ accounts · pairing · plants · events · photos│              verified) │ Valve / Fan /    │
+│ detector catalog · model registry · weather  │                        │ Laser (ESP32)    │
+└──────────────────────▲───────────────────────┘                        └──────────────────┘
+                       │ upload versions + labels + train/val photos (token)
+┌──────────────────────┴───────────────────────┐   git push
+│ model-manager (your PC, 127.0.0.1:4900)      │──────────────▶ GitHub (ml/registry/)
+│ label · train · evaluate · deploy            │
+└──────────────────────────────────────────────┘
 ```
 
 ---
@@ -126,20 +172,24 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 
 ### Master App
 - **Authentication** — Email/password sign-up & sign-in with server-side sessions (the sign-up flow also sets the backend URL and detects your growing region), or anonymous quick-start (nickname + growing region); the backend URL can be changed any time in Settings with a health-checked reconnect
-- **Dashboard** — Plant & Farmer overview, region-based weather, quick remote watering
-- **Plant Management** — Register crops, track growth stages, view watering history & events, browse the accumulated photo album
-- **Growth Clips** — One tap asks the Farmer to render a short growth-story MP4 (time/location overlay + BGM) and plays it inline
+- **Dashboard** — Animated 3×4 farm scene (draggable plant positions, per-Farmer icons, live sky), farm weather + my weather, quick remote watering
+- **Plant Management** — Register crops, track growth stages, watering history, harvest records, per-plant RoI editor on Farmer photos
+- **AI Detector Modules** — Add/remove on-device detectors per plant from the plant card (`🧠 AI n`); plant detail shows each module's latest reading, confidence, trigger, model readiness and the watering cycle, with a **Read now** button
+- **Recent Events as Statistics** — Per-group KPI tiles, 14-day daily stacked chart with tap/drag and table view, per-type ranking, latest records in local time
+- **Growth Album & Clips** — Hero pager, thumbnail strip, grid and pinch-zoom viewer; one tap asks the Farmer to render a growth-story MP4 (time/location overlay + BGM), played in a card of the same size
+- **Live Camera** — Direct MJPEG stream on the LAN or a 3-second server relay
 - **Household Sharing** — Invite family/friends with a 6-digit code; shared Farmers and plants show a "shared" badge and can be operated by all members
 - **Farmer Management** — Device status (online/offline), autonomous policy settings, pause/resume
 - **Pairing** — Generate a random 6-digit code or QR; valid for 10 minutes
 - **Remote Commands** — Queue watering or mode-change instructions for offline Farmers
-- **Community** — Region-based neighbor feed for **share / sell / buy** posts (crop, quantity, price), comments, reserve/complete with reputation, and report/block moderation
+- **Community** — Neighbor feed for **share / sell / buy** posts (crop, quantity, price) around the farm's location (my location and nearby search too), plant-card posts with the growth-story video, comments, reserve/complete with reputation, and report/block moderation
 - **Marketplace** — Category-browsable supplies (fertilizer, seeds, valves, ESP32, sensors, recommended slave phones), search, plant-based recommendations, curated bundle kits, cart & checkout with order history, and affiliate links (CPS/CPA) for external items
 - **Localization** — Full Korean / English UI with in-app language switching
 
 ### Slave (Farmer) App
-- **Continuous Camera Monitoring** — CameraX live preview with periodic capture
-- **On-Device Health CNN** — `PlantHealthNet` runs species-specific tiny CNNs (custom `OJP1` format, ~20 KB) fully on-device for 8 crops: cherry tomato, basil, cactus, herb, strawberry, pepper, pumpkin, zucchini. Classifies `healthy / water_low / water_high / light_low / pest / heat`; falls back to the color heuristic for unknown species
+- **Continuous Camera Monitoring** — CameraX live preview with periodic capture; each plant is read from its own RoI in the frame
+- **Detector Modules** — Runs the modules the Master enabled for each plant (health 5 grades, pest 4 levels, watering cycle, plus any classifier module published from the model-manager). Models are downloaded from the server, SHA-256 verified and cached; readings run periodically and on events (module added, Read now, watering, Fan/Laser, health drop) and are reported back to the Master
+- **On-Device Health CNN** — `PlantHealthNet` runs species-specific tiny CNNs (custom `OJP1` format, ~20 KB) fully on-device for 14 crops. Classifies `healthy / water_low / water_high / light_low / pest / heat`; falls back to the color heuristic for unknown species
 - **Autonomous Watering** — CNN or heuristic detects water stress and triggers the valve automatically, adjusted by cached weather data
 - **Pest Detection & Control** — CNN `pest` class or on-device insect heuristic → autonomous Fan (per policy) and Laser (auto or Master-approved) response
 - **Harvest Detection** — Fruit-ripeness heuristic → harvest-ready alerts to the Master (debounced)
@@ -147,6 +197,7 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 - **Hardware Control** — Pluggable `HardwareController` abstraction: BLE (ESP32 / Nordic UART Service) control of solenoid valve, fan, and laser with a built-in **fail-safe auto-off timer**; falls back to a simulation controller when no hardware is paired. Watering opens the valve for a volume-proportional duration.
 - **Offline Resilience** — Operates autonomously for 24+ hours without network; failed event/watering reports are queued locally and **synced on reconnection**
 - **Headless Mode** — Foreground service + wake lock keep the autonomous engine running with the screen off; auto-restarts after reboot (BootReceiver) and reports battery on heartbeat
+- **Live Stream & Location** — MJPEG camera stream on port 8613 (plus server relay on request); farm region auto-detected from device location
 - **Server Reconnect** — Change the backend address in Settings with URL validation and `/health` check; reconnects the engine without unpairing
 - **Localization** — Korean / English UI with in-app language switching
 
@@ -162,13 +213,17 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 - **Weather API** — Open-Meteo integration with 30-minute cache and watering-factor calculation
 - **Marketplace API** — Products (categories/search), curated bundles, plant-based recommendations, affiliate click tracking, cart checkout (orders + stock decrement) & order history
 - **Community API** — Region-scoped feed (share/sell/buy) with filters & search, comments, status (reserve/complete) with reputation scoring, and report/block moderation
+- **Detector API** (`/api/detectors`) — Module catalog with model URL / SHA-256 / labels per deployed version, model file download, per-plant module add/remove (pushes a re-sync command to the Farmer), reading results and model-readiness reports
+- **Model API** (`/api/models`) — Receives versions from the local model-manager (model + labels + metrics + train/val photos, `MODEL_MANAGER_TOKEN` required), deploy/rollback, field performance per model and version, Farmer photo candidates for labeling
+- **Events window** — `GET /api/events/:slaveId?days=N` returns every event in the window for the Master's statistics
+- **Monitoring page** — `/admin` (API usage, crashes, devices)
 - **Health endpoint** — `GET /health` used by both apps to validate a server address before connecting
 
 ---
 
 ## On-Device Plant Health AI
 
-The Farmer app ships species-specific tiny CNNs in `android/slave/app/src/main/assets/models/` (`*.bin`, ~20 KB each — no model download, no cloud inference):
+All inference runs on the Farmer phone — no cloud inference. The app ships tiny CNNs in `android/slave/app/src/main/assets/models/` (`*.bin`, ~20 KB each); newer or retrained versions are delivered by the server's detector catalog (see below) and verified by SHA-256 before use.
 
 | | |
 |---|---|
@@ -178,7 +233,18 @@ The Farmer app ships species-specific tiny CNNs in `android/slave/app/src/main/a
 | **Species (14)** | cherry tomato, basil, cactus, herb (rosemary), strawberry, pepper, pumpkin, zucchini, lettuce, perilla, green onion, sweet potato, potato, onion |
 | **Actions** | `water_low` → auto-water · `pest` → Fan on |
 
-The 14 models cover every crop on the master app's plant-registration list (Korean/English aliases resolve to the model — e.g. "토마토"→cherry tomato, "로즈마리"→herb, "파"→green onion). Unknown species fall back to the original color heuristic, so every plant still gets autonomous care.
+The 14 models cover every crop on the master app's plant-registration list (Korean/English aliases resolve to the model — e.g. "토마토"→cherry tomato, "로즈마리"→herb, "파"→green onion). Unknown species fall back to the original color heuristic, so every plant still gets autonomous care — until a species model for them is published from the model-manager.
+
+### Detector modules (per plant, chosen in the Master)
+
+| Module | Model | Output | Drives |
+|---|---|---|---|
+| 🌿 Health check `health_grade` | `health_grade.bin` (species-agnostic) | very healthy / healthy / fair / poor / very poor | `health_change` alerts (confirmed after 2 consecutive readings) |
+| 🐛 Pest detection `pest` | `pest.bin` (separate from health) | none / light / moderate / severe | `pest_detected` alerts, Fan/Laser response |
+| 💧 Watering cycle `watering` | the plant's species model (`water_low` / `water_high`) | dry / ok / overwatered + hours since watering, average dry-out cycle, next-watering estimate | `water_low` alerts, per-RoI auto-watering |
+| Custom modules | published from the model-manager | any labels | readings shown in the Master |
+
+The server's catalog (`GET /api/detectors`) lists each module's deployed model (URL, SHA-256, size, output labels) and maps plant species names to species models. The Farmer syncs it at start, every 5 minutes and whenever the Master changes a plant's modules, RoI, Farmer or species. Spec: [`docs/farmer-features.md`](docs/farmer-features.md) §8.
 
 ### Training data (`datasets/`)
 
@@ -239,6 +305,32 @@ bash personalize.sh --species basil    # personalization loop (needs confirmed d
 
 ---
 
+## Model Manager (local)
+
+A local web tool for keeping the on-device models accurate after launch — new species, new states to monitor, and performance drops. Training runs on your PC; the results go to the server (deployment to Farmers) and to GitHub (record).
+
+```bash
+scripts\model-manager.bat                              # Windows: installs once, opens http://127.0.0.1:4900
+cd ml/model-manager && npm install && npm start        # any OS
+```
+
+1. **Collect** — add labels and training photos: direct JPEG upload, Farmer photos fetched from the server and cropped by the plant RoI, or frames from human-confirmed video diagnoses. About 20% of each label's photo groups go to validation; photos from the same shot/day/session never straddle train and validation.
+2. **Train** — fine-tune from a version (or the base model) in a worker thread. New labels add an output; L2-SP keeps the existing knowledge for labels with few photos. Each version records validation metrics and the starting version's score on the same photos.
+3. **Check** — validation accuracy, macro-F1, per-class recall, confusion matrix; accuracy on photos added after the version; field confidence per day and per deployed version and human-agreement from the server; "retrain recommended" signals.
+4. **Publish** — *Upload* sends the model, labels (ko/en), metrics and the version's train/val photos (only the ones the server lacks) to `POST /api/models/:id/releases`; *Deploy* switches the detector catalog, and Farmers download the new model. *GitHub* commits only `ml/registry/<model>/` and pushes.
+
+```
+ml/registry/<model>/model.json                   kind, names, labels (ko/en), species aliases, base model
+ml/registry/<model>/samples.json                 photos: label, train/val split, source, group
+ml/registry/<model>/samples/<sha256>.jpg         training photos (256 px)
+ml/registry/<model>/versions/v<N>/version.json   output labels, SHA-256, metrics, baseline, training settings, dataset list
+ml/registry/<model>/versions/v<N>/model.bin      trained OJP1 model (v1 = the app-bundled model in backend/models)
+```
+
+Server uploads require the `MODEL_MANAGER_TOKEN` configured on the backend; the same value goes into the tool's **Settings** (stored in `ml/model-manager/.local/`, never committed). The tool listens on 127.0.0.1 only. Full guide: [`docs/model-manager.md`](docs/model-manager.md).
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -246,11 +338,12 @@ bash personalize.sh --species basil    # personalization loop (needs confirmed d
 | Mobile | Kotlin, Jetpack Compose, Material 3, Navigation Compose |
 | Networking | Retrofit 2, OkHttp, kotlinx.serialization |
 | Camera / Media | CameraX (Preview, ImageCapture, ImageAnalysis), MediaCodec MP4/AAC clip rendering |
-| Backend | Node.js, Express, SQLite (node:sqlite) |
+| Backend | Node.js 22+, Express, SQLite (node:sqlite), deployed on a GCP VM (systemd) |
 | Weather | Open-Meteo API |
 | Hardware | ESP32 via BLE (Nordic UART Service) — valve/fan/laser with fail-safe |
-| On-device AI | Custom tiny CNN (`OJP1` format) via `PlantHealthNet` — 8 species, 6 health classes, ~20 KB per model |
-| ML training | Python + NumPy (`ml/plant_health/`), CC-licensed web eval set |
+| On-device AI | Custom tiny CNN (`OJP1` format, ~20 KB per model) — 14 species models (6 classes), 5-grade health, 4-level pest; server-delivered, SHA-256 verified |
+| ML training | Python + NumPy (`ml/plant_health/`, synthetic base models) · pure-JS OJP1 trainer in the local model-manager (`ml/model-manager/`) |
+| Charts (Master) | Compose Canvas (daily event chart) · inline SVG in the model-manager |
 | i18n | Korean (`ko`) / English (`en`) with per-app locale persistence |
 
 ---
@@ -259,15 +352,22 @@ bash personalize.sh --species basil    # personalization loop (needs confirmed d
 
 ```
 OOJOO-FARM/
-├── README.md               # This file
+├── README.md               # This file (English) — README_kor.md for Korean
 ├── docs/                   # Documentation
 │   ├── prd.md              # Product Requirements Document (v1.1.0)
 │   ├── DESIGN.md           # Design / architecture notes
-│   └── builds/             # Per-build release notes
+│   ├── farmer-features.md  # Farmer AI features, detector modules spec (§8)
+│   ├── model-manager.md    # Local model-manager guide
+│   └── builds/             # Per-build release notes (up to 2026112015; later in working_diary/)
+├── working_diary/          # Per-change work log (requirements, changes, verification, follow-ups)
 ├── dist/                   # Built debug APKs (in-repo)
 │   ├── oojoo-farm-master-debug.apk
 │   └── oojoo-farm-farmer-debug.apk
 ├── scripts/                # Helper scripts
+│   ├── build-dist.sh       # assembleDebug both apps → dist/
+│   ├── model-manager.bat   # Start the local model-manager (Windows)
+│   ├── sync-detector-models.mjs     # app assets → backend/models after retraining
+│   ├── make-ojp1-parity-fixture.mjs # JS-trained model ↔ Kotlin parity fixture
 │   ├── start-backend.bat   # Windows backend launcher
 │   ├── run-emulator.bat    # Windows emulator launcher
 │   └── verify-locales.mjs  # i18n verification
@@ -281,14 +381,21 @@ OOJOO-FARM/
 │   └── 38758–38760.gif     # Master app UI showcase
 ├── backend/                # Node.js + Express + SQLite
 │   ├── run-backend.sh      # Ubuntu backend launcher
+│   ├── models/             # Served OJP1 models (app-bundled v1)
+│   ├── test/               # node:test integration tests
 │   └── src/
 │       ├── server.js
 │       ├── db.js
-│       ├── lib/household.js
-│       └── routes/         # users, pairing, plants, events, watering, commands,
-│                           #   weather, household, photos, videos, community, market, ...
-├── ml/                     # Machine learning pipeline
-│   └── plant_health/       # Training, labeling, eval, metrics (see above)
+│       ├── admin.html      # /admin monitoring page
+│       ├── lib/            # household, detectors (module catalog), validate, push, ...
+│       ├── ml/             # ojp1 (model math), registry (deployed versions), stats (field performance), defs
+│       └── routes/         # users, pairing, plants, events, watering, commands, detectors, models,
+│                           #   weather, household, photos, videos, live, community, market, ...
+├── ml/
+│   ├── plant_health/       # Python training pipeline, labeling, eval, metrics (see above)
+│   ├── model-manager/      # Local model-manager (server.mjs, ui/, lib/, test/)
+│   └── registry/           # Models, labels, training photos and versions managed by the model-manager
+├── simulation/             # PC simulation of the Farmer (Node) + Python↔JS parity vectors
 ├── tools/                  # Dev tooling
 │   └── gpu-hang-diagnostics/
 └── android/                # Multi-module Android project
@@ -300,16 +407,19 @@ OOJOO-FARM/
     │           ├── data/       # Prefs, Session, ServerConfig, ServerEndpoint
     │           ├── model/      # Data models
     │           ├── network/    # Retrofit API client
-    │           └── ui/         # Auth, Home (dashboard), PlantList/Detail/Registration,
+    │           └── ui/         # Auth, Home (farm scene), PlantList/Detail/Registration,
+    │                          #   DetectorModules, EventStats, GrowthAlbum, RoiEditor, LiveCamera,
     │                          #   FarmerList, Family (household), Pairing, Profile, Messages,
     │                          #   Notification, Community, Market, Report, ThemeEditor, ...
     └── slave/              # Slave/Farmer app (com.oojoo.farm.slave)
         └── app/src/main/
-            ├── assets/models/  # OJP1 CNN weights + labels.json (8 species)
+            ├── assets/models/  # OJP1 weights: 14 species + health_grade + pest, labels.json
             └── java/com/oojoo/farm/slave/
                 ├── MainActivity.kt
                 ├── album/      # PlantAlbum (growth photo album)
                 ├── data/       # SharedPreferences (Prefs), ServerEndpoint
+                ├── detect/     # Detector modules: DetectorManager, ModelStore (download + SHA-256),
+                │               #   planner / report gate / watering-cycle tracker
                 ├── hardware/   # HardwareController: BLE (ESP32 NUS) + Mock, fail-safe timers
                 ├── model/      # Data models
                 ├── network/    # Retrofit API client
@@ -409,6 +519,26 @@ npm start          # http://localhost:4000
 
 For development with auto-reload: `npm run dev`
 
+Environment worth knowing: `MODEL_MANAGER_TOKEN` (required for model uploads/deploys from the model-manager), `FCM_*` (push), `PG_MODE` / `TOSS_*` (payments) — see `.env.example`.
+
+### Model Manager
+
+```bash
+scripts\model-manager.bat                        # or: cd ml/model-manager && npm install && npm start
+```
+
+Open http://127.0.0.1:4900 → **Settings**: server URL (default the GCP backend) and upload token. See [Model Manager](#model-manager-local).
+
+### Deployment (GCP)
+
+The production backend runs on the GCP VM `oojoo-backend` (`asia-northeast3-a`, `http://34.50.40.104:4000`) as the systemd service `oojoo`. After pushing to GitHub:
+
+```bash
+gcloud compute ssh oojoo-backend --zone=asia-northeast3-a --command="cd /opt/oojoo/repo && sudo -u wooju-family git pull --ff-only && cd backend && sudo -u wooju-family npm install && sudo systemctl restart oojoo && systemctl is-active oojoo"
+```
+
+`MODEL_MANAGER_TOKEN` is set in the systemd drop-in `/etc/systemd/system/oojoo.service.d/model-manager.conf`. Check `/health`, `/api/detectors` and `/api/models` after a deploy. Details: `.opencode/skills/deploy-backend-gcp/SKILL.md`.
+
 ### Android
 
 1. Open **Android Studio** → **Open** → select the `android/` folder
@@ -418,7 +548,7 @@ For development with auto-reload: `npm run dev`
 
 ### Pointing the Apps at Your Server
 
-- The default server URL is baked in from `android/*/app/src/main/assets/server_config.yaml` — edit it before building (e.g. `http://<your-LAN-IP>:4000/` for physical devices).
+- The default server URL is baked in from `android/*/app/src/main/assets/server_config.yaml` — currently the GCP backend `http://34.50.40.104:4000/`; edit it before building to use another server (e.g. `http://<your-LAN-IP>:4000/`).
 - The emulator default `http://10.0.2.2:4000/` is used when no config value is set.
 - You can also change the server address at runtime in **Settings → Server Connection** in either app; the address is validated and health-checked (`GET /health`) before it is saved and applied.
 
@@ -427,8 +557,20 @@ For development with auto-reload: `npm run dev`
 Ready-to-install debug APKs for both apps live in [`dist/`](dist/):
 
 ```
-dist/oojoo-farm-master-debug.apk
-dist/oojoo-farm-farmer-debug.apk
+dist/oojoo-farm-master-debug.apk    # build 2026112603 — AI detector modules on plant cards
+dist/oojoo-farm-farmer-debug.apk    # build 2026112604 — detector modules, per-version model labels
+```
+
+Build them with `./scripts/build-dist.sh` (needs JDK 17 + Android SDK). The APKs are debug-signed; builds from a different machine carry a different debug key, so a phone with an older build from elsewhere must uninstall it first (the Farmer then needs to be paired again).
+
+### Tests
+
+```bash
+cd backend && npm test                  # node:test integration tests
+cd ml/model-manager && npm test         # training engine + upload/deploy + GitHub E2E (temp repo)
+cd simulation && npm test               # Farmer simulation, Python↔JS model parity
+cd android && ./gradlew :master:app:testDebugUnitTest :slave:app:testDebugUnitTest
+node scripts/verify-locales.mjs         # ko/en string parity
 ```
 
 ### Languages
@@ -447,6 +589,7 @@ Both apps default to Korean and can be switched to English in **Settings**; the 
 | **Phase 4** | Marketplace, cart/checkout, affiliate links, subscription plans | ✅ Done |
 | **Phase 5** | On-device CNN health models (8 species, OJP1), household sharing, growth clips, email/password auth, ko/en localization, multi-Farmer/crop | ✅ Done |
 | Phase 6 | FCM push (config-gated), Toss Payments adapter (`PG_MODE`, config-gated), personalization one-command (`personalize.sh`), more species models | 🔶 Code-complete (config-gated) |
+| **Phase 7** | Per-plant RoI monitoring, live camera, farm scene, growth album/event statistics, on-device detector modules (add/remove per plant, server-delivered models), local model-manager (label · train · evaluate · upload to server and GitHub) | ✅ Done (device field test pending) |
 
 > **Phase 6 is code-complete and config-gated**: FCM activates the moment the backend env (`FCM_PROJECT_ID`, `FCM_SERVICE_ACCOUNT`) and the master app's `FirebaseCfg` (the `google-services.json` values) are filled in — until then it is inert with zero build impact. Toss Payments activates with `PG_MODE=toss` + `TOSS_SECRET_KEY` (+ `TOSS_WEBHOOK_SECRET`); the default stays the instant-pay demo checkout. On-device inference uses real trained CNNs (custom `OJP1` format) — no cloud required.
 
