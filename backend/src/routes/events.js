@@ -78,9 +78,31 @@ r.post('/batch', slaveAuth, (req, res) => {
 });
 
 // 슬레이브별 최근 이벤트 (마스터 조회)
+//  - 기본: 최신 50건 (기존 계약 그대로)
+//  - ?days=N (1..90): 최근 N일 이벤트 전부(최대 MAX_WINDOW_EVENTS) — 마스터 이벤트 통계/시계열용.
+//    창 안 이벤트가 50건 미만이면 최신 50건으로 채워 '최근 기록' 목록이 비지 않게 한다.
+//    응답에 days(적용된 창)와 truncated(창 안 이벤트가 상한에 걸림)를 함께 돌려준다.
+const RECENT_LIMIT = 50;
+const MAX_WINDOW_EVENTS = 1000;
 r.get('/:slaveId', (req, res) => {
-  const rows = db.prepare('SELECT * FROM events WHERE slave_id=? ORDER BY created_at DESC LIMIT 50').all(req.params.slaveId);
-  res.json({ events: rows });
+  const { slaveId } = req.params;
+  const days = Number(req.query.days);
+  const latest = () => db.prepare('SELECT * FROM events WHERE slave_id=? ORDER BY created_at DESC LIMIT ?')
+    .all(slaveId, RECENT_LIMIT);
+  if (!Number.isInteger(days) || days < 1 || days > 90) {
+    return res.json({ events: latest() });
+  }
+  const windowRows = db.prepare(`
+    SELECT * FROM events
+    WHERE slave_id=? AND created_at >= datetime('now', ?)
+    ORDER BY created_at DESC LIMIT ?
+  `).all(slaveId, `-${days} days`, MAX_WINDOW_EVENTS);
+  let rows = windowRows;
+  if (windowRows.length < RECENT_LIMIT) {
+    const seen = new Set(windowRows.map((e) => e.id));
+    rows = windowRows.concat(latest().filter((e) => !seen.has(e.id)));
+  }
+  res.json({ events: rows, days, truncated: windowRows.length >= MAX_WINDOW_EVENTS });
 });
 
 export default r;
