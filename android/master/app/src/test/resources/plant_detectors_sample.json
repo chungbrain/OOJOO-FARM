@@ -1,6 +1,6 @@
 {
- "plantId": "EZT4sqep9Wym",
- "slaveId": "Nf4QwJ--OKYJ",
+ "plantId": "0M0P1RfyfTEc",
+ "slaveId": "1fBO7PEVxLNX",
  "modules": [
   {
    "id": "health_grade",
@@ -73,7 +73,7 @@
     "state": "downloading",
     "detail": "pest.bin",
     "modelSha": null,
-    "updatedAt": "2026-11-26 03:50:58"
+    "updatedAt": "2026-11-26 04:29:54"
    },
    "latest": null,
    "cycle": null
@@ -84,7 +84,7 @@
    "name": "관수 주기 모니터링",
    "nameEn": "Watering cycle",
    "description": "식물 종에 맞는 모델로 물 부족·과다를 판독하고, 관수 후 다시 마르기까지의 주기를 추적합니다.",
-   "descriptionEn": "Reads dry/overwatered state with a species model and tracks how long the plant takes to dry out after watering.",
+   "descriptionEn": "Reads dry/wet state with a species model and tracks how long the plant takes to dry out after watering.",
    "labels": [
     "dry",
     "ok",
@@ -107,7 +107,7 @@
    "addedAt": null,
    "state": null,
    "latest": {
-    "id": "Ki78m4lYjelK",
+    "id": "A-yl0CetfZY-",
     "moduleId": "watering",
     "label": "dry",
     "confidence": 0.71,
@@ -120,10 +120,10 @@
      "cycles": 2,
      "nextInHours": 1.5
     },
-    "createdAt": "2026-11-26 03:50:58"
+    "createdAt": "2026-11-26 04:29:54"
    },
    "cycle": {
-    "lastWateredAt": "2026-11-26 03:50:58",
+    "lastWateredAt": "2026-11-26 04:29:54",
     "avgIntervalHours": 0,
     "intervals": 1
    }

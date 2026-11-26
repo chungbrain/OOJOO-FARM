@@ -14,7 +14,7 @@ import db from '../db.js';
 import { slaveAuth } from '../middleware/auth.js';
 import { notifySlaveCommand, notifyMasterEvent } from './commands.js';
 import {
-  catalog, servableModelFile, plantDetectors, DETECTOR_IDS, DEFAULT_DETECTORS,
+  catalog, servableModelFile, plantDetectors, detectorIds, DEFAULT_DETECTORS,
 } from '../lib/detectors.js';
 
 const r = Router();
@@ -151,7 +151,7 @@ r.get('/plant/:plantId/history', (req, res) => {
   if (!row) return res.status(404).json({ error: 'plant not found' });
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
   const moduleId = typeof req.query.module === 'string' ? req.query.module : null;
-  if (moduleId && !DETECTOR_IDS.includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
+  if (moduleId && !detectorIds().includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
   const rows = moduleId
     ? db.prepare('SELECT * FROM detector_results WHERE plant_id=? AND module_id=? ORDER BY created_at DESC, rowid DESC LIMIT ?').all(row.id, moduleId, limit)
     : db.prepare('SELECT * FROM detector_results WHERE plant_id=? ORDER BY created_at DESC, rowid DESC LIMIT ?').all(row.id, limit);
@@ -160,7 +160,7 @@ r.get('/plant/:plantId/history', (req, res) => {
 
 r.post('/plant/:plantId/:moduleId', (req, res) => {
   const { plantId, moduleId } = req.params;
-  if (!DETECTOR_IDS.includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
+  if (!detectorIds().includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
   const row = plantRow(plantId);
   if (!row) return res.status(404).json({ error: 'plant not found' });
   const list = plantDetectors(row);
@@ -173,7 +173,7 @@ r.post('/plant/:plantId/:moduleId', (req, res) => {
 
 r.delete('/plant/:plantId/:moduleId', (req, res) => {
   const { plantId, moduleId } = req.params;
-  if (!DETECTOR_IDS.includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
+  if (!detectorIds().includes(moduleId)) return res.status(400).json({ error: 'unknown module' });
   const row = plantRow(plantId);
   if (!row) return res.status(404).json({ error: 'plant not found' });
   saveDetectors(row.id, plantDetectors(row).filter((e) => e.id !== moduleId));
@@ -188,7 +188,7 @@ r.delete('/plant/:plantId/:moduleId', (req, res) => {
 function cleanResult(x, labelsOf) {
   if (!x || typeof x !== 'object') return { error: 'each result must be an object' };
   const { moduleId, label, confidence = null, trigger = 'periodic', modelSha = null, detail = null } = x;
-  if (!DETECTOR_IDS.includes(moduleId)) return { error: `unknown module: ${moduleId}` };
+  if (!labelsOf.has(moduleId)) return { error: `unknown module: ${moduleId}` };
   if (!labelsOf.get(moduleId).includes(label)) return { error: `invalid label for ${moduleId}` };
   if (confidence !== null && !(typeof confidence === 'number' && confidence >= 0 && confidence <= 1)) {
     return { error: 'confidence must be a number in 0..1' };
@@ -249,8 +249,9 @@ r.post('/state', slaveAuth, (req, res) => {
   if (!Array.isArray(states) || states.length === 0 || states.length > 100) {
     return res.status(400).json({ error: 'states[1..100] required' });
   }
+  const ids = detectorIds();
   for (const s of states) {
-    if (!s || typeof s !== 'object' || !s.plantId || !DETECTOR_IDS.includes(s.moduleId) || !STATES.has(s.state)) {
+    if (!s || typeof s !== 'object' || !s.plantId || !ids.includes(s.moduleId) || !STATES.has(s.state)) {
       return res.status(400).json({ error: `each state needs plantId, moduleId and state (${[...STATES].join('|')})` });
     }
     if (s.detail != null && (typeof s.detail !== 'string' || s.detail.length > 200)) {

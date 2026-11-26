@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOJOO 모델 관리</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f9; --surface:#ffffff; --surface-2:#f3f3f3; --ink:#191919; --ink-2:#666666;
+  --line:#e7e7e7; --axis:#c2c2c2; --border:rgba(11,11,11,.12);
+  --s1:#257de0; --s2:#f47230; --accent:#257de0; --on-accent:#ffffff;
+  --good:#0aac23; --warn:#fbb315; --serious:#f18a59; --crit:#dc3c3d; --good-text:#006c10; --crit-text:#b3261e;
+  --heat-strong-ink:#ffffff;
+  --seq-1:#e6f1fe; --seq-2:#cce3fd; --seq-3:#9dc8f7; --seq-4:#6aabf1; --seq-5:#338ced; --seq-6:#2370cd; --seq-7:#1757ac; --seq-8:#0e3d7e;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --page:#0b0b0b; --surface:#191919; --surface-2:#232323; --ink:#efefef; --ink-2:#9c9c9c;
+    --line:#303030; --axis:#474747; --border:rgba(255,255,255,.12);
+    --s1:#338ced; --s2:#e76624; --accent:#338ced; --good-text:#53c556; --crit-text:#ff8a80; --heat-strong-ink:#0b0b0b;
+    --seq-1:#1d2633; --seq-2:#0e3d7e; --seq-3:#0f4a96; --seq-4:#1757ac; --seq-5:#2370cd; --seq-6:#338ced; --seq-7:#6aabf1; --seq-8:#9dc8f7;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0b0b0b; --surface:#191919; --surface-2:#232323; --ink:#efefef; --ink-2:#9c9c9c;
+  --line:#303030; --axis:#474747; --border:rgba(255,255,255,.12);
+  --s1:#338ced; --s2:#e76624; --accent:#338ced; --good-text:#53c556; --crit-text:#ff8a80; --heat-strong-ink:#0b0b0b;
+  --seq-1:#1d2633; --seq-2:#0e3d7e; --seq-3:#0f4a96; --seq-4:#1757ac; --seq-5:#2370cd; --seq-6:#338ced; --seq-7:#6aabf1; --seq-8:#9dc8f7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 "Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif}
+a{color:var(--accent)}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:17px;margin:0}
+header .sub{color:var(--ink-2);font-size:12px}
+header .sp{flex:1}
+main{max-width:1180px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+main>*{min-width:0;max-width:100%}
+section{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:0}
+h2{font-size:15px;margin:0 0 10px}
+h3{font-size:13px;color:var(--ink-2);margin:14px 0 6px;font-weight:600}
+button,.btn{background:var(--surface-2);border:1px solid var(--border);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+button.danger{color:var(--crit-text)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px;min-width:0}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--ink-2)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--ink-2)}
+.small{font-size:12px}
+.err{color:var(--crit-text)}
+.ok{color:var(--good-text)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--ink-2);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface-2)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--ink-2);font-size:12px}
+.kpi .d{font-size:12px;color:var(--ink-2)}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;font-size:12px;border:1px solid var(--border);white-space:nowrap}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap}
+.st i{font-style:normal;display:inline-flex;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.st.ok i{background:var(--good)} .st.warn i{background:var(--warn);color:#0b0b0b} .st.info i{background:var(--accent)} .st.untrained i{background:var(--axis)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 12px;flex-wrap:wrap}
+.tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 12px;color:var(--ink-2)}
+.tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid2>*{min-width:0} /* 넓은 표·차트가 열 폭을 밀어내지 않게 */
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--surface-2);border-radius:6px;padding:4px 8px;font-size:12px}
+.chip b{font-variant-numeric:tabular-nums}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.tile{position:relative;border-radius:6px;overflow:hidden;background:var(--surface-2);border:2px solid transparent;cursor:pointer}
+.tile img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.62);color:#fff;font-size:11px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{border-color:var(--accent)}
+.tile .chk{position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:4px;background:rgba(0,0,0,.5);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.drop{border:2px dashed var(--axis);border-radius:8px;padding:18px;text-align:center;color:var(--ink-2)}
+.drop.over{border-color:var(--accent);color:var(--ink)}
+.progress{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.progress>div{height:100%;background:var(--accent);transition:width .3s}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--ink-2);font-size:11px}
+.chart .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;display:none;z-index:3}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink-2);margin:4px 0 6px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.legend i.box{height:10px;width:10px;border-radius:2px}
+.heat{border-collapse:separate;border-spacing:2px;font-size:12px}
+.heat td{width:44px;height:30px;text-align:center;border:none;border-radius:4px;padding:0;font-variant-numeric:tabular-nums}
+.heat th{font-weight:500;font-size:11px;padding:2px 4px;border:none;white-space:nowrap}
+.heat th.rowh{text-align:right}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal>div{background:var(--surface);border-radius:10px;padding:16px;max-width:560px;width:100%;max-height:90vh;overflow:auto;border:1px solid var(--border)}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+.empty{color:var(--ink-2);padding:12px 0}
+.reasons{margin:6px 0 0;padding-left:18px}
+.reasons li{margin:2px 0}
+@media (max-width:600px){main{padding:12px 16px}.kpi .v{font-size:19px}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🧠 모델 관리</h1>
+    <div class="sub">Farmer 온디바이스 모델 — 학습 사진·라벨 · 학습 · 배포 · 성능</div>
+  </div>
+  <div class="sp"></div>
+  <span id="jobsBadge" class="small muted"></span>
+  <button onclick="route()">새로고침</button>
+</header>
+<main id="app"><div class="empty">불러오는 중…</div></main>
+<div id="modalRoot"></div>
+
+<script>
+'use strict';
+// ---------- 공통 ----------
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pct = (v, d = 0) => (v == null || Number.isNaN(v) ? '—' : `${(v * 100).toFixed(d)}%`);
+const fmtDate = (s) => (s ? String(s).slice(0, 16).replace('T', ' ') : '—');
+let token = '';
+try { token = localStorage.getItem('mm-token') || ''; } catch { /* storage 차단 */ }
+const withToken = (url) => (token ? url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) : url);
+
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (token) headers['x-admin-token'] = token;
+  if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
+  const res = await fetch(path, { method: opts.method || 'GET', headers, body: opts.body });
+  if (res.status === 401) {
+    const t = prompt('모델 관리 토큰을 입력하세요 (서버 MODEL_MANAGER_TOKEN)');
+    if (t) { token = t; try { localStorage.setItem('mm-token', t); } catch { /* noop */ } return api(path, opts); }
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function toast(msg, ms = 2600) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+
+const STATUS = {
+  ok: ['ok', '✓', '정상'],
+  info: ['info', 'i', '학습 가능'],
+  warn: ['warn', '!', '재학습 권장'],
+  untrained: ['untrained', '○', '미학습'],
+};
+const statusHtml = (s) => { const [c, i, t] = STATUS[s] || STATUS.untrained; return `<span class="st ${c}"><i aria-hidden="true">${i}</i>${t}</span>`; };
+
+function reasonText(r) {
+  switch (r.code) {
+    case 'confidence_drop': return `현장 평균 신뢰도 하락 ${pct(r.from)} → ${pct(r.to)} (최근 7일 vs 그 전 7일)`;
+    case 'low_confidence': return `신뢰도 60% 미만 판독이 ${pct(r.rate)} (최근 7일)`;
+    case 'unseen_accuracy': return `배포 뒤 추가된 사진 ${r.n}장에서 정확도 ${pct(r.accuracy)}`;
+    case 'human_disagreement': return `사람이 확정한 진단과 일치율 ${pct(r.agreement)} (${r.n}건)`;
+    case 'new_samples': return `학습에 쓰지 않은 새 사진 ${r.n}장 — 재학습하면 반영됩니다`;
+    case 'new_labels': return `아직 학습되지 않은 라벨: ${r.labels.map((l) => (window.__labelName ? window.__labelName(l) : l)).join(', ')}`;
+    case 'no_version': return '아직 학습된 버전이 없습니다 — 사진을 넣고 학습하세요';
+    default: return r.code;
+  }
+}
+const KIND = { detector: '검출 모듈', species: '식물 종' };
+// 종 모델의 현장 판독은 관수 모듈 결과(dry/ok/wet)라 라벨 이름이 따로다
+const WATER_LABELS = { dry: '물 부족', ok: '적정', wet: '물 과다' };
+const fieldLabelName = (lid) => (cur?.detail.model.kind === 'species' ? WATER_LABELS[lid] || lid : window.__labelName(lid));
+const SOURCE = { bundled: '앱 내장', trained: '학습' };
+const DATASET = { synthetic: '합성 이미지', samples: '실사진' };
+const SPLIT = { train: '학습', val: '검증' };
+
+// ---------- 라우팅 ----------
+let pollTimer = null;
+window.addEventListener('hashchange', route);
+function route() {
+  clearTimeout(pollTimer);
+  const m = location.hash.match(/^#\/model\/([a-z0-9_]+)(?:\/(\w+))?/);
+  if (m) showModel(m[1], m[2] || 'perf'); else showList();
+}
+
+// ---------- 모델 목록 ----------
+async function showList() {
+  const app = $('#app');
+  let data;
+  try { data = await api('/api/models'); } catch (e) { app.innerHTML = `<section class="err">${esc(e.message)}</section>`; return; }
+  updateJobs(data.jobs);
+  const warn = data.models.filter((m) => m.health.status === 'warn').length;
+  const rows = (kind) => data.models.filter((m) => m.kind === kind).map((m) => {
+    const f = m.field.recent;
+    return `<tr class="click" onclick="location.hash='#/model/${m.id}'">
+      <td style="min-width:150px">${esc(m.icon || '')} <b>${esc(m.name)}</b> <span class="muted small">${esc(m.id)}</span></td>
+      <td style="white-space:nowrap">${m.activeVersion ? `v${m.activeVersion} <span class="muted small">${SOURCE[m.activeSource] || ''}</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${pct(m.accuracy)} <span class="muted small">${m.metricsDataset ? DATASET[m.metricsDataset] : ''}</span></td>
+      <td class="num">${pct(m.unseenAccuracy)}</td>
+      <td class="num">${f.n ? `${pct(f.avgConfidence)} <span class="muted small">${f.n}건</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${m.samples}</td>
+      <td class="num">${m.usage}</td>
+      <td>${statusHtml(m.health.status)}</td></tr>`;
+  }).join('');
+  const head = `<tr><th>모델</th><th>배포 버전</th><th class="num">검증 정확도</th><th class="num">새 사진 정확도</th><th class="num">현장 신뢰도(7일)</th><th class="num">학습 사진</th><th class="num">사용 식물</th><th>상태</th></tr>`;
+  app.innerHTML = `
+    <section>
+      <div class="row"><h2 style="margin:0">모델 ${data.models.length}개</h2><span class="sp" style="flex:1"></span>
+        ${warn ? `<span class="st warn"><i>!</i>재학습 권장 ${warn}개</span>` : ''}
+        <button class="primary" onclick="newModelDialog()">＋ 새 모델</button></div>
+      <p class="muted small" style="margin:6px 0 0">검증 정확도는 배포 버전을 만들 때의 검증 사진 기준입니다(앱 내장 모델은 합성 이미지). 새 사진 정확도는 배포 뒤 추가한 사진으로 '다시 평가'한 결과입니다.</p>
+    </section>
+    ${data.unmatchedSpecies.length ? `<section><h2>모델이 없는 식물 종</h2>
+      <p class="muted small" style="margin-top:0">이 종의 식물은 관수 모듈이 잎 색으로만 추정합니다. 종 모델을 만들고 사진을 넣어 학습하세요.</p>
+      <div class="chips">${data.unmatchedSpecies.map((u) => `<button onclick="newModelDialog(${esc(JSON.stringify({ kind: 'species', name: u.raw }))})">🌱 ${esc(u.raw)} <span class="muted">· 식물 ${u.plants}</span></button>`).join('')}</div></section>` : ''}
+    <section><h2>검출 모듈</h2><div class="tablewrap"><table>${head}${rows('detector')}</table></div></section>
+    <section><h2>식물 종 모델 <span class="muted small">— 관수 주기 모듈이 종에 맞춰 사용</span></h2><div class="tablewrap"><table>${head}${rows('species')}</table></div></section>`;
+}
+
+function updateJobs(jobs) {
+  const run = (jobs || []).filter((j) => j.status === 'running');
+  $('#jobsBadge').textContent = run.length ? `⏳ 학습 중: ${run.map((j) => j.modelId).join(', ')}` : '';
+}
+
+// ---------- 새 모델 ----------
+function newModelDialog(pre = {}) {
+  const kind = pre.kind || 'species';
+  openModal(`
+    <h2>새 모델</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label><input type="radio" name="kind" value="species" ${kind === 'species' ? 'checked' : ''} onchange="nmKind()"> 🌱 식물 종 모델</label>
+      <label><input type="radio" name="kind" value="detector" ${kind === 'detector' ? 'checked' : ''} onchange="nmKind()"> 🧠 새 검출 모듈</label>
+    </div>
+    <p class="muted small" id="nmHelp"></p>
+    <div class="row">
+      <label class="f">ID (영문 소문자·숫자·_)<input id="nmId" placeholder="monstera" pattern="[a-z][a-z0-9_]+"></label>
+      <label class="f">아이콘<input id="nmIcon" style="width:70px" placeholder="🌱"></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="f">이름<input id="nmName" value="${esc(pre.name || '')}"></label>
+      <label class="f">영문 이름<input id="nmNameEn"></label>
+    </div>
+    <div id="nmSpecies" style="margin-top:8px">
+      <label class="f">다른 이름(쉼표로) — 식물 등록 때 쓰는 종 이름이 이 모델로 연결됩니다<input id="nmAliases" placeholder="몬스테라 델리시오사, monstera deliciosa"></label>
+    </div>
+    <div id="nmDetector" style="margin-top:8px">
+      <label class="f">설명<input id="nmDesc" placeholder="이 모듈이 무엇을 판독하는지"></label>
+      <h3>라벨 (판독 결과) — 최소 2개</h3>
+      <div id="nmLabels"></div>
+      <button onclick="nmAddLabel()">＋ 라벨</button>
+    </div>
+    <label class="f" style="margin-top:8px">시작할 기반 모델 <select id="nmBase"></select></label>
+    <p class="muted small">기반 모델의 특징 추출 층을 그대로 가져와, 적은 사진으로도 학습할 수 있게 합니다.</p>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <span id="nmErr" class="err small"></span>
+      <button onclick="closeModal()">취소</button><button class="primary" onclick="nmSubmit()">만들기</button>
+    </div>`);
+  api('/api/models').then((d) => {
+    window.__allModels = d.models;
+    nmKind();
+  });
+  nmAddLabel(); nmAddLabel();
+}
+function nmKind() {
+  const kind = document.querySelector('input[name=kind]:checked').value;
+  $('#nmSpecies').style.display = kind === 'species' ? '' : 'none';
+  $('#nmDetector').style.display = kind === 'detector' ? '' : 'none';
+  $('#nmHelp').textContent = kind === 'species'
+    ? '새 식물 종의 진단 모델입니다. 기반 종과 같은 진단 라벨(건강·물 부족·물 과다·햇빛 부족·해충·더위)로 시작하고, 이 종의 사진으로 미세조정합니다.'
+    : 'master 식물 카드에서 추가할 수 있는 새 검출 모듈입니다. 학습·배포하면 Farmer가 앱 업데이트 없이 받아서 판독합니다.';
+  const models = (window.__allModels || []).filter((m) => m.activeVersion && m.kind === kind);
+  const def = kind === 'species' ? 'basil' : 'health_grade';
+  $('#nmBase').innerHTML = models.map((m) => `<option value="${m.id}" ${m.id === def ? 'selected' : ''}>${esc(m.icon || '')} ${esc(m.name)} (${m.id})</option>`).join('');
+}
+function nmAddLabel() {
+  const d = document.createElement('div');
+  d.className = 'row'; d.style.marginBottom = '6px';
+  d.innerHTML = '<input placeholder="id (ripe)" class="lid" style="width:120px"><input placeholder="이름" class="lko" style="width:120px"><input placeholder="English" class="len" style="width:120px"><button onclick="this.parentNode.remove()">✕</button>';
+  $('#nmLabels').appendChild(d);
+}
+async function nmSubmit() {
+  const kind = document.querySelector('input[name=kind]:checked').value;
+  const body = {
+    id: $('#nmId').value.trim(), kind, icon: $('#nmIcon').value.trim() || undefined,
+    name: $('#nmName').value.trim(), nameEn: $('#nmNameEn').value.trim() || undefined, baseModel: $('#nmBase').value,
+  };
+  if (kind === 'species') body.aliases = $('#nmAliases').value.split(',').map((s) => s.trim()).filter(Boolean);
+  else {
+    body.description = $('#nmDesc').value.trim() || undefined;
+    body.labels = [...document.querySelectorAll('#nmLabels .row')].map((r) => ({ id: $('.lid', r).value.trim(), ko: $('.lko', r).value.trim(), en: $('.len', r).value.trim() })).filter((l) => l.id);
+  }
+  try {
+    await api('/api/models', { method: 'POST', json: body });
+    closeModal();
+    location.hash = `#/model/${body.id}/data`;
+  } catch (e) { $('#nmErr').textContent = e.message; }
+}
+
+function openModal(html) { $('#modalRoot').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()"><div>${html}</div></div>`; }
+function closeModal() { $('#modalRoot').innerHTML = ''; }
+
+// ---------- 모델 상세 ----------
+let cur = null; // { detail, tab, perfVersion }
+async function showModel(id, tab) {
+  const app = $('#app');
+  let d;
+  try { d = await api(`/api/models/${id}`); } catch (e) { app.innerHTML = `<section class="err">${esc(e.message)} — <a href="#/">목록</a></section>`; return; }
+  const keepVersion = cur && cur.detail.model.id === id ? cur.perfVersion : null;
+  cur = { detail: d, tab, perfVersion: keepVersion ?? d.model.activeVersion ?? d.versions[0]?.version ?? null };
+  const m = d.model;
+  const labelName = (lid) => m.labels.find((l) => l.id === lid)?.ko || lid;
+  window.__labelName = labelName;
+  app.innerHTML = `
+    <section>
+      <div class="row"><a href="#/">← 목록</a></div>
+      <div class="row" style="margin-top:6px">
+        <h2 style="margin:0;font-size:18px">${esc(m.icon || '')} ${esc(m.name)} <span class="muted small">${esc(m.id)} · ${KIND[m.kind]}</span></h2>
+        <span style="flex:1"></span>${statusHtml(d.health.status)}
+      </div>
+      <div class="muted small" style="margin-top:4px">${esc(m.description || '')}</div>
+      <div class="row small" style="margin-top:8px">
+        <span>배포: <b>${m.activeVersion ? 'v' + m.activeVersion : '없음'}</b></span>
+        <span>· 사용 식물 <b>${d.usage}</b></span>
+        ${m.kind === 'species' ? `<span class="muted">· 종 이름: ${esc((m.aliases || []).join(', '))}</span>` : ''}
+        ${m.baseModel ? `<span class="muted">· 기반 모델 ${esc(m.baseModel)}</span>` : ''}
+      </div>
+      ${d.health.reasons.length ? `<ul class="reasons small">${d.health.reasons.map((r) => `<li class="${r.level === 'warn' ? 'err' : ''}">${esc(reasonText(r))}</li>`).join('')}</ul>` : ''}
+    </section>
+    <section>
+      <div class="tabs" role="tablist">
+        ${[['perf', '성능'], ['data', '학습 데이터'], ['train', '학습·배포']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" onclick="location.hash='#/model/${m.id}/${k}'">${t}</button>`).join('')}
+      </div>
+      <div id="tab"></div>
+    </section>`;
+  if (tab === 'data') renderData(); else if (tab === 'train') renderTrain(); else renderPerf();
+  const live = d.jobs.find((j) => j.status === 'queued' || j.status === 'running');
+  if (live) pollJob(live.id);
+}
+
+// ---------- 성능 ----------
+function renderPerf() {
+  const d = cur.detail;
+  const v = d.versions.find((x) => x.version === cur.perfVersion) || d.versions[0];
+  const f = d.field;
+  const active = d.versions.find((x) => x.active);
+  const ev = active?.eval;
+  const dConf = f.recent.avgConfidence != null && f.previous.avgConfidence != null ? f.recent.avgConfidence - f.previous.avgConfidence : null;
+  const tab = $('#tab');
+  tab.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="l">검증 정확도 (배포 v${active?.version ?? '—'})</div><div class="v">${pct(active?.metrics?.accuracy)}</div><div class="d">${active?.metrics ? `${DATASET[active.metrics.dataset] || ''} ${active.metrics.n}장 · macro-F1 ${pct(active.metrics.macroF1)}` : '검증 사진 없음'}</div></div>
+      <div class="kpi"><div class="l">새 사진 정확도</div><div class="v">${pct(ev?.unseen?.accuracy)}</div><div class="d">${ev ? `배포 뒤 추가된 ${ev.unseen?.n ?? 0}장 · ${fmtDate(ev.at)} 평가` : '학습 탭에서 \'다시 평가\''}</div></div>
+      <div class="kpi"><div class="l">현장 평균 신뢰도 (7일)</div><div class="v">${pct(f.recent.avgConfidence)}</div><div class="d">${f.recent.n}건${dConf != null ? ` · 그 전 7일 대비 ${dConf >= 0 ? '▲' : '▼'} ${Math.abs(dConf * 100).toFixed(0)}%p` : ''}</div></div>
+      <div class="kpi"><div class="l">신뢰도 60% 미만 (7일)</div><div class="v">${pct(f.recent.lowRate)}</div><div class="d">낮을수록 좋음</div></div>
+      ${d.agreement ? `<div class="kpi"><div class="l">사람 확인 일치율 (90일)</div><div class="v">${pct(d.agreement.agreement)}</div><div class="d">영상 진단 확정 ${d.agreement.n}건</div></div>` : ''}
+    </div>
+
+    <h3>현장 판독 신뢰도 — 최근 30일</h3>
+    <p class="muted small" style="margin:0 0 4px">Farmer가 이 모델로 판독해 보낸 결과의 하루 평균 신뢰도와, 신뢰도 60% 미만 판독의 비율입니다.</p>
+    <div id="trend"></div>
+
+    <div class="grid2" style="margin-top:6px">
+      <div>
+        <h3>라벨별 재현율 — <select id="pv" onchange="cur.perfVersion=Number(this.value);renderPerf()">${d.versions.map((x) => `<option value="${x.version}" ${x.version === v?.version ? 'selected' : ''}>v${x.version} ${SOURCE[x.source]}${x.active ? ' (배포 중)' : ''}</option>`).join('')}</select></h3>
+        <p class="muted small" style="margin:0 0 4px">${v?.metrics ? `${DATASET[v.metrics.dataset] || ''} 검증 ${v.metrics.n}장${v.baseline ? ` — 같은 사진에서 ${v.baseline.from?.modelId !== d.model.id ? esc(v.baseline.from?.modelId) + ' ' : ''}v${v.baseline.from?.version}와 비교` : ''}` : '이 버전은 검증 사진이 없어 지표가 없습니다'}</p>
+        <div id="recall"></div>
+      </div>
+      <div>
+        <h3>혼동 행렬 — v${v?.version ?? '—'} <span class="muted">(행: 실제, 열: 판독, 칸 색 = 행 안의 비율)</span></h3>
+        <div id="confusion" class="tablewrap"></div>
+      </div>
+    </div>
+
+    <h3>버전별 현장 판독</h3>
+    <div class="tablewrap"><table>
+      <tr><th>버전</th><th class="num">판독 수</th><th class="num">평균 신뢰도</th><th class="num">60% 미만</th><th>마지막 판독</th></tr>
+      ${f.byVersion.length ? f.byVersion.map((b) => `<tr><td>${b.version ? 'v' + b.version : '<span class="muted">내장 폴백/알 수 없음</span>'}</td><td class="num">${b.n}</td><td class="num">${pct(b.avgConfidence)}</td><td class="num">${pct(b.lowRate)}</td><td>${fmtDate(b.last)}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">아직 현장 판독이 없습니다</td></tr>'}
+    </table></div>
+    ${f.labels.length ? `<h3>최근 7일 판독 결과 분포</h3><div class="chips">${f.labels.map((l) => `<span class="chip">${esc(fieldLabelName(l.label))} <b>${l.n}</b></span>`).join('')}</div>` : ''}`;
+  trendChart($('#trend'), f.daily);
+  recallChart($('#recall'), v);
+  confusionTable($('#confusion'), v?.metrics);
+}
+
+// 날짜별 선 차트: 평균 신뢰도(파랑) + 60% 미만 비율(주황), 0~100% 한 축
+function trendChart(el, daily) {
+  if (!daily.length) { el.innerHTML = '<div class="empty">아직 현장 판독이 없습니다</div>'; return; }
+  const days = [];
+  const end = new Date(daily[daily.length - 1].day + 'T00:00:00Z');
+  const start = new Date(Math.min(new Date(daily[0].day + 'T00:00:00Z'), end - 13 * 864e5));
+  for (let t = +start; t <= +end; t += 864e5) days.push(new Date(t).toISOString().slice(0, 10));
+  const byDay = new Map(daily.map((d) => [d.day, d]));
+  const W = Math.max(320, Math.round(el.clientWidth || 720)); const H = 220; const L = 40; const R = 128; const T = 10; const B = 26;
+  const x = (i) => L + (days.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (days.length - 1));
+  const y = (v) => T + (1 - v) * (H - T - B);
+  const series = [
+    { key: 'avgConfidence', name: '평균 신뢰도', color: 'var(--s1)' },
+    { key: 'lowRate', name: '60% 미만 비율', color: 'var(--s2)' },
+  ];
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="일별 평균 신뢰도와 저신뢰 비율">`;
+  for (const g of [0, 0.25, 0.5, 0.75, 1]) {
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end">${g * 100}%</text>`;
+  }
+  const tickEvery = Math.ceil(days.length / 6);
+  days.forEach((dd, i) => { if (i % tickEvery === 0 || i === days.length - 1) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${dd.slice(5).replace('-', '.')}</text>`; });
+  const ends = [];
+  for (const s of series) {
+    let path = ''; let pen = false; let last = null;
+    days.forEach((dd, i) => {
+      const r = byDay.get(dd); const v = r?.[s.key];
+      if (v == null) { pen = false; return; }
+      path += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; last = { i, v };
+      svg += `<circle cx="${x(i)}" cy="${y(v)}" r="${days.length > 20 ? 2.5 : 4}" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
+    });
+    svg += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    if (last) ends.push({ x: x(last.i) + 8, y: y(last.v) + 4, text: `${s.name} ${pct(last.v)}` });
+  }
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  for (const e of ends) svg += `<text x="${e.x}" y="${e.y}" style="fill:var(--ink)">${esc(e.text)}</text>`;
+  svg += `<line id="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>`;
+  svg += `<rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="hit"/></svg>`;
+  el.innerHTML = `<div class="legend">${series.map((s) => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}<span style="flex:1"></span><button class="small" id="tt">표로 보기</button></div><div class="chart">${svg}<div class="tip"></div></div><div class="tbl" style="display:none"></div>`;
+  const chart = $('.chart', el); const tip = $('.tip', el); const hit = $('#hit', el); const xh = $('#xh', el); const svgEl = $('svg', el);
+  hit.addEventListener('mousemove', (e) => {
+    const r = svgEl.getBoundingClientRect(); const sx = ((e.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(days.length - 1, Math.round(((sx - L) / (W - L - R)) * (days.length - 1))));
+    const d = byDay.get(days[i]);
+    xh.setAttribute('x1', x(i)); xh.setAttribute('x2', x(i)); xh.setAttribute('visibility', 'visible');
+    tip.innerHTML = `<b>${days[i]}</b><br>${d ? `평균 신뢰도 ${pct(d.avgConfidence)}<br>60% 미만 ${pct(d.lowRate)}<br>판독 ${d.n}건` : '판독 없음'}`;
+    tip.style.display = 'block';
+    const px = (x(i) / W) * r.width;
+    tip.style.left = `${Math.min(px + 12, r.width - tip.offsetWidth)}px`; tip.style.top = '8px';
+  });
+  hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; xh.setAttribute('visibility', 'hidden'); });
+  $('#tt', el).onclick = () => {
+    const t = $('.tbl', el); const show = t.style.display === 'none';
+    t.style.display = show ? '' : 'none'; chart.style.display = show ? 'none' : '';
+    $('#tt', el).textContent = show ? '그래프로 보기' : '표로 보기';
+    t.innerHTML = `<div class="tablewrap"><table><tr><th>날짜</th><th class="num">판독</th><th class="num">평균 신뢰도</th><th class="num">60% 미만</th></tr>${daily.map((d) => `<tr><td>${d.day}</td><td class="num">${d.n}</td><td class="num">${pct(d.avgConfidence)}</td><td class="num">${pct(d.lowRate)}</td></tr>`).join('')}</table></div>`;
+  };
+}
+
+// 라벨별 재현율: 이 버전(파랑) vs 같은 검증 사진에서 이전 버전(주황) — 가로 막대, 값은 막대 끝
+function recallChart(el, v) {
+  const mt = v?.metrics;
+  if (!mt) { el.innerHTML = '<div class="empty">지표 없음</div>'; return; }
+  const base = v.baseline;
+  const rows = mt.perClass;
+  const series = [{ name: `v${v.version}`, color: 'var(--s1)', get: (lab) => rows.find((c) => c.label === lab) }];
+  if (base) series.push({ name: `이전 v${base.from?.version}`, color: 'var(--s2)', get: (lab) => base.perClass.find((c) => c.label === lab) });
+  const W = Math.max(300, Math.round(el.clientWidth || 460)); const bh = 12; const gap = 2; const groupH = series.length * bh + (series.length - 1) * gap + 14; const L = 96; const R = 44;
+  const H = rows.length * groupH + 6;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="라벨별 재현율">`;
+  rows.forEach((c, gi) => {
+    const y0 = gi * groupH + 4;
+    svg += `<text x="${L - 8}" y="${y0 + (series.length * (bh + gap)) / 2 + 3}" text-anchor="end" style="fill:var(--ink)">${esc(window.__labelName(c.label))}</text>`;
+    series.forEach((s, si) => {
+      const r = s.get(c.label); const val = r?.recall; const y = y0 + si * (bh + gap);
+      const w = val == null ? 0 : Math.max(val * (W - L - R), val > 0 ? 2 : 0);
+      if (w > 0) {
+        const rr = Math.min(4, w / 2);
+        svg += `<path d="M${L},${y}h${w - rr}a${rr},${rr} 0 0 1 ${rr},${rr}v${bh - 2 * rr}a${rr},${rr} 0 0 1 -${rr},${rr}h-${w - rr}z" fill="${s.color}"><title>${s.name} · ${esc(window.__labelName(c.label))}: ${pct(val)} (검증 ${r?.support ?? 0}장)</title></path>`;
+      }
+      svg += `<text x="${L + w + 4}" y="${y + bh - 2}">${val == null ? '사진 없음' : pct(val)}</text>`;
+    });
+  });
+  svg += `<line x1="${L}" x2="${L}" y1="0" y2="${H}" stroke="var(--axis)"/></svg>`;
+  el.innerHTML = `<div class="legend">${series.map((s) => `<span><i class="box" style="background:${s.color}"></i>${s.name}</span>`).join('')}</div><div class="chart">${svg}</div>
+    <div class="tablewrap"><table class="small"><tr><th>라벨</th><th class="num">검증</th><th class="num">정밀도</th><th class="num">재현율</th><th class="num">F1</th></tr>
+    ${rows.map((c) => `<tr><td>${esc(window.__labelName(c.label))}</td><td class="num">${c.support}</td><td class="num">${pct(c.precision)}</td><td class="num">${pct(c.recall)}</td><td class="num">${pct(c.f1)}</td></tr>`).join('')}
+    <tr><td><b>전체</b></td><td class="num">${mt.n}</td><td></td><td class="num"><b>${pct(mt.accuracy)}</b> 정확도</td><td class="num">${pct(mt.macroF1)}</td></tr></table></div>`;
+}
+
+function confusionTable(el, mt) {
+  if (!mt?.confusion) { el.innerHTML = '<div class="empty">지표 없음</div>'; return; }
+  const steps = ['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5', '--seq-6', '--seq-7', '--seq-8'];
+  const short = (lid) => { const n = window.__labelName(lid); return n.length > 6 ? n.slice(0, 6) + '…' : n; };
+  let html = `<table class="heat"><tr><th></th>${mt.labels.map((l) => `<th title="${esc(window.__labelName(l))}">${esc(short(l))}</th>`).join('')}</tr>`;
+  mt.confusion.forEach((row, i) => {
+    const sum = row.reduce((a, b) => a + b, 0);
+    html += `<tr><th class="rowh" title="${esc(window.__labelName(mt.labels[i]))}">${esc(short(mt.labels[i]))}</th>`;
+    row.forEach((n, j) => {
+      const share = sum ? n / sum : 0;
+      const k = n === 0 ? 0 : Math.min(7, 1 + Math.floor(share * 7));
+      const strong = k >= 5;
+      html += `<td style="background:var(${steps[k]});color:${strong ? 'var(--heat-strong-ink)' : 'var(--ink)'};${i === j ? 'outline:1px solid var(--axis)' : ''}" title="실제 ${esc(window.__labelName(mt.labels[i]))} → 판독 ${esc(window.__labelName(mt.labels[j]))}: ${n}장 (${pct(share)})">${n}</td>`;
+    });
+    html += '</tr>';
+  });
+  el.innerHTML = html + '</table>';
+}
+
+// ---------- 학습 데이터 ----------
+let dataState = { label: '', offset: 0, plantId: '', selected: new Set() };
+async function renderData() {
+  const d = cur.detail; const m = d.model;
+  const counts = d.samples;
+  const tab = $('#tab');
+  const opts = (sel) => m.labels.map((l) => `<option value="${l.id}" ${sel === l.id ? 'selected' : ''}>${esc(l.ko)} (${l.id})</option>`).join('');
+  tab.innerHTML = `
+    <h3 style="margin-top:0">라벨별 사진 <span class="muted">(학습 / 검증)</span></h3>
+    <div class="chips">${m.labels.map((l) => { const c = counts[l.id] || { train: 0, val: 0 }; return `<span class="chip">${esc(l.ko)} <span class="muted">${esc(l.id)}</span> <b>${c.train}</b> / <b>${c.val}</b></span>`; }).join('')}</div>
+    <p class="muted small">같은 사진·같은 날 같은 식물 사진은 학습과 검증에 나뉘어 들어가지 않습니다. 라벨마다 사진 묶음의 약 20%가 검증용입니다.</p>
+    <details style="margin:8px 0"><summary class="small">＋ 라벨 추가 (모니터링할 새 상태)</summary>
+      <div class="row" style="margin-top:8px"><input id="nlId" placeholder="id (mold)"><input id="nlKo" placeholder="이름 (곰팡이)"><input id="nlEn" placeholder="English (Mold)"><button onclick="addLabel()">추가</button></div>
+      <p class="muted small">새 라벨은 학습 사진이 3장 이상 있어야 학습할 수 있고, 학습한 버전을 배포해야 Farmer가 판독합니다.</p>
+    </details>
+
+    <div class="grid2">
+      <div>
+        <h3>사진 직접 추가</h3>
+        <div class="row" style="margin-bottom:6px"><label class="f">라벨<select id="upLabel">${opts(dataState.label)}</select></label>
+          <label class="f" style="flex:1">메모 (선택)<input id="upNote" placeholder="예: 잎 뒷면 진딧물"></label></div>
+        <div class="drop" id="drop">JPEG 사진을 끌어다 놓거나 <label style="color:var(--accent);cursor:pointer;text-decoration:underline">골라 주세요<input type="file" id="upFiles" accept="image/jpeg" multiple hidden></label><div class="small">한 번에 40장까지 · 256px로 줄여 저장</div></div>
+        <div id="upMsg" class="small" style="margin-top:6px"></div>
+      </div>
+      <div>
+        <h3>Farmer 사진 가져오기 <span class="muted">(식물 RoI로 잘라서)</span></h3>
+        <div class="row"><select id="cPlant" style="flex:1"><option value="">식물 고르기…</option></select></div>
+        <div id="cPhotos" style="margin-top:8px"></div>
+        ${m.kind === 'species' ? `<div class="row" style="margin-top:8px"><button onclick="importDiag()">영상 진단 확정 프레임 가져오기</button><span class="muted small">master 진단에서 사람이 라벨을 확정한 프레임</span></div>` : ''}
+      </div>
+    </div>
+
+    <h3>학습 사진 <select id="gLabel" onchange="dataState.label=this.value;dataState.offset=0;loadGallery()"><option value="">전체 라벨</option>${opts(dataState.label)}</select> <span id="gTotal" class="muted"></span></h3>
+    <div id="gallery" class="gallery"></div>
+    <div class="row" style="margin-top:8px"><button id="gPrev">이전</button><button id="gNext">다음</button></div>`;
+  // 업로드
+  const drop = $('#drop');
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files); });
+  $('#upFiles').addEventListener('change', (e) => upload(e.target.files));
+  // farmer 사진 후보
+  try {
+    const c = await api(`/api/models/${m.id}/candidates`);
+    $('#cPlant').innerHTML = '<option value="">식물 고르기…</option>' + c.plants.map((p) => `<option value="${p.id}" ${p.id === dataState.plantId ? 'selected' : ''}>${esc(p.name)}${p.species ? ' · ' + esc(p.species) : ''} — 사진 ${p.photos}${p.roi ? '' : ' (RoI 없음: 사진 전체)'}</option>`).join('');
+    if (!c.plants.length) $('#cPhotos').innerHTML = `<div class="muted small">${m.kind === 'species' ? '이 종으로 등록된 식물이 없습니다' : '식물이 없습니다'}</div>`;
+  } catch (e) { $('#cPhotos').innerHTML = `<div class="err small">${esc(e.message)}</div>`; }
+  $('#cPlant').onchange = (e) => { dataState.plantId = e.target.value; dataState.selected = new Set(); loadCandidates(); };
+  if (dataState.plantId) loadCandidates();
+  loadGallery();
+}
+
+async function addLabel() {
+  try {
+    await api(`/api/models/${cur.detail.model.id}/labels`, { method: 'POST', json: { id: $('#nlId').value.trim(), ko: $('#nlKo').value.trim(), en: $('#nlEn').value.trim() } });
+    toast('라벨을 추가했어요'); route();
+  } catch (e) { toast(e.message); }
+}
+
+async function upload(files) {
+  const list = [...files];
+  if (!list.length) return;
+  const fd = new FormData();
+  fd.append('label', $('#upLabel').value);
+  if ($('#upNote').value.trim()) fd.append('note', $('#upNote').value.trim());
+  list.slice(0, 40).forEach((f) => fd.append('photos', f, f.name));
+  $('#upMsg').textContent = `${list.length}장 올리는 중…`;
+  try {
+    const r = await api(`/api/models/${cur.detail.model.id}/samples`, { method: 'POST', body: fd });
+    $('#upMsg').innerHTML = `<span class="ok">${r.accepted}장 추가</span>${r.rejected.length ? ` · <span class="err">${r.rejected.length}장 제외: ${esc(r.rejected.map((x) => `${x.name} (${x.error})`).join(', '))}</span>` : ''}`;
+    dataState.label = $('#upLabel').value;
+    const d = await api(`/api/models/${cur.detail.model.id}`); cur.detail = d;
+    loadGallery();
+  } catch (e) { $('#upMsg').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+
+async function loadCandidates() {
+  const box = $('#cPhotos');
+  if (!dataState.plantId) { box.innerHTML = ''; return; }
+  const m = cur.detail.model;
+  const c = await api(`/api/models/${m.id}/candidates?plantId=${encodeURIComponent(dataState.plantId)}`);
+  if (!c.photos.length) { box.innerHTML = '<div class="muted small">이 식물의 Farmer 사진이 없습니다</div>'; return; }
+  box.innerHTML = `<div class="gallery">${c.photos.map((p) => `<div class="tile ${dataState.selected.has(p.id) ? 'sel' : ''}" data-id="${p.id}"><img loading="lazy" src="${esc(p.thumbUrl)}" alt=""><span class="chk">${dataState.selected.has(p.id) ? '✓' : ''}</span><div class="cap">${p.importedAs ? '✓ ' + esc(window.__labelName(p.importedAs)) : esc(fmtDate(p.takenAt).slice(5))}</div></div>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><span class="small"><b id="cSel">${dataState.selected.size}</b>장 선택</span><select id="cLabel">${m.labels.map((l) => `<option value="${l.id}">${esc(l.ko)}</option>`).join('')}</select><button class="primary" onclick="importPhotos()">이 라벨로 가져오기</button></div>`;
+  box.querySelectorAll('.tile').forEach((t) => t.addEventListener('click', () => {
+    const id = t.dataset.id;
+    if (dataState.selected.has(id)) dataState.selected.delete(id); else dataState.selected.add(id);
+    t.classList.toggle('sel'); $('.chk', t).textContent = dataState.selected.has(id) ? '✓' : '';
+    $('#cSel').textContent = dataState.selected.size;
+  }));
+}
+
+async function importPhotos() {
+  if (!dataState.selected.size) { toast('사진을 골라 주세요'); return; }
+  const label = $('#cLabel').value;
+  try {
+    const r = await api(`/api/models/${cur.detail.model.id}/samples/import`, { method: 'POST', json: { photos: [...dataState.selected].map((photoId) => ({ photoId, label })) } });
+    toast(`가져옴 ${r.imported} · 라벨 변경 ${r.relabeled}${r.failed.length ? ` · 실패 ${r.failed.length}` : ''}`);
+    dataState.selected = new Set();
+    cur.detail = await api(`/api/models/${cur.detail.model.id}`);
+    loadCandidates(); loadGallery();
+  } catch (e) { toast(e.message); }
+}
+
+async function importDiag() {
+  try {
+    const r = await api(`/api/models/${cur.detail.model.id}/samples/import-diagnosis`, { method: 'POST', json: {} });
+    toast(`진단 프레임 ${r.imported}장 가져옴${r.skipped ? ` (이미 있음/읽기 실패 ${r.skipped})` : ''}`);
+    route();
+  } catch (e) { toast(e.message); }
+}
+
+async function loadGallery() {
+  const m = cur.detail.model;
+  const q = new URLSearchParams({ limit: 48, offset: dataState.offset });
+  if (dataState.label) q.set('label', dataState.label);
+  const r = await api(`/api/models/${m.id}/samples?${q}`);
+  $('#gTotal').textContent = `${r.total}장`;
+  const g = $('#gallery');
+  g.innerHTML = r.samples.length ? r.samples.map((s) => `<div class="tile" data-id="${s.id}" title="${esc(s.note || '')}"><img loading="lazy" src="${esc(withToken(s.url))}" alt=""><div class="cap">${esc(window.__labelName(s.label))} · ${SPLIT[s.split]}</div></div>`).join('') : '<div class="empty">사진이 없습니다</div>';
+  g.querySelectorAll('.tile').forEach((t) => t.addEventListener('click', () => sampleDialog(r.samples.find((s) => s.id === t.dataset.id))));
+  $('#gPrev').disabled = dataState.offset === 0;
+  $('#gNext').disabled = dataState.offset + 48 >= r.total;
+  $('#gPrev').onclick = () => { dataState.offset = Math.max(0, dataState.offset - 48); loadGallery(); };
+  $('#gNext').onclick = () => { dataState.offset += 48; loadGallery(); };
+}
+
+function sampleDialog(s) {
+  const m = cur.detail.model;
+  openModal(`<h2>학습 사진</h2><img src="${esc(withToken(s.url))}" alt="" style="max-width:100%;border-radius:6px">
+    <p class="small muted">${{ upload: '직접 추가', farmer_photo: 'Farmer 사진', diagnosis: '영상 진단' }[s.source] || s.source} · ${SPLIT[s.split]}용 · ${s.width}×${s.height} · ${fmtDate(s.createdAt)}${s.note ? ' · ' + esc(s.note) : ''}</p>
+    <div class="row"><label class="f">라벨<select id="sdLabel">${m.labels.map((l) => `<option value="${l.id}" ${l.id === s.label ? 'selected' : ''}>${esc(l.ko)}</option>`).join('')}</select></label>
+    <span style="flex:1"></span><button class="danger" onclick="delSample('${s.id}')">삭제</button><button onclick="closeModal()">닫기</button><button class="primary" onclick="relabel('${s.id}')">라벨 저장</button></div>`);
+}
+async function relabel(id) {
+  try { await api(`/api/models/${cur.detail.model.id}/samples/${id}`, { method: 'PUT', json: { label: $('#sdLabel').value } }); closeModal(); toast('라벨을 바꿨어요'); cur.detail = await api(`/api/models/${cur.detail.model.id}`); loadGallery(); } catch (e) { toast(e.message); }
+}
+async function delSample(id) {
+  if (!confirm('이 사진을 학습 데이터에서 지울까요?')) return;
+  try { await api(`/api/models/${cur.detail.model.id}/samples/${id}`, { method: 'DELETE' }); closeModal(); cur.detail = await api(`/api/models/${cur.detail.model.id}`); loadGallery(); } catch (e) { toast(e.message); }
+}
+
+// ---------- 학습 · 배포 ----------
+function renderTrain() {
+  const d = cur.detail; const m = d.model;
+  const active = d.versions.find((v) => v.active);
+  const counts = d.samples;
+  const total = Object.values(counts).reduce((a, c) => a + c.train, 0);
+  const activeLabels = active?.labels || [];
+  const newLabels = m.labels.filter((l) => !activeLabels.includes(l.id));
+  const live = d.jobs.find((j) => j.status === 'queued' || j.status === 'running');
+  const tab = $('#tab');
+  tab.innerHTML = `
+    <div class="grid2">
+      <div>
+        <h3 style="margin-top:0">새 버전 학습</h3>
+        <div class="row">
+          <label class="f">시작 모델<select id="tFrom">
+            ${active ? `<option value="active">배포 중 v${active.version}에서 이어서</option>` : ''}
+            ${m.baseModel ? `<option value="base" ${active ? '' : 'selected'}>기반 모델 ${esc(m.baseModel)}에서</option>` : ''}</select></label>
+          <label class="f">에폭<input id="tEpochs" type="number" min="1" max="60" value="15" style="width:70px"></label>
+          <label class="f">학습률<input id="tLr" type="number" step="0.001" min="0.0005" max="0.1" value="0.01" style="width:80px"></label>
+        </div>
+        <p class="small muted">학습 사진 ${total}장 · 검증 사진 ${Object.values(counts).reduce((a, c) => a + c.val, 0)}장${newLabels.length ? ` · 새 라벨 ${newLabels.map((l) => `${esc(l.ko)} ${counts[l.id]?.train ?? 0}장`).join(', ')} (3장 이상 필요)` : ''}</p>
+        <p class="small muted">기존 가중치에서 크게 벗어나지 않게 학습해, 사진이 적은 라벨의 기존 판독 능력을 지킵니다. 학습이 끝나면 같은 검증 사진에서 이전 버전과 비교한 뒤 배포를 결정하세요.</p>
+        <div class="row"><button class="primary" id="tGo" ${live ? 'disabled' : ''} onclick="startTrain()">학습 시작</button>
+          <button id="eGo" ${live || !active ? 'disabled' : ''} onclick="startEval()">배포 버전 다시 평가</button></div>
+        <div id="job" style="margin-top:10px"></div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">최근 작업</h3>
+        <div class="tablewrap"><table class="small"><tr><th>작업</th><th>상태</th><th>결과</th><th>시각</th></tr>
+        ${d.jobs.map((j) => `<tr><td>${j.type === 'train' ? '학습' : '평가'}</td><td>${{ queued: '대기', running: '진행 중', done: '완료', failed: '실패' }[j.status]}</td><td>${esc(jobSummary(j))}</td><td>${fmtDate(j.createdAt)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">작업 없음</td></tr>'}
+        </table></div>
+      </div>
+    </div>
+    <h3>버전</h3>
+    <div class="tablewrap"><table>
+      <tr><th>버전</th><th>출처</th><th>만든 때</th><th class="num">검증 정확도</th><th class="num">macro-F1</th><th class="num">이전 버전 (같은 사진)</th><th class="num">학습/검증</th><th>라벨</th><th></th></tr>
+      ${d.versions.map((v) => `<tr>
+        <td style="white-space:nowrap"><b>v${v.version}</b>${v.active ? ' <span class="badge">배포 중</span>' : ''}</td>
+        <td style="white-space:nowrap">${SOURCE[v.source]}</td><td style="white-space:nowrap">${fmtDate(v.createdAt)}</td>
+        <td class="num">${pct(v.metrics?.accuracy)} <span class="muted small">${v.metrics ? DATASET[v.metrics.dataset] || '' : ''}</span></td>
+        <td class="num">${pct(v.metrics?.macroF1)}</td>
+        <td class="num">${v.baseline ? `${pct(v.baseline.accuracy)} <span class="muted small">v${v.baseline.from?.version}</span>` : '—'}</td>
+        <td class="num">${v.train?.nTrain != null ? `${v.train.nTrain} / ${v.train.nVal}` : '—'}</td>
+        <td class="small">${v.labels.length}</td>
+        <td style="white-space:nowrap">
+          ${v.active ? '' : `<button onclick="activate(${v.version})">${active && v.version < active.version ? '롤백' : '배포'}</button>`}
+          <button onclick="cur.perfVersion=${v.version};location.hash='#/model/${m.id}/perf'">지표</button>
+          <a class="btn" href="${esc(withToken(`/api/models/${m.id}/versions/${v.version}/download`))}">⬇</a></td></tr>`).join('')}
+    </table></div>
+    <p class="small muted">배포하면 Farmer들에게 바로 재동기화 명령이 가서, 각 Farmer가 새 모델을 내려받아(sha256 검증) 다음 판독부터 씁니다. 롤백도 같은 방식입니다.</p>`;
+  if (live) pollJob(live.id);
+}
+
+function jobSummary(j) {
+  if (j.status === 'failed') return j.message || '';
+  if (j.status !== 'done') return j.message || '';
+  const r = j.result || {};
+  if (j.type === 'train') return `v${r.version} · 검증 ${pct(r.accuracy)}${r.baselineAccuracy != null ? ` (이전 ${pct(r.baselineAccuracy)})` : ''} · ${r.nTrain}/${r.nVal}장 · ${r.seconds}초`;
+  return `v${r.version} · 새 사진 ${pct(r.unseenAccuracy)} · 전체 ${pct(r.allAccuracy)} (${r.n}장)`;
+}
+
+async function startTrain() {
+  const body = { from: $('#tFrom').value, epochs: Number($('#tEpochs').value), lr: Number($('#tLr').value) };
+  try { const r = await api(`/api/models/${cur.detail.model.id}/train`, { method: 'POST', json: body }); $('#tGo').disabled = true; pollJob(r.jobId); } catch (e) { toast(e.message, 4000); }
+}
+async function startEval() {
+  try { const r = await api(`/api/models/${cur.detail.model.id}/evaluate`, { method: 'POST', json: {} }); pollJob(r.jobId); } catch (e) { toast(e.message, 4000); }
+}
+async function pollJob(id) {
+  clearTimeout(pollTimer);
+  let j;
+  try { j = await api(`/api/models/jobs/${id}`); } catch { return; }
+  const box = $('#job');
+  if (box) box.innerHTML = `<div class="small">${j.type === 'train' ? '학습' : '평가'} ${{ queued: '대기 중', running: '진행 중', done: '완료', failed: '실패' }[j.status]} — ${esc(j.status === 'done' ? jobSummary(j) : j.message || '')}</div><div class="progress" role="progressbar" aria-valuenow="${Math.round(j.progress * 100)}"><div style="width:${Math.round(j.progress * 100)}%"></div></div>`;
+  $('#jobsBadge').textContent = j.status === 'running' ? `⏳ ${j.modelId} ${j.type === 'train' ? '학습' : '평가'} ${Math.round(j.progress * 100)}%` : '';
+  if (j.status === 'queued' || j.status === 'running') { pollTimer = setTimeout(() => pollJob(id), 1000); return; }
+  if (j.status === 'done') toast(j.type === 'train' ? `v${j.result.version} 학습 완료 — 지표를 확인하고 배포하세요` : '평가 완료');
+  else toast(`실패: ${j.message}`, 5000);
+  if (cur && cur.detail.model.id === j.modelId) {
+    cur.detail = await api(`/api/models/${j.modelId}`);
+    if (cur.tab === 'train') renderTrain(); else if (cur.tab === 'perf') renderPerf();
+  }
+}
+async function activate(version) {
+  if (!confirm(`v${version}을(를) 배포할까요? Farmer들이 이 모델을 내려받아 판독에 씁니다.`)) return;
+  try { const r = await api(`/api/models/${cur.detail.model.id}/versions/${version}/activate`, { method: 'POST', json: {} }); toast(`v${r.version} 배포 — Farmer ${r.notified}대에 알림`); route(); } catch (e) { toast(e.message); }
+}
+
+let resizeT = null;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (cur && cur.tab === 'perf' && $('#trend')) renderPerf(); }, 200); });
+route();
+</script>
+</body>
+</html>

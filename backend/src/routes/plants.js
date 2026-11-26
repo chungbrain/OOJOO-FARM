@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { householdMemberIds, inSql } from '../lib/household.js';
-import { plantDetectorIds } from '../lib/detectors.js';
+import { plantDetectorIds, detectorIds } from '../lib/detectors.js';
 import { queueDetectorSync } from './detectors.js';
 const r = Router();
 
@@ -22,20 +22,21 @@ function cleanRoi(roi) {
   return { x, y, w, h };
 }
 
-function withRoi(row) {
+function withRoi(row, ids = detectorIds()) {
   let roi = null;
   if (row.roi_json) {
     try { roi = JSON.parse(row.roi_json); } catch { roi = null; }
   }
   // detectors: 켜진 온디바이스 검출 모듈 id — farmer 가 이 목록으로 모델을 받고 판독한다
   const { detectors_json: _dj, ...rest } = row;
-  return { ...rest, roi, detectors: plantDetectorIds(row) };
+  return { ...rest, roi, detectors: plantDetectorIds(row, ids) };
 }
 
 // 슬레이브에 할당된 식물 목록 (/:userId 보다 먼저 매칭되어야 함)
 r.get('/slave/:slaveId', (req, res) => {
   const rows = db.prepare('SELECT * FROM plants WHERE slave_id=?').all(req.params.slaveId);
-  res.json({ plants: rows.map(withRoi) });
+  const ids = detectorIds();
+  res.json({ plants: rows.map((row) => withRoi(row, ids)) });
 });
 
 // 식물 상세
@@ -54,9 +55,10 @@ r.get('/:userId', (req, res) => {
     LEFT JOIN users u ON u.id = p.user_id
     WHERE p.user_id IN (${inSql(ids)})
   `).all(...ids);
+  const detIds = detectorIds();
   res.json({
     plants: rows.map((p) => ({
-      ...withRoi(p),
+      ...withRoi(p, detIds),
       shared: p.user_id && p.user_id !== req.params.userId ? 1 : 0,
     })),
   });

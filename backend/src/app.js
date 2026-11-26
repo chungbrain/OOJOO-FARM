@@ -28,6 +28,7 @@ import messages from './routes/messages.js';
 import live from './routes/live.js';
 import payments, { tossWebhookHandler } from './routes/payments.js';
 import detectors from './routes/detectors.js';
+import models from './routes/models.js';
 import './db.js';
 
 const app = express();
@@ -71,6 +72,12 @@ app.get('/admin', (req, res) => {
   res.type('html').send(adminPage);
 });
 
+// model-manager — 검출/종 모델의 학습 사진·라벨·학습·배포·성능 (데이터는 /api/models)
+app.get('/model-manager', (req, res) => {
+  // 개발 중 수정이 바로 보이게 매번 읽는다 (작은 정적 파일)
+  res.type('html').send(readFileSync(path.join(here, 'model-manager.html')));
+});
+
 app.use('/api/users', users);
 app.use('/api/pairing', pairing);
 app.use('/api/plants', plants);
@@ -96,6 +103,7 @@ app.use('/api/messages', messages);
 app.use('/api/live', live);
 app.use('/api/payments', payments);
 app.use('/api/detectors', detectors);
+app.use('/api/models', models);
 
 // 알 수 없는 경로
 app.use((req, res) => {
