@@ -1,30 +1,30 @@
-# 코드 그래프 (자동 생성)
+# Code graph (generated)
 
-> **이 파일은 `node scripts/code-graph.mjs` 가 소스에서 만든다 — 직접 고치지 말 것.**
-> 사람이 정리한 흐름·데이터 모델은 [README.md](README.md).
+> **This file is generated from the sources by `node scripts/code-graph.mjs` — do not edit it by hand.**
+> Hand-written flows and the data model: [README.md](README.md). 한국어: [generated_kor.md](generated_kor.md)
 
-| 그래프 | 규모 |
+| Graph | Size |
 |---|---|
-| 백엔드 모듈 | 42 모듈, import 44개 (db.js 로 가는 것·app.js 라우터 마운트 제외) |
-| 로컬 model-manager 모듈 | 10 모듈, import 15개 |
-| Master 앱 | Kotlin 41 파일, 파일 간 참조 182개 |
-| Farmer 앱 | Kotlin 40 파일, 파일 간 참조 97개 |
-| API 지도 | 백엔드 라우트 122개, 앱 → 라우트 매칭 실패 0개 |
+| Backend modules | 42 modules, 44 imports (excluding imports of db.js and app.js router mounts) |
+| Local model-manager modules | 10 modules, 15 imports |
+| Master app | 41 Kotlin files, 182 file-to-file references |
+| Farmer app | 40 Kotlin files, 97 file-to-file references |
+| API map | 122 backend routes, 0 app calls without a matching route |
 
-## 1. 백엔드
+## 1. Backend
 
-### 백엔드 (backend/src)
+### Backend (backend/src)
 
-`db.js`(SQLite 연결·스키마)는 거의 모든 모듈이 import 하고, `app.js` 는 모든 `routes/*.js` 를 `/api/<이름>` 에 마운트한다 — 이 두 가지 화살표는 생략했다 (마운트 경로는 §4 API 지도).
+`db.js` (SQLite connection + schema) is imported by almost every module, and `app.js` mounts every `routes/*.js` at `/api/<name>` — both kinds of arrows are omitted (mount paths are in §4 API map).
 
 ```mermaid
 flowchart LR
-  subgraph g______backend_src___["."]
+  subgraph g_backend__["."]
     backend_src_app_js["app.js"]
     backend_src_db_js["db.js"]
     backend_src_server_js["server.js"]
   end
-  subgraph g______backend_src__lib["lib"]
+  subgraph g_backend_lib["lib"]
     backend_src_lib_detectors_js["detectors.js"]
     backend_src_lib_household_js["household.js"]
     backend_src_lib_marketSeed_js["marketSeed.js"]
@@ -34,16 +34,16 @@ flowchart LR
     backend_src_lib_validate_js["validate.js"]
     backend_src_lib_wateringFactor_js["wateringFactor.js"]
   end
-  subgraph g______backend_src__middleware["middleware"]
+  subgraph g_backend_middleware["middleware"]
     backend_src_middleware_auth_js["auth.js"]
   end
-  subgraph g______backend_src__ml["ml"]
+  subgraph g_backend_ml["ml"]
     backend_src_ml_defs_js["defs.js"]
     backend_src_ml_ojp1_js["ojp1.js"]
     backend_src_ml_registry_js["registry.js"]
     backend_src_ml_stats_js["stats.js"]
   end
-  subgraph g______backend_src__routes["routes"]
+  subgraph g_backend_routes["routes"]
     backend_src_routes_admin_js["admin.js"]
     backend_src_routes_analysis_js["analysis.js"]
     backend_src_routes_commands_js["commands.js"]
@@ -117,22 +117,22 @@ flowchart LR
   backend_src_routes_weather_js --> backend_src_lib_wateringFactor_js
 ```
 
-## 2. 로컬 model-manager
+## 2. Local model-manager
 
-### 로컬 model-manager (ml/model-manager)
+### Local model-manager (ml/model-manager)
 
-"(공유)" 그룹은 로컬 도구가 그대로 가져다 쓰는 백엔드 모듈 — 모델 연산(`ojp1.js`)과 내장 모델 정의(`defs.js`).
+The "(shared)" group holds backend modules the local tool reuses as-is — model math (`ojp1.js`) and the built-in model definitions (`defs.js`).
 
 ```mermaid
 flowchart LR
-  subgraph g____model_manager__ml_model_manager_______backend_src_ml["(공유) backend/src/ml"]
+  subgraph g_mm__shared__backend_src_ml["(shared) backend/src/ml"]
     backend_src_ml_defs_js["defs.js"]
     backend_src_ml_ojp1_js["ojp1.js"]
   end
-  subgraph g____model_manager__ml_model_manager___["."]
+  subgraph g_mm__["."]
     ml_model_manager_server_mjs["server.mjs"]
   end
-  subgraph g____model_manager__ml_model_manager__lib["lib"]
+  subgraph g_mm_lib["lib"]
     ml_model_manager_lib_git_js["git.js"]
     ml_model_manager_lib_image_js["image.js"]
     ml_model_manager_lib_jobs_js["jobs.js"]
@@ -158,50 +158,50 @@ flowchart LR
   ml_model_manager_server_mjs --> ml_model_manager_lib_image_js
 ```
 
-## 3. Android 앱
+## 3. Android apps
 
-Kotlin 은 같은 패키지끼리 import 없이 쓰므로, **다른 파일의 최상위 선언(class / object / interface / fun) 이름을 참조하면** 의존으로 본다 (주석·문자열 제외).
+Kotlin code in the same package uses each other without imports, so **a reference to another file's top-level declaration (class / object / interface / fun) by name** counts as a dependency (comments and strings excluded).
 
-### Master 앱 — 패키지
+### Master app — packages
 
-화살표 숫자 = 그 패키지에서 대상 패키지의 파일을 참조하는 (파일→파일) 관계 수. 괄호 = 파일 수.
+Arrow number = number of (file → file) references from that package into files of the target package. Parentheses = file count.
 
 ```mermaid
 flowchart LR
-  Master___p__root_["master (2)"]
-  Master___p_data["master.data (7)"]
-  Master___p_model["master.model (1)"]
-  Master___p_network["master.network (3)"]
-  Master___p_push["master.push (1)"]
-  Master___p_ui["master.ui (27)"]
-  Master___p__root_ -- 5 --> Master___p_data
-  Master___p__root_ -- 1 --> Master___p_model
-  Master___p__root_ -- 1 --> Master___p_network
-  Master___p__root_ -- 1 --> Master___p_push
-  Master___p__root_ -- 21 --> Master___p_ui
-  Master___p_data -- 2 --> Master___p_model
-  Master___p_network -- 1 --> Master___p_model
-  Master___p_push -- 1 --> Master___p__root_
-  Master___p_push -- 4 --> Master___p_data
-  Master___p_push -- 1 --> Master___p_model
-  Master___p_push -- 1 --> Master___p_network
-  Master___p_push -- 2 --> Master___p_ui
-  Master___p_ui -- 37 --> Master___p_data
-  Master___p_ui -- 24 --> Master___p_model
-  Master___p_ui -- 23 --> Master___p_network
+  master_p__root_["master (2)"]
+  master_p_data["master.data (7)"]
+  master_p_model["master.model (1)"]
+  master_p_network["master.network (3)"]
+  master_p_push["master.push (1)"]
+  master_p_ui["master.ui (27)"]
+  master_p__root_ -- 5 --> master_p_data
+  master_p__root_ -- 1 --> master_p_model
+  master_p__root_ -- 1 --> master_p_network
+  master_p__root_ -- 1 --> master_p_push
+  master_p__root_ -- 21 --> master_p_ui
+  master_p_data -- 2 --> master_p_model
+  master_p_network -- 1 --> master_p_model
+  master_p_push -- 1 --> master_p__root_
+  master_p_push -- 4 --> master_p_data
+  master_p_push -- 1 --> master_p_model
+  master_p_push -- 1 --> master_p_network
+  master_p_push -- 2 --> master_p_ui
+  master_p_ui -- 37 --> master_p_data
+  master_p_ui -- 24 --> master_p_model
+  master_p_ui -- 23 --> master_p_network
 ```
 
-### Master 앱 — 파일
+### Master app — files
 
-★ 허브 파일(대부분의 파일이 참조 — 화살표 생략): `Models.kt` (29개 파일이 참조), `Prefs.kt` (13개 파일이 참조), `Session.kt` (19개 파일이 참조), `ApiClient.kt` (24개 파일이 참조), `Theme.kt` (25개 파일이 참조)
+★ hub files (referenced by most files — arrows omitted): `Models.kt` (referenced by 29 files), `Prefs.kt` (referenced by 13 files), `Session.kt` (referenced by 19 files), `ApiClient.kt` (referenced by 24 files), `Theme.kt` (referenced by 25 files)
 
 ```mermaid
 flowchart LR
-  subgraph Master___s__root_["(root)"]
+  subgraph master_s__root_["(root)"]
     android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt["MainActivity"]
     android_master_app_src_main_java_com_oojoo_farm_master_OojooApp_kt["OojooApp"]
   end
-  subgraph Master___s_data["data"]
+  subgraph master_s_data["data"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt["AppLocale"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_Cart_kt["Cart"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_FirebaseCfg_kt["FirebaseCfg"]
@@ -210,18 +210,18 @@ flowchart LR
     android_master_app_src_main_java_com_oojoo_farm_master_data_ServerConfig_kt["ServerConfig"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_Session_kt["Session ★"]
   end
-  subgraph Master___s_model["model"]
+  subgraph master_s_model["model"]
     android_master_app_src_main_java_com_oojoo_farm_master_model_Models_kt["Models ★"]
   end
-  subgraph Master___s_network["network"]
+  subgraph master_s_network["network"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ApiClient_kt["ApiClient ★"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ApiService_kt["ApiService"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ServerEndpoint_kt["ServerEndpoint"]
   end
-  subgraph Master___s_push["push"]
+  subgraph master_s_push["push"]
     android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt["FcmService"]
   end
-  subgraph Master___s_ui["ui"]
+  subgraph master_s_ui["ui"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_AuthScreen_kt["AuthScreen"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt["CommunityScreen"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt["DetectorModules"]
@@ -324,100 +324,100 @@ flowchart LR
   android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_network_ServerEndpoint_kt
 ```
 
-### Farmer 앱 — 패키지
+### Farmer app — packages
 
-화살표 숫자 = 그 패키지에서 대상 패키지의 파일을 참조하는 (파일→파일) 관계 수. 괄호 = 파일 수.
+Arrow number = number of (file → file) references from that package into files of the target package. Parentheses = file count.
 
 ```mermaid
 flowchart LR
-  Farmer___p__root_["slave (1)"]
-  Farmer___p_album["slave.album (2)"]
-  Farmer___p_data["slave.data (4)"]
-  Farmer___p_detect["slave.detect (3)"]
-  Farmer___p_hardware["slave.hardware (4)"]
-  Farmer___p_model["slave.model (1)"]
-  Farmer___p_network["slave.network (3)"]
-  Farmer___p_service["slave.service (4)"]
-  Farmer___p_ui["slave.ui (5)"]
-  Farmer___p_vision["slave.vision (13)"]
-  Farmer___p__root_ -- 2 --> Farmer___p_data
-  Farmer___p__root_ -- 1 --> Farmer___p_network
-  Farmer___p__root_ -- 1 --> Farmer___p_service
-  Farmer___p__root_ -- 5 --> Farmer___p_ui
-  Farmer___p_detect -- 2 --> Farmer___p_model
-  Farmer___p_detect -- 1 --> Farmer___p_network
-  Farmer___p_detect -- 4 --> Farmer___p_vision
-  Farmer___p_network -- 1 --> Farmer___p_model
-  Farmer___p_service -- 1 --> Farmer___p__root_
-  Farmer___p_service -- 1 --> Farmer___p_album
-  Farmer___p_service -- 4 --> Farmer___p_data
-  Farmer___p_service -- 2 --> Farmer___p_detect
-  Farmer___p_service -- 1 --> Farmer___p_hardware
-  Farmer___p_service -- 1 --> Farmer___p_model
-  Farmer___p_service -- 2 --> Farmer___p_network
-  Farmer___p_service -- 13 --> Farmer___p_vision
-  Farmer___p_ui -- 4 --> Farmer___p_data
-  Farmer___p_ui -- 1 --> Farmer___p_hardware
-  Farmer___p_ui -- 2 --> Farmer___p_model
-  Farmer___p_ui -- 4 --> Farmer___p_network
-  Farmer___p_ui -- 4 --> Farmer___p_service
-  Farmer___p_ui -- 3 --> Farmer___p_vision
-  Farmer___p_vision -- 1 --> Farmer___p_album
-  Farmer___p_vision -- 1 --> Farmer___p_service
+  farmer_p__root_["slave (1)"]
+  farmer_p_album["slave.album (2)"]
+  farmer_p_data["slave.data (4)"]
+  farmer_p_detect["slave.detect (3)"]
+  farmer_p_hardware["slave.hardware (4)"]
+  farmer_p_model["slave.model (1)"]
+  farmer_p_network["slave.network (3)"]
+  farmer_p_service["slave.service (4)"]
+  farmer_p_ui["slave.ui (5)"]
+  farmer_p_vision["slave.vision (13)"]
+  farmer_p__root_ -- 2 --> farmer_p_data
+  farmer_p__root_ -- 1 --> farmer_p_network
+  farmer_p__root_ -- 1 --> farmer_p_service
+  farmer_p__root_ -- 5 --> farmer_p_ui
+  farmer_p_detect -- 2 --> farmer_p_model
+  farmer_p_detect -- 1 --> farmer_p_network
+  farmer_p_detect -- 4 --> farmer_p_vision
+  farmer_p_network -- 1 --> farmer_p_model
+  farmer_p_service -- 1 --> farmer_p__root_
+  farmer_p_service -- 1 --> farmer_p_album
+  farmer_p_service -- 4 --> farmer_p_data
+  farmer_p_service -- 2 --> farmer_p_detect
+  farmer_p_service -- 1 --> farmer_p_hardware
+  farmer_p_service -- 1 --> farmer_p_model
+  farmer_p_service -- 2 --> farmer_p_network
+  farmer_p_service -- 13 --> farmer_p_vision
+  farmer_p_ui -- 4 --> farmer_p_data
+  farmer_p_ui -- 1 --> farmer_p_hardware
+  farmer_p_ui -- 2 --> farmer_p_model
+  farmer_p_ui -- 4 --> farmer_p_network
+  farmer_p_ui -- 4 --> farmer_p_service
+  farmer_p_ui -- 3 --> farmer_p_vision
+  farmer_p_vision -- 1 --> farmer_p_album
+  farmer_p_vision -- 1 --> farmer_p_service
 ```
 
-### Farmer 앱 — 파일
+### Farmer app — files
 
-★ 허브 파일(대부분의 파일이 참조 — 화살표 생략): 없음
+★ hub files (referenced by most files — arrows omitted): none
 
 ```mermaid
 flowchart LR
-  subgraph Farmer___s__root_["(root)"]
+  subgraph farmer_s__root_["(root)"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_MainActivity_kt["MainActivity"]
   end
-  subgraph Farmer___s_album["album"]
+  subgraph farmer_s_album["album"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_album_GalleryPublisher_kt["GalleryPublisher"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_album_PlantAlbum_kt["PlantAlbum"]
   end
-  subgraph Farmer___s_data["data"]
+  subgraph farmer_s_data["data"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_data_AppLocale_kt["AppLocale"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_data_LocationUtil_kt["LocationUtil"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_data_Prefs_kt["Prefs"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_data_ServerConfig_kt["ServerConfig"]
   end
-  subgraph Farmer___s_detect["detect"]
+  subgraph farmer_s_detect["detect"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_detect_DetectorLogic_kt["DetectorLogic"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_detect_DetectorManager_kt["DetectorManager"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_detect_ModelStore_kt["ModelStore"]
   end
-  subgraph Farmer___s_hardware["hardware"]
+  subgraph farmer_s_hardware["hardware"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_hardware_BleHardwareController_kt["BleHardwareController"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_hardware_Hardware_kt["Hardware"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_hardware_HardwareController_kt["HardwareController"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_hardware_MockHardwareController_kt["MockHardwareController"]
   end
-  subgraph Farmer___s_model["model"]
+  subgraph farmer_s_model["model"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_model_Models_kt["Models"]
   end
-  subgraph Farmer___s_network["network"]
+  subgraph farmer_s_network["network"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_network_ApiClient_kt["ApiClient"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_network_ApiService_kt["ApiService"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_network_ServerEndpoint_kt["ServerEndpoint"]
   end
-  subgraph Farmer___s_service["service"]
+  subgraph farmer_s_service["service"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_service_BootReceiver_kt["BootReceiver"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_service_FarmerEngine_kt["FarmerEngine"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_service_FarmerService_kt["FarmerService"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_service_MjpegStreamer_kt["MjpegStreamer"]
   end
-  subgraph Farmer___s_ui["ui"]
+  subgraph farmer_s_ui["ui"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_ui_DashboardScreen_kt["DashboardScreen"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_ui_PairingScreen_kt["PairingScreen"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_ui_RoiEditorScreen_kt["RoiEditorScreen"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_ui_SettingsScreen_kt["SettingsScreen"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_ui_Theme_kt["Theme"]
   end
-  subgraph Farmer___s_vision["vision"]
+  subgraph farmer_s_vision["vision"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_vision_CameraHolder_kt["CameraHolder"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_vision_CameraHost_kt["CameraHost"]
     android_slave_app_src_main_java_com_oojoo_farm_slave_vision_CameraPreview_kt["CameraPreview"]
@@ -531,15 +531,15 @@ flowchart LR
   android_slave_app_src_main_java_com_oojoo_farm_slave_vision_PlantHealthNet_kt --> android_slave_app_src_main_java_com_oojoo_farm_slave_vision_Ojp1_kt
 ```
 
-## 4. API 지도 — 앱이 부르는 백엔드 라우트
+## 4. API map — backend routes the apps call
 
-Retrofit `ApiService` 의 엔드포인트를 `backend/src/app.js` 의 마운트 + 라우트 파일 경로와 맞춘 결과. 화살표 숫자 = 엔드포인트 수.
-(Farmer 의 SSE 명령 스트림·모델 파일 다운로드처럼 Retrofit 밖에서 부르는 경로는 포함하지 않는다.)
+Endpoints of the Retrofit `ApiService` matched against the mounts in `backend/src/app.js` plus the paths in each route file. Arrow number = endpoint count.
+(Paths called outside Retrofit — the Farmer's SSE command stream and model file downloads — are not included.)
 
 ```mermaid
 flowchart LR
-  master(["Master 앱"])
-  farmer(["Farmer 앱"])
+  master(["Master app"])
+  farmer(["Farmer app"])
   subgraph routes["backend/src/routes"]
     r_analysis["analysis.js"]
     r_commands["commands.js"]
@@ -605,12 +605,12 @@ flowchart LR
   master -- 2 --> r_weather
 ```
 
-모든 앱 호출이 백엔드 라우트와 맞는다.
+Every app call matches a backend route.
 
 <details>
-<summary>엔드포인트 전체 표</summary>
+<summary>Full endpoint table</summary>
 
-| 앱 | 함수 | 호출 | 백엔드 라우트 파일 |
+| App | Function | Call | Backend route file |
 |---|---|---|---|
 | master | `health` | `GET /health` | `app.js` |
 | master | `createUser` | `POST /api/users` | `routes/users.js` |

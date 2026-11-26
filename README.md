@@ -358,7 +358,7 @@ OOJOO-FARM/
 │   ├── DESIGN.md           # Design / architecture notes
 │   ├── farmer-features.md  # Farmer AI features, detector modules spec (§8)
 │   ├── model-manager.md    # Local model-manager guide
-│   ├── code-graph/         # Code graph: flows, state machines, data model + generated dependency graphs
+│   ├── code-graph/         # Code graph: flows, state machines, data model + generated dependency graphs (README_kor.md = Korean)
 │   └── builds/             # Per-build release notes (up to 2026112015; later in working_diary/)
 ├── working_diary/          # Per-change work log (requirements, changes, verification, follow-ups)
 ├── dist/                   # Built debug APKs (in-repo)
@@ -369,7 +369,7 @@ OOJOO-FARM/
 │   ├── model-manager.bat   # Start the local model-manager (Windows)
 │   ├── sync-detector-models.mjs     # app assets → backend/models after retraining
 │   ├── make-ojp1-parity-fixture.mjs # JS-trained model ↔ Kotlin parity fixture
-│   ├── code-graph.mjs      # Regenerate docs/code-graph/generated.md from the sources
+│   ├── code-graph.mjs      # Regenerate docs/code-graph/generated.md (+ generated_kor.md) from the sources
 │   ├── start-backend.bat   # Windows backend launcher
 │   ├── run-emulator.bat    # Windows emulator launcher
 │   └── verify-locales.mjs  # i18n verification
