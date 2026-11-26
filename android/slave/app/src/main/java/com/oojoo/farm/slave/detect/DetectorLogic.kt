@@ -32,6 +32,9 @@ object Triggers {
     const val ROI_CHANGED = "roi_changed"
 }
 
+/** 서버(backend/src/ml/registry.js normAlias)와 같은 종 이름 정규화 — 앞뒤 공백 제거, 소문자, 공백 제거 */
+fun normalizeSpecies(raw: String): String = raw.trim().lowercase().replace(" ", "")
+
 fun softmax(logits: FloatArray): DoubleArray {
     if (logits.isEmpty()) return DoubleArray(0)
     val max = logits.maxOrNull()!!.toDouble()

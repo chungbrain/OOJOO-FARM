@@ -41,6 +41,12 @@ class DetectorContractTest {
         assertEquals(listOf("dry", "ok", "wet"), w.labels)
         assertEquals("basil.bin", w.speciesModels!!.getValue("basil").file)
         assertEquals(listOf("healthy", "water_low", "water_high", "light_low", "pest", "heat"), w.speciesOutputs)
+
+        // model-manager 이후 필드: 버전별 출력 라벨, 종 이름 별칭(새 종 모델 포함)
+        assertEquals(hg.labels, hg.model!!.labels)
+        assertEquals(w.speciesOutputs, w.speciesModels!!.getValue("basil").labels)
+        assertEquals("basil", w.speciesAliases!![normalizeSpecies("바질")])
+        assertEquals("cherry_tomato", w.speciesAliases!![normalizeSpecies("Cherry Tomato")])
     }
 
     @Test

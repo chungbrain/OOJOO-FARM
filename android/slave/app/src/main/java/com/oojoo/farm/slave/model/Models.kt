@@ -182,13 +182,19 @@ data class DiagnosisSessionResponse(val sessionId: String)
 
 // ---------- 온디바이스 검출 모듈 (GET /api/detectors) ----------
 
-/** 모델 파일 참조 — url 은 서버 상대경로, sha256 으로 무결성 검증. url/sha 가 비면 앱 내장(assets) 모델. */
+/**
+ * 모델 파일 참조 — url 은 서버 상대경로, sha256 으로 무결성 검증. url/sha 가 비면 앱 내장(assets) 모델.
+ * labels: 이 모델 파일의 출력 순서 (model-manager 에서 라벨을 추가해 학습한 버전은 출력 수가 늘어난다).
+ * 비어 있으면(구버전 서버) 모듈의 labels / speciesOutputs 를 쓴다.
+ */
 @Serializable
 data class ModelRef(
     val file: String,
     val url: String = "",
     val sha256: String = "",
-    val size: Long = 0
+    val size: Long = 0,
+    val labels: List<String> = emptyList(),
+    val version: Int? = null
 )
 
 @Serializable
@@ -208,6 +214,8 @@ data class DetectorModule(
     val speciesModels: Map<String, ModelRef>? = null,
     /** perSpecies 모듈 모델의 출력 클래스 순서 */
     val speciesOutputs: List<String>? = null,
+    /** 식물 종 이름(소문자·공백 제거) → 종 모델 id — model-manager 에서 만든 새 종(예: 몬스테라)도 여기로 찾는다 */
+    val speciesAliases: Map<String, String>? = null,
     val available: Boolean = true
 )
 

@@ -40,11 +40,21 @@
     "file": "health_grade.bin",
     "url": "/api/detectors/models/health_grade.bin",
     "sha256": "f549b27a24efce39744972eed63b262d94094c3c3b91930b8d4fd8b0c8e4a7b0",
-    "size": 20064
+    "size": 20064,
+    "labels": [
+     "very_healthy",
+     "healthy",
+     "fair",
+     "poor",
+     "very_poor"
+    ],
+    "version": 1
    },
    "speciesModels": null,
    "speciesOutputs": null,
-   "available": true
+   "speciesAliases": null,
+   "available": true,
+   "builtin": true
   },
   {
    "id": "pest",
@@ -84,11 +94,20 @@
     "file": "pest.bin",
     "url": "/api/detectors/models/pest.bin",
     "sha256": "1da7bab9c9d7e27ae4fb10277d2b6b18d37a1f93ada78d7e122401430365623c",
-    "size": 19964
+    "size": 19964,
+    "labels": [
+     "none",
+     "light",
+     "moderate",
+     "severe"
+    ],
+    "version": 1
    },
    "speciesModels": null,
    "speciesOutputs": null,
-   "available": true
+   "speciesAliases": null,
+   "available": true,
+   "builtin": true
   },
   {
    "id": "watering",
@@ -96,7 +115,7 @@
    "name": "관수 주기 모니터링",
    "nameEn": "Watering cycle",
    "description": "식물 종에 맞는 모델로 물 부족·과다를 판독하고, 관수 후 다시 마르기까지의 주기를 추적합니다.",
-   "descriptionEn": "Reads dry/overwatered state with a species model and tracks how long the plant takes to dry out after watering.",
+   "descriptionEn": "Reads dry/wet state with a species model and tracks how long the plant takes to dry out after watering.",
    "labels": [
     "dry",
     "ok",
@@ -127,85 +146,211 @@
      "file": "basil.bin",
      "url": "/api/detectors/models/basil.bin",
      "sha256": "767c7665df4e6d8522c8e2cb4611cc32f911d1513590fe22cfa4f87c623efbb9",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "cactus": {
      "file": "cactus.bin",
      "url": "/api/detectors/models/cactus.bin",
      "sha256": "468cedf9c5fd2488874725e72eb33a689f100298e122fc9be47fc81ef78f2c55",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "cherry_tomato": {
      "file": "cherry_tomato.bin",
      "url": "/api/detectors/models/cherry_tomato.bin",
      "sha256": "fab77925570175d1c1c42e2532b47b5cec6de14fc3e9b7504100927032de001e",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "green_onion": {
      "file": "green_onion.bin",
      "url": "/api/detectors/models/green_onion.bin",
      "sha256": "de35331ee54bd99a835a637e88a11e772809d9e9a830c878addd95af9b10698f",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "herb": {
      "file": "herb.bin",
      "url": "/api/detectors/models/herb.bin",
      "sha256": "677644fa20ae92493f3bdcf40f6edc76b0f51d6b8e98f9d19e57604b01cd38bb",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "lettuce": {
      "file": "lettuce.bin",
      "url": "/api/detectors/models/lettuce.bin",
      "sha256": "6aad7a2336d6031709c690a8c620477240dcb216ab9b6c919956e385910f815e",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "onion": {
      "file": "onion.bin",
      "url": "/api/detectors/models/onion.bin",
      "sha256": "61481fdb85b14b166c945110b523e9fba985df6ff07824ec23eb5c63440c7b17",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "pepper": {
      "file": "pepper.bin",
      "url": "/api/detectors/models/pepper.bin",
      "sha256": "7abe014ac363d8f813e96a1133a597d195b7078bd54fa523c1ba8fcacc582267",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "perilla": {
      "file": "perilla.bin",
      "url": "/api/detectors/models/perilla.bin",
      "sha256": "32fcb27fce12829c46aebf7ba0cb909912a4ce86e7051bac0f6685e2bc686971",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "potato": {
      "file": "potato.bin",
      "url": "/api/detectors/models/potato.bin",
      "sha256": "b988cb47ff3707ab0fe2fe27253fbad50217d7e4b817fcbc1fecdfbb37ccd091",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "pumpkin": {
      "file": "pumpkin.bin",
      "url": "/api/detectors/models/pumpkin.bin",
      "sha256": "ecae8c889c1b7e17f70ed647e89b19b3d03f54a4e972f24967b31e1f2f4152b0",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "strawberry": {
      "file": "strawberry.bin",
      "url": "/api/detectors/models/strawberry.bin",
      "sha256": "0682420556d3414d3ae55631d91f12ea1ae40b38a32c3171c4a191852e4bb3c6",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "sweet_potato": {
      "file": "sweet_potato.bin",
      "url": "/api/detectors/models/sweet_potato.bin",
      "sha256": "1ff4cd1f364df947be45c11bdec1f978fa0c8b83a66eea0faac8858dcf0c4d11",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     },
     "zucchini": {
      "file": "zucchini.bin",
      "url": "/api/detectors/models/zucchini.bin",
      "sha256": "672f50f9ce489adb028b502dd99a04a5d44271fdda24291749a26f7bae91298c",
-     "size": 20164
+     "size": 20164,
+     "labels": [
+      "healthy",
+      "water_low",
+      "water_high",
+      "light_low",
+      "pest",
+      "heat"
+     ],
+     "version": 1
     }
    },
    "speciesOutputs": [
@@ -216,7 +361,49 @@
     "pest",
     "heat"
    ],
-   "available": true
+   "speciesAliases": {
+    "basil": "basil",
+    "바질": "basil",
+    "cactus": "cactus",
+    "선인장": "cactus",
+    "cherry_tomato": "cherry_tomato",
+    "방울토마토": "cherry_tomato",
+    "토마토": "cherry_tomato",
+    "tomato": "cherry_tomato",
+    "cherrytomato": "cherry_tomato",
+    "green_onion": "green_onion",
+    "대파": "green_onion",
+    "파": "green_onion",
+    "greenonion": "green_onion",
+    "herb": "herb",
+    "허브": "herb",
+    "로즈마리": "herb",
+    "rosemary": "herb",
+    "lettuce": "lettuce",
+    "상추": "lettuce",
+    "onion": "onion",
+    "양파": "onion",
+    "pepper": "pepper",
+    "고추": "pepper",
+    "chili": "pepper",
+    "perilla": "perilla",
+    "깻잎": "perilla",
+    "shiso": "perilla",
+    "potato": "potato",
+    "감자": "potato",
+    "pumpkin": "pumpkin",
+    "호박": "pumpkin",
+    "strawberry": "strawberry",
+    "딸기": "strawberry",
+    "sweet_potato": "sweet_potato",
+    "고구마": "sweet_potato",
+    "sweetpotato": "sweet_potato",
+    "zucchini": "zucchini",
+    "애호박": "zucchini",
+    "squash": "zucchini"
+   },
+   "available": true,
+   "builtin": true
   }
  ],
  "defaults": [

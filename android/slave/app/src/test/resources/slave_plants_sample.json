@@ -1,14 +1,14 @@
 {
  "plants": [
   {
-   "id": "EZT4sqep9Wym",
-   "user_id": "3GRbZTA1FICG",
-   "slave_id": "Nf4QwJ--OKYJ",
+   "id": "0M0P1RfyfTEc",
+   "user_id": "cl08IUZ-cxV7",
+   "slave_id": "1fBO7PEVxLNX",
    "name": "바질",
    "species": "basil",
    "planted_at": null,
    "stage": "seedling",
-   "created_at": "2026-11-26 03:50:58",
+   "created_at": "2026-11-26 04:29:54",
    "roi_json": null,
    "roi": null,
    "detectors": [

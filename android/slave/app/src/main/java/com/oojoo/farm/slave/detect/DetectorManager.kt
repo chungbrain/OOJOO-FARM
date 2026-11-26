@@ -47,7 +47,15 @@ object DetectorManager {
     private const val WATER_FILE = "watering_cycles.json"
     private const val PLANTS_FILE = "detector_plants.json"
 
-    data class Loaded(val model: Ojp1Model, val file: String, val sha: String?, val source: String, val speciesId: String?)
+    /** outputs: 모델 출력 순서의 라벨 (버전마다 다를 수 있다) */
+    data class Loaded(
+        val model: Ojp1Model,
+        val file: String,
+        val sha: String?,
+        val source: String,
+        val speciesId: String?,
+        val outputs: List<String>
+    )
 
     /** 모듈 1회 판독 결과 */
     data class Output(
@@ -273,7 +281,7 @@ object DetectorManager {
     private suspend fun prepare(key: String, module: DetectorModule, plant: Plant, slaveId: String): DetectorStateItem {
         var speciesId: String? = null
         val ref: ModelRef = if (module.perSpecies) {
-            speciesId = PlantHealthNet.resolve(plant.species ?: plant.name)
+            speciesId = resolveSpecies(module, plant.species ?: plant.name)
             speciesId?.let { module.speciesModels?.get(it) } ?: run {
                 models.remove(key)
                 // 종 모델이 없으면 색 통계(휴리스틱)로 추정 — 판독은 계속한다
@@ -285,10 +293,11 @@ object DetectorManager {
                 return stateItem(plant, module.id, "error", "no model on server", null)
             }
         }
-        val expected = if (module.perSpecies) (module.speciesOutputs ?: PlantHealthNet.LABELS).size else module.labels.size
+        val outputs = ref.labels.ifEmpty { if (module.perSpecies) module.speciesOutputs ?: PlantHealthNet.LABELS else module.labels }
+        val expected = outputs.size
 
         val cur = models[key]
-        if (cur != null && cur.file == ref.file && (ref.sha256.isBlank() || cur.sha == ref.sha256)) {
+        if (cur != null && cur.file == ref.file && cur.outputs == outputs && (ref.sha256.isBlank() || cur.sha == ref.sha256)) {
             return stateItem(plant, module.id, "ready", cur.source, cur.sha)
         }
 
@@ -304,7 +313,7 @@ object DetectorManager {
                 try {
                     val m = Ojp1.parse(bytes)
                     if (m.dense.out == expected) {
-                        models[key] = Loaded(m, ref.file, ref.sha256, "server", speciesId)
+                        models[key] = Loaded(m, ref.file, ref.sha256, "server", speciesId, outputs)
                         return stateItem(plant, module.id, "ready", "server", ref.sha256)
                     }
                     failure = "model has ${m.dense.out} outputs, expected $expected"
@@ -319,7 +328,8 @@ object DetectorManager {
         // 2) 앱 내장 모델 (구버전 서버 / 오프라인)
         val bundled = Ojp1.load(appCtx, ref.file.removeSuffix(".bin"))
         if (bundled != null && bundled.dense.out == expected) {
-            models[key] = Loaded(bundled, ref.file, null, "bundled", speciesId)
+            // 앱 내장 파일은 원래 출력 수 — 서버 버전이 라벨을 늘렸으면 맞지 않아 아래 error 로 간다
+            models[key] = Loaded(bundled, ref.file, null, "bundled", speciesId, outputs)
             return stateItem(plant, module.id, "ready", if (failure != null) "bundled (download failed: $failure)" else "bundled", null)
         }
         models.remove(key)
@@ -363,6 +373,13 @@ object DetectorManager {
         return out
     }
 
+    /** 식물 종 이름 → 종 모델 id: 서버 별칭(새 종 포함) 먼저, 없으면 앱 내장 별칭. */
+    private fun resolveSpecies(module: DetectorModule, raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        module.speciesAliases?.get(normalizeSpecies(raw))?.let { return it }
+        return PlantHealthNet.resolve(raw)
+    }
+
     private fun probsOf(loaded: Loaded, crop: Bitmap): DoubleArray =
         softmax(loaded.model.forward(loaded.model.bitmapToRgb48(crop)))
 
@@ -371,12 +388,13 @@ object DetectorManager {
         loaded ?: return null
         val probs = probsOf(loaded, crop)
         val idx = probs.indices.maxByOrNull { probs[it] } ?: return null
-        val label = module.labels.getOrNull(idx) ?: return null
-        return Output(module.id, label, module.labelsKo.getOrNull(idx) ?: label, probs[idx], loaded.sha, loaded.source, null, now)
+        val label = loaded.outputs.getOrNull(idx) ?: return null
+        val ko = module.labelsKo.getOrNull(module.labels.indexOf(label)) ?: label
+        return Output(module.id, label, ko, probs[idx], loaded.sha, loaded.source, null, now)
     }
 
     private fun runWatering(module: DetectorModule, loaded: Loaded?, plantId: String, crop: Bitmap, heuristicNeedWater: Boolean, now: Long): Output {
-        val outputs = module.speciesOutputs ?: PlantHealthNet.LABELS
+        val outputs = loaded?.outputs ?: module.speciesOutputs ?: PlantHealthNet.LABELS
         val probs = loaded?.let { probsOf(it, crop) }
         val (label, conf) = if (probs != null) waterLabelFromProbs(probs, outputs)
         else (if (heuristicNeedWater) "dry" else "ok") to 0.5
