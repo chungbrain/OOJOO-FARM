@@ -83,7 +83,7 @@ OOJOO FARM 은 단순한 아이디어에서 출발한 가정용 작물 재배 �
 **ML**
 - 한 번에 돌리는 결정적 파이프라인으로 만든 종별 모델 14개 + 건강등급 5단계·해충 4단계 모델; Python ↔ JS ↔ Kotlin 일치 테스트로 학습·시뮬레이션·기기 추론 결과를 같게 유지합니다.
 
-변경별 기록은 [`working_diary/`](working_diary/), 기능 명세는 [`docs/farmer-features.md`](docs/farmer-features.md) 와 [`docs/model-manager.md`](docs/model-manager.md) 에 있습니다.
+변경별 기록은 [`working_diary/`](working_diary/), 기능 명세는 [`docs/farmer-features.md`](docs/farmer-features.md) 와 [`docs/model-manager.md`](docs/model-manager.md), 코드 수준 지도(호출 흐름·상태 기계·데이터 모델·자동 생성 의존 그래프)는 [`docs/code-graph/`](docs/code-graph/) 에 있습니다.
 
 <details>
 <summary><b>이전 빌드</b> (2026081910 – 2026112011)</summary>
@@ -358,6 +358,7 @@ OOJOO-FARM/
 │   ├── DESIGN.md           # 설계 / 구조 메모
 │   ├── farmer-features.md  # Farmer AI 기능, 검출 모듈 명세 (§8)
 │   ├── model-manager.md    # 로컬 model-manager 안내
+│   ├── code-graph/         # 코드 그래프: 흐름·상태 기계·데이터 모델 + 자동 생성 의존 그래프
 │   └── builds/             # 빌드별 릴리스 노트 (2026112015 까지, 이후는 working_diary/)
 ├── working_diary/          # 변경별 작업일지 (요구사항, 변경, 검증, 남은 작업)
 ├── dist/                   # 빌드된 디버그 APK (저장소에 포함)
@@ -368,6 +369,7 @@ OOJOO-FARM/
 │   ├── model-manager.bat   # 로컬 model-manager 실행 (Windows)
 │   ├── sync-detector-models.mjs     # 재학습 후 앱 assets → backend/models
 │   ├── make-ojp1-parity-fixture.mjs # JS 학습 모델 ↔ Kotlin 일치 fixture
+│   ├── code-graph.mjs      # 소스에서 docs/code-graph/generated.md 다시 생성
 │   ├── start-backend.bat   # Windows 백엔드 실행
 │   ├── run-emulator.bat    # Windows 에뮬레이터 실행
 │   └── verify-locales.mjs  # 다국어 문자열 검사

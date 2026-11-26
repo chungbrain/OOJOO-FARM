@@ -83,7 +83,7 @@ The two devices are linked by a randomly generated pairing code — no complex s
 **ML**
 - 14 species models from a one-command deterministic pipeline, plus the 5-grade health and 4-level pest models; Python ↔ JS ↔ Kotlin parity tests keep training, simulation and on-device inference identical.
 
-Per-change notes live in [`working_diary/`](working_diary/); feature specs in [`docs/farmer-features.md`](docs/farmer-features.md) and [`docs/model-manager.md`](docs/model-manager.md).
+Per-change notes live in [`working_diary/`](working_diary/); feature specs in [`docs/farmer-features.md`](docs/farmer-features.md) and [`docs/model-manager.md`](docs/model-manager.md); a code-level map (call flows, state machines, data model, generated dependency graphs) in [`docs/code-graph/`](docs/code-graph/).
 
 <details>
 <summary><b>Earlier builds</b> (2026081910 – 2026112011)</summary>
@@ -358,6 +358,7 @@ OOJOO-FARM/
 │   ├── DESIGN.md           # Design / architecture notes
 │   ├── farmer-features.md  # Farmer AI features, detector modules spec (§8)
 │   ├── model-manager.md    # Local model-manager guide
+│   ├── code-graph/         # Code graph: flows, state machines, data model + generated dependency graphs
 │   └── builds/             # Per-build release notes (up to 2026112015; later in working_diary/)
 ├── working_diary/          # Per-change work log (requirements, changes, verification, follow-ups)
 ├── dist/                   # Built debug APKs (in-repo)
@@ -368,6 +369,7 @@ OOJOO-FARM/
 │   ├── model-manager.bat   # Start the local model-manager (Windows)
 │   ├── sync-detector-models.mjs     # app assets → backend/models after retraining
 │   ├── make-ojp1-parity-fixture.mjs # JS-trained model ↔ Kotlin parity fixture
+│   ├── code-graph.mjs      # Regenerate docs/code-graph/generated.md from the sources
 │   ├── start-backend.bat   # Windows backend launcher
 │   ├── run-emulator.bat    # Windows emulator launcher
 │   └── verify-locales.mjs  # i18n verification
