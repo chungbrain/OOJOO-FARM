@@ -1,0 +1,39 @@
+{
+ "id": "health_grade",
+ "kind": "detector",
+ "icon": "🌿",
+ "name": "건강상태 판별",
+ "nameEn": "Health check",
+ "description": "잎 색·밀도·시듦을 보고 건강등급을 5단계로 판별합니다. 등급이 바뀌면 알림을 보냅니다.",
+ "descriptionEn": "Grades plant health in 5 levels from leaf color, density and wilting. Alerts when the grade changes.",
+ "labels": [
+  {
+   "id": "very_healthy",
+   "ko": "매우건강",
+   "en": "Very healthy"
+  },
+  {
+   "id": "healthy",
+   "ko": "건강",
+   "en": "Healthy"
+  },
+  {
+   "id": "fair",
+   "ko": "보통",
+   "en": "Fair"
+  },
+  {
+   "id": "poor",
+   "ko": "나쁨",
+   "en": "Poor"
+  },
+  {
+   "id": "very_poor",
+   "ko": "매우나쁨",
+   "en": "Very poor"
+  }
+ ],
+ "aliases": [],
+ "baseModel": null,
+ "createdAt": "2026-11-26 05:03:38"
+}

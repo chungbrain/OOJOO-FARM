@@ -1,0 +1,132 @@
+{
+ "version": 1,
+ "source": "bundled",
+ "modelFile": "backend/models/basil.bin",
+ "sha256": "767c7665df4e6d8522c8e2cb4611cc32f911d1513590fe22cfa4f87c623efbb9",
+ "size": 20164,
+ "labels": [
+  "healthy",
+  "water_low",
+  "water_high",
+  "light_low",
+  "pest",
+  "heat"
+ ],
+ "parentVersion": null,
+ "createdAt": "2026-11-26 05:03:38",
+ "metrics": {
+  "n": 108,
+  "accuracy": 0.7592592592592593,
+  "macroF1": 0.7602419287498198,
+  "perClass": [
+   {
+    "label": "healthy",
+    "support": 18,
+    "precision": 0.5625,
+    "recall": 0.5,
+    "f1": 0.5294117647058824
+   },
+   {
+    "label": "water_low",
+    "support": 18,
+    "precision": 0.7058823529411765,
+    "recall": 0.6666666666666666,
+    "f1": 0.6857142857142857
+   },
+   {
+    "label": "water_high",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.8888888888888888,
+    "f1": 0.9411764705882353
+   },
+   {
+    "label": "light_low",
+    "support": 18,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1
+   },
+   {
+    "label": "pest",
+    "support": 18,
+    "precision": 0.6086956521739131,
+    "recall": 0.7777777777777778,
+    "f1": 0.6829268292682927
+   },
+   {
+    "label": "heat",
+    "support": 18,
+    "precision": 0.7222222222222222,
+    "recall": 0.7222222222222222,
+    "f1": 0.7222222222222222
+   }
+  ],
+  "confusion": [
+   [
+    9,
+    0,
+    0,
+    0,
+    9,
+    0
+   ],
+   [
+    3,
+    12,
+    0,
+    0,
+    0,
+    3
+   ],
+   [
+    0,
+    0,
+    16,
+    0,
+    0,
+    2
+   ],
+   [
+    0,
+    0,
+    0,
+    18,
+    0,
+    0
+   ],
+   [
+    3,
+    1,
+    0,
+    0,
+    14,
+    0
+   ],
+   [
+    1,
+    4,
+    0,
+    0,
+    0,
+    13
+   ]
+  ],
+  "labels": [
+   "healthy",
+   "water_low",
+   "water_high",
+   "light_low",
+   "pest",
+   "heat"
+  ],
+  "dataset": "synthetic",
+  "nTrain": 492
+ },
+ "baseline": null,
+ "train": {
+  "note": "app bundled model (synthetic training, ml/plant_health)",
+  "maxSampleSeq": 0
+ },
+ "dataset": null
+}

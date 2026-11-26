@@ -1,0 +1,132 @@
+{
+ "version": 1,
+ "source": "bundled",
+ "modelFile": "backend/models/onion.bin",
+ "sha256": "61481fdb85b14b166c945110b523e9fba985df6ff07824ec23eb5c63440c7b17",
+ "size": 20164,
+ "labels": [
+  "healthy",
+  "water_low",
+  "water_high",
+  "light_low",
+  "pest",
+  "heat"
+ ],
+ "parentVersion": null,
+ "createdAt": "2026-11-26 05:03:39",
+ "metrics": {
+  "n": 108,
+  "accuracy": 0.9074074074074074,
+  "macroF1": 0.9054801686833703,
+  "perClass": [
+   {
+    "label": "healthy",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.8888888888888888,
+    "f1": 0.9411764705882353
+   },
+   {
+    "label": "water_low",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.6666666666666666,
+    "f1": 0.8
+   },
+   {
+    "label": "water_high",
+    "support": 18,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1
+   },
+   {
+    "label": "light_low",
+    "support": 18,
+    "precision": 0.8947368421052632,
+    "recall": 0.9444444444444444,
+    "f1": 0.918918918918919
+   },
+   {
+    "label": "pest",
+    "support": 18,
+    "precision": 0.85,
+    "recall": 0.9444444444444444,
+    "f1": 0.8947368421052632
+   },
+   {
+    "label": "heat",
+    "support": 18,
+    "precision": 0.782608695652174,
+    "recall": 1,
+    "f1": 0.878048780487805
+   }
+  ],
+  "confusion": [
+   [
+    16,
+    0,
+    0,
+    1,
+    1,
+    0
+   ],
+   [
+    0,
+    12,
+    0,
+    0,
+    1,
+    5
+   ],
+   [
+    0,
+    0,
+    18,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    17,
+    1,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    1,
+    17,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ]
+  ],
+  "labels": [
+   "healthy",
+   "water_low",
+   "water_high",
+   "light_low",
+   "pest",
+   "heat"
+  ],
+  "dataset": "synthetic",
+  "nTrain": 492
+ },
+ "baseline": null,
+ "train": {
+  "note": "app bundled model (synthetic training, ml/plant_health)",
+  "maxSampleSeq": 0
+ },
+ "dataset": null
+}

@@ -1,0 +1,50 @@
+{
+ "id": "cherry_tomato",
+ "kind": "species",
+ "icon": "🌱",
+ "name": "방울토마토",
+ "nameEn": "Cherry tomato",
+ "description": "방울토마토 종별 진단 모델 — 관수 주기 모듈이 물 부족/과다 판독에 쓴다",
+ "descriptionEn": "Cherry tomato diagnosis model — the watering module reads dry/wet from it",
+ "labels": [
+  {
+   "id": "healthy",
+   "ko": "건강",
+   "en": "Healthy"
+  },
+  {
+   "id": "water_low",
+   "ko": "물 부족",
+   "en": "Underwatered"
+  },
+  {
+   "id": "water_high",
+   "ko": "물 과다",
+   "en": "Overwatered"
+  },
+  {
+   "id": "light_low",
+   "ko": "햇빛 부족",
+   "en": "Low light"
+  },
+  {
+   "id": "pest",
+   "ko": "해충 발생",
+   "en": "Pests"
+  },
+  {
+   "id": "heat",
+   "ko": "온도 더움",
+   "en": "Heat stress"
+  }
+ ],
+ "aliases": [
+  "방울토마토",
+  "토마토",
+  "tomato",
+  "cherrytomato",
+  "cherry tomato"
+ ],
+ "baseModel": null,
+ "createdAt": "2026-11-26 05:03:38"
+}

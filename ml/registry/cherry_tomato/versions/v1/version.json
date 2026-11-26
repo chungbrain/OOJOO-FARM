@@ -1,0 +1,132 @@
+{
+ "version": 1,
+ "source": "bundled",
+ "modelFile": "backend/models/cherry_tomato.bin",
+ "sha256": "fab77925570175d1c1c42e2532b47b5cec6de14fc3e9b7504100927032de001e",
+ "size": 20164,
+ "labels": [
+  "healthy",
+  "water_low",
+  "water_high",
+  "light_low",
+  "pest",
+  "heat"
+ ],
+ "parentVersion": null,
+ "createdAt": "2026-11-26 05:03:38",
+ "metrics": {
+  "n": 108,
+  "accuracy": 0.7870370370370371,
+  "macroF1": 0.7596925887248468,
+  "perClass": [
+   {
+    "label": "healthy",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.16666666666666666,
+    "f1": 0.2857142857142857
+   },
+   {
+    "label": "water_low",
+    "support": 18,
+    "precision": 0.9230769230769231,
+    "recall": 0.6666666666666666,
+    "f1": 0.7741935483870968
+   },
+   {
+    "label": "water_high",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.9444444444444444,
+    "f1": 0.9714285714285714
+   },
+   {
+    "label": "light_low",
+    "support": 18,
+    "precision": 0.9473684210526315,
+    "recall": 1,
+    "f1": 0.972972972972973
+   },
+   {
+    "label": "pest",
+    "support": 18,
+    "precision": 0.5,
+    "recall": 0.9444444444444444,
+    "f1": 0.6538461538461539
+   },
+   {
+    "label": "heat",
+    "support": 18,
+    "precision": 0.8181818181818182,
+    "recall": 1,
+    "f1": 0.9
+   }
+  ],
+  "confusion": [
+   [
+    3,
+    1,
+    0,
+    0,
+    14,
+    0
+   ],
+   [
+    0,
+    12,
+    0,
+    0,
+    3,
+    3
+   ],
+   [
+    0,
+    0,
+    17,
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    18,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    1,
+    17,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ]
+  ],
+  "labels": [
+   "healthy",
+   "water_low",
+   "water_high",
+   "light_low",
+   "pest",
+   "heat"
+  ],
+  "dataset": "synthetic",
+  "nTrain": 492
+ },
+ "baseline": null,
+ "train": {
+  "note": "app bundled model (synthetic training, ml/plant_health)",
+  "maxSampleSeq": 0
+ },
+ "dataset": null
+}

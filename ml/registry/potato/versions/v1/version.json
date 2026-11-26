@@ -1,0 +1,132 @@
+{
+ "version": 1,
+ "source": "bundled",
+ "modelFile": "backend/models/potato.bin",
+ "sha256": "b988cb47ff3707ab0fe2fe27253fbad50217d7e4b817fcbc1fecdfbb37ccd091",
+ "size": 20164,
+ "labels": [
+  "healthy",
+  "water_low",
+  "water_high",
+  "light_low",
+  "pest",
+  "heat"
+ ],
+ "parentVersion": null,
+ "createdAt": "2026-11-26 05:03:39",
+ "metrics": {
+  "n": 108,
+  "accuracy": 0.8148148148148148,
+  "macroF1": 0.8036734260145376,
+  "perClass": [
+   {
+    "label": "healthy",
+    "support": 18,
+    "precision": 0.75,
+    "recall": 0.8333333333333334,
+    "f1": 0.7894736842105262
+   },
+   {
+    "label": "water_low",
+    "support": 18,
+    "precision": 0.9230769230769231,
+    "recall": 0.6666666666666666,
+    "f1": 0.7741935483870968
+   },
+   {
+    "label": "water_high",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.9444444444444444,
+    "f1": 0.9714285714285714
+   },
+   {
+    "label": "light_low",
+    "support": 18,
+    "precision": 0.75,
+    "recall": 1,
+    "f1": 0.8571428571428571
+   },
+   {
+    "label": "pest",
+    "support": 18,
+    "precision": 0.8888888888888888,
+    "recall": 0.4444444444444444,
+    "f1": 0.5925925925925926
+   },
+   {
+    "label": "heat",
+    "support": 18,
+    "precision": 0.72,
+    "recall": 1,
+    "f1": 0.8372093023255813
+   }
+  ],
+  "confusion": [
+   [
+    15,
+    0,
+    0,
+    2,
+    1,
+    0
+   ],
+   [
+    0,
+    12,
+    0,
+    0,
+    0,
+    6
+   ],
+   [
+    0,
+    0,
+    17,
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    18,
+    0,
+    0
+   ],
+   [
+    5,
+    1,
+    0,
+    4,
+    8,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ]
+  ],
+  "labels": [
+   "healthy",
+   "water_low",
+   "water_high",
+   "light_low",
+   "pest",
+   "heat"
+  ],
+  "dataset": "synthetic",
+  "nTrain": 492
+ },
+ "baseline": null,
+ "train": {
+  "note": "app bundled model (synthetic training, ml/plant_health)",
+  "maxSampleSeq": 0
+ },
+ "dataset": null
+}

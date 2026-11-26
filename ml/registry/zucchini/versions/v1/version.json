@@ -1,0 +1,132 @@
+{
+ "version": 1,
+ "source": "bundled",
+ "modelFile": "backend/models/zucchini.bin",
+ "sha256": "672f50f9ce489adb028b502dd99a04a5d44271fdda24291749a26f7bae91298c",
+ "size": 20164,
+ "labels": [
+  "healthy",
+  "water_low",
+  "water_high",
+  "light_low",
+  "pest",
+  "heat"
+ ],
+ "parentVersion": null,
+ "createdAt": "2026-11-26 05:03:39",
+ "metrics": {
+  "n": 108,
+  "accuracy": 0.8148148148148148,
+  "macroF1": 0.813573480260287,
+  "perClass": [
+   {
+    "label": "healthy",
+    "support": 18,
+    "precision": 0.875,
+    "recall": 0.7777777777777778,
+    "f1": 0.823529411764706
+   },
+   {
+    "label": "water_low",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.6666666666666666,
+    "f1": 0.8
+   },
+   {
+    "label": "water_high",
+    "support": 18,
+    "precision": 1,
+    "recall": 0.6111111111111112,
+    "f1": 0.7586206896551725
+   },
+   {
+    "label": "light_low",
+    "support": 18,
+    "precision": 0.8181818181818182,
+    "recall": 1,
+    "f1": 0.9
+   },
+   {
+    "label": "pest",
+    "support": 18,
+    "precision": 0.8333333333333334,
+    "recall": 0.8333333333333334,
+    "f1": 0.8333333333333334
+   },
+   {
+    "label": "heat",
+    "support": 18,
+    "precision": 0.6206896551724138,
+    "recall": 1,
+    "f1": 0.7659574468085107
+   }
+  ],
+  "confusion": [
+   [
+    14,
+    0,
+    0,
+    1,
+    3,
+    0
+   ],
+   [
+    0,
+    12,
+    0,
+    2,
+    0,
+    4
+   ],
+   [
+    0,
+    0,
+    11,
+    0,
+    0,
+    7
+   ],
+   [
+    0,
+    0,
+    0,
+    18,
+    0,
+    0
+   ],
+   [
+    2,
+    0,
+    0,
+    1,
+    15,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ]
+  ],
+  "labels": [
+   "healthy",
+   "water_low",
+   "water_high",
+   "light_low",
+   "pest",
+   "heat"
+  ],
+  "dataset": "synthetic",
+  "nTrain": 492
+ },
+ "baseline": null,
+ "train": {
+  "note": "app bundled model (synthetic training, ml/plant_health)",
+  "maxSampleSeq": 0
+ },
+ "dataset": null
+}

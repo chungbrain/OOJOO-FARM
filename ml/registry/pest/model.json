@@ -1,0 +1,34 @@
+{
+ "id": "pest",
+ "kind": "detector",
+ "icon": "🐛",
+ "name": "해충 검출",
+ "nameEn": "Pest detection",
+ "description": "식해 구멍·검은 반점으로 해충 발생 정도를 4단계로 판독합니다. 건강등급과 별개 모델입니다.",
+ "descriptionEn": "Rates pest damage in 4 levels from bite holes and dark spots. Separate from the health model.",
+ "labels": [
+  {
+   "id": "none",
+   "ko": "해충없음",
+   "en": "None"
+  },
+  {
+   "id": "light",
+   "ko": "경미발생",
+   "en": "Light"
+  },
+  {
+   "id": "moderate",
+   "ko": "보통발생",
+   "en": "Moderate"
+  },
+  {
+   "id": "severe",
+   "ko": "심각발생",
+   "en": "Severe"
+  }
+ ],
+ "aliases": [],
+ "baseModel": null,
+ "createdAt": "2026-11-26 05:03:38"
+}
