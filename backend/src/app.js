@@ -27,6 +27,7 @@ import harvests from './routes/harvests.js';
 import messages from './routes/messages.js';
 import live from './routes/live.js';
 import payments, { tossWebhookHandler } from './routes/payments.js';
+import detectors from './routes/detectors.js';
 import './db.js';
 
 const app = express();
@@ -94,6 +95,7 @@ app.use('/api/harvests', harvests);
 app.use('/api/messages', messages);
 app.use('/api/live', live);
 app.use('/api/payments', payments);
+app.use('/api/detectors', detectors);
 
 // 알 수 없는 경로
 app.use((req, res) => {

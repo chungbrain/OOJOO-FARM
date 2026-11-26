@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { householdMemberIds, inSql } from '../lib/household.js';
+import { plantDetectorIds } from '../lib/detectors.js';
+import { queueDetectorSync } from './detectors.js';
 const r = Router();
 
 // ---------- RoI (관심영역) ----------
@@ -25,7 +27,9 @@ function withRoi(row) {
   if (row.roi_json) {
     try { roi = JSON.parse(row.roi_json); } catch { roi = null; }
   }
-  return { ...row, roi };
+  // detectors: 켜진 온디바이스 검출 모듈 id — farmer 가 이 목록으로 모델을 받고 판독한다
+  const { detectors_json: _dj, ...rest } = row;
+  return { ...rest, roi, detectors: plantDetectorIds(row) };
 }
 
 // 슬레이브에 할당된 식물 목록 (/:userId 보다 먼저 매칭되어야 함)
@@ -65,6 +69,8 @@ r.post('/', (req, res) => {
   const id = nanoid(12);
   db.prepare('INSERT INTO plants(id, user_id, slave_id, name, species, planted_at, stage) VALUES(?,?,?,?,?,?,?)')
     .run(id, userId, slaveId || null, name, species || null, plantedAt || null, stage);
+  // farmer 가 새 식물의 검출 모듈 모델을 바로 준비하도록
+  if (slaveId) queueDetectorSync({ id, slave_id: slaveId });
   res.json({ plantId: id });
 });
 
@@ -86,6 +92,13 @@ r.put('/plant/:id', (req, res) => {
       roiJson,
       req.params.id
     );
+  // RoI·farmer 배정·종이 바뀌면 farmer 가 5분 주기를 기다리지 않고 바로 재동기화
+  // (RoI 없는 식물은 판독 대기, 종이 바뀌면 관수 모듈의 종별 모델이 바뀐다)
+  const next = db.prepare('SELECT * FROM plants WHERE id=?').get(req.params.id);
+  if (next.roi_json !== cur.roi_json || next.slave_id !== cur.slave_id || next.species !== cur.species) {
+    queueDetectorSync(next);
+    if (cur.slave_id && cur.slave_id !== next.slave_id) queueDetectorSync(cur);
+  }
   res.json({ ok: true, plantId: req.params.id });
 });
 
@@ -97,6 +110,8 @@ r.delete('/plant/:id', (req, res) => {
   // 관련 데이터도 정리 (이벤트, 관수 기록)
   try { db.prepare('DELETE FROM events WHERE plant_id=?').run(req.params.id); } catch (_) {}
   try { db.prepare('DELETE FROM waterings WHERE plant_id=?').run(req.params.id); } catch (_) {}
+  try { db.prepare('DELETE FROM detector_results WHERE plant_id=?').run(req.params.id); } catch (_) {}
+  try { db.prepare('DELETE FROM detector_states WHERE plant_id=?').run(req.params.id); } catch (_) {}
   res.json({ ok: true });
 });
 

@@ -160,10 +160,14 @@ r.delete('/:slaveId', (req, res) => {
       db.prepare(`DELETE FROM plant_photos WHERE plant_id IN (${ph})`).run(...plantIds);
       db.prepare(`DELETE FROM videos WHERE plant_id IN (${ph})`).run(...plantIds);
       db.prepare(`DELETE FROM plant_analysis WHERE plant_id IN (${ph})`).run(...plantIds);
+      db.prepare(`DELETE FROM detector_results WHERE plant_id IN (${ph})`).run(...plantIds);
+      db.prepare(`DELETE FROM detector_states WHERE plant_id IN (${ph})`).run(...plantIds);
     }
     db.prepare(`DELETE FROM diagnosis_frames WHERE session_id IN (SELECT id FROM diagnosis_sessions WHERE slave_id=?)`).run(slaveId);
     db.prepare('DELETE FROM diagnosis_sessions WHERE slave_id=?').run(slaveId);
     db.prepare('DELETE FROM plant_analysis WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM detector_results WHERE slave_id=?').run(slaveId);
+    db.prepare('DELETE FROM detector_states WHERE slave_id=?').run(slaveId);
     db.prepare('DELETE FROM plant_photos WHERE slave_id=?').run(slaveId);
     db.prepare('DELETE FROM videos WHERE slave_id=?').run(slaveId);
     db.prepare('DELETE FROM harvests WHERE slave_id=?').run(slaveId);

@@ -7,6 +7,8 @@ export const COMMAND_ACTIONS = new Set([
   'water', 'pause', 'resume', 'fan', 'laser',
   'capture_photo', 'capture_video', 'generate_growth_clip', 'diagnose_video',
   'live_start', 'live_stop',
+  // 온디바이스 검출 모듈 — 재동기화(모듈 추가/삭제 시 서버가 발행) / 즉시 판독(master)
+  'detectors_sync', 'run_detectors',
 ]);
 
 // 관수 명령/로그 공통 수치 범위.

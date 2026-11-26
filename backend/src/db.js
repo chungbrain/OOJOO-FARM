@@ -253,7 +253,36 @@ ensureColumn('slaves', 'region', 'region TEXT');
 ensureColumn('slaves', 'icon', 'icon TEXT');
 // 식물별 관심영역(RoI) — 마스터가 farmer 사진 위에 설정, 슬레이브가 크롭해 CNN 진단
 ensureColumn('plants', 'roi_json', 'roi_json TEXT');
+// 식물별 온디바이스 검출 모듈 — JSON [{id, addedAt}]. NULL = 기본 세트(lib/detectors.js DEFAULT_DETECTORS)
+ensureColumn('plants', 'detectors_json', 'detectors_json TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
+
+// 검출 모듈 판독 결과 (farmer → master) + farmer 의 모듈 모델 준비 상태
+db.exec(`
+CREATE TABLE IF NOT EXISTS detector_results (
+  id TEXT PRIMARY KEY,
+  slave_id TEXT NOT NULL,
+  plant_id TEXT NOT NULL,
+  module_id TEXT NOT NULL,
+  label TEXT NOT NULL,
+  confidence REAL,
+  trigger TEXT,
+  model_sha TEXT,
+  detail_json TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_detres_plant ON detector_results(plant_id, module_id, created_at);
+CREATE TABLE IF NOT EXISTS detector_states (
+  plant_id TEXT NOT NULL,
+  module_id TEXT NOT NULL,
+  slave_id TEXT NOT NULL,
+  state TEXT NOT NULL,
+  detail TEXT,
+  model_sha TEXT,
+  updated_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY(plant_id, module_id)
+);
+`);
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS households (
