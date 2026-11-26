@@ -1,4 +1,4 @@
-// model-manager 학습 엔진 단위 테스트 — OJP1 forward 패리티(Python 벡터), 직렬화, 기울기, 학습 수렴, 이미지 처리
+// 로컬 model-manager 학습 엔진 단위 테스트 — OJP1 forward 패리티(Python 벡터), 직렬화, 기울기, 학습 수렴, 이미지 처리
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,13 +6,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   parseModel, serializeModel, forward, backward, zerosLike, paramArrays, randomModel, adaptModel, softmax, rng,
-} from '../src/ml/ojp1.js';
-import { trainModel, evaluate, toInput } from '../src/ml/train.js';
-import { decodeImage, encodeJpeg, exifOrientation, cropNormalized, resampleToFloat, fitWithin } from '../src/ml/image.js';
+} from '../../../backend/src/ml/ojp1.js';
+import { trainModel, evaluate, toInput } from '../lib/train.js';
+import { decodeImage, encodeJpeg, exifOrientation, cropNormalized, resampleToFloat, fitWithin } from '../lib/image.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MODELS = path.resolve(HERE, '../models');
-const VECTORS = path.resolve(HERE, '../../simulation/test');
+const MODELS = path.resolve(HERE, '../../../backend/models');
+const VECTORS = path.resolve(HERE, '../../../simulation/test');
 
 const floats = (b64) => {
   const b = Buffer.from(b64, 'base64');

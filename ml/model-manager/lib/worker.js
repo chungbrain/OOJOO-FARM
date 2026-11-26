@@ -2,7 +2,7 @@
 // 입력(workerData)과 결과는 모두 직렬화 가능한 값만 — DB 접근은 메인 스레드(jobs.js)가 한다.
 import { parentPort, workerData } from 'node:worker_threads';
 import fs from 'node:fs';
-import { parseModel, serializeModel, adaptModel } from './ojp1.js';
+import { parseModel, serializeModel, adaptModel } from '../../../backend/src/ml/ojp1.js';
 import { decodeImage } from './image.js';
 import { trainModel, evaluate, toInput } from './train.js';
 

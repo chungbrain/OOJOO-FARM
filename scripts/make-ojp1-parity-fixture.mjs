@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// model-manager(백엔드 JS)로 학습한 OJP1 모델을 farmer(Kotlin Ojp1)가 똑같이 계산하는지 확인하는 fixture 생성.
+// 로컬 model-manager(JS)로 학습한 OJP1 모델을 farmer(Kotlin Ojp1)가 똑같이 계산하는지 확인하는 fixture 생성.
 //   android/slave/app/src/test/resources/trained_parity.bin        — JS 로 미세조정한 모델 (pest + 새 라벨 aphid)
 //   android/slave/app/src/test/resources/trained_parity.json       — 입력(base64 float32)과 JS forward 로짓
 // Kotlin 쪽: android/slave/.../detect/TrainedModelParityTest.kt
-// 학습 코드(backend/src/ml)를 바꿨으면 다시 실행:  node scripts/make-ojp1-parity-fixture.mjs
+// 학습 코드(ml/model-manager/lib, backend/src/ml/ojp1.js)를 바꿨으면 다시 실행:  node scripts/make-ojp1-parity-fixture.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { parseModel, serializeModel, adaptModel, forward, rng } = await import(`file://${ROOT}/backend/src/ml/ojp1.js`);
-const { trainModel } = await import(`file://${ROOT}/backend/src/ml/train.js`);
+const { trainModel } = await import(`file://${ROOT}/ml/model-manager/lib/train.js`);
 const OUT = path.join(ROOT, 'android/slave/app/src/test/resources');
 
 const parentLabels = ['none', 'light', 'moderate', 'severe'];

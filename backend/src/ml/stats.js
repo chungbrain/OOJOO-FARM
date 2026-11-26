@@ -1,14 +1,12 @@
-// model-manager 성능 집계 — 검증(오프라인) 지표 외에 실제 농장에서의 판독 성능을 본다.
+// 모델 현장 성능 집계 (서버 쪽) — 로컬 model-manager 가 /api/models 로 받아 성능 화면에 보여준다.
 //  - 현장 신뢰도: farmer 가 보낸 판독 결과(detector_results)의 신뢰도 추이 — 버전(sha)별로도
 //  - 사람 확인 일치율: 영상 건강진단에서 사람이 확정한 라벨과 AI 라벨의 일치 (종 모델)
-//  - 새 사진 정확도: 배포 버전이 학습하지 않은(그 뒤에 추가된) 사진에서의 정확도 — '평가' 작업 결과
-//  - 재학습 권장 판정
+//  - 재학습 권장 판정 중 현장 신호 (새 사진 정확도·새 라벨 등 학습 데이터 쪽 판정은 로컬에서)
 import db from '../db.js';
 import {
   allModels, versionRows, activeVersion, labelsMeta, parseJson, speciesAliasMap, resolveSpecies,
 } from './registry.js';
 import { plantDetectorIds, detectorIds } from '../lib/detectors.js';
-import { trainedUpTo } from './jobs.js';
 
 export const LOW_CONFIDENCE = 0.6;
 const MIN_FIELD = 20;
@@ -69,16 +67,6 @@ export function humanAgreement(model) {
   return { n: rows.length, agreement: same / rows.length };
 }
 
-export function sampleCounts(modelId) {
-  const rows = db.prepare('SELECT label, split, COUNT(*) AS n FROM ml_samples WHERE model_id=? GROUP BY label, split').all(modelId);
-  const out = {};
-  for (const r of rows) {
-    out[r.label] ??= { train: 0, val: 0 };
-    out[r.label][r.split === 'val' ? 'val' : 'train'] += r.n;
-  }
-  return out;
-}
-
 /** 이 모델을 쓰는 식물 수 — 검출 모듈은 모듈이 켜진 식물, 종 모델은 관수 모듈이 켜진 그 종 식물 */
 export function usage(model, ctx = usageContext()) {
   if (model.kind === 'species') {
@@ -117,18 +105,9 @@ export function health(model, field = fieldStats(model), agreement = humanAgreem
   if (recent.n >= MIN_FIELD && recent.lowRate > 0.3) {
     reasons.push({ level: 'warn', code: 'low_confidence', rate: recent.lowRate });
   }
-  const ev = parseJson(active.eval_json, null);
-  if (ev?.unseen && ev.unseen.n >= 10 && ev.unseen.accuracy < 0.7) {
-    reasons.push({ level: 'warn', code: 'unseen_accuracy', accuracy: ev.unseen.accuracy, n: ev.unseen.n });
-  }
   if (agreement && agreement.n >= 5 && agreement.agreement < 0.7) {
     reasons.push({ level: 'warn', code: 'human_disagreement', agreement: agreement.agreement, n: agreement.n });
   }
-  const newSamples = db.prepare('SELECT COUNT(*) AS n FROM ml_samples WHERE model_id=? AND rowid > ?').get(model.id, trainedUpTo(active)).n;
-  if (newSamples >= 10) reasons.push({ level: 'info', code: 'new_samples', n: newSamples });
-  const activeLabels = parseJson(active.labels_json, []);
-  const pending = labelsMeta(model).map((l) => l.id).filter((l) => !activeLabels.includes(l));
-  if (pending.length) reasons.push({ level: 'info', code: 'new_labels', labels: pending });
   const status = reasons.some((r) => r.level === 'warn') ? 'warn' : reasons.length ? 'info' : 'ok';
   return { status, reasons };
 }
@@ -139,9 +118,7 @@ export function allSummaries() {
     const active = activeVersion(m.id);
     const field = fieldStats(m);
     const agreement = humanAgreement(m);
-    const counts = sampleCounts(m.id);
     const metrics = parseJson(active?.metrics_json, null);
-    const ev = parseJson(active?.eval_json, null);
     return {
       id: m.id,
       kind: m.kind,
@@ -154,10 +131,8 @@ export function allSummaries() {
       accuracy: metrics?.accuracy ?? null,
       macroF1: metrics?.macroF1 ?? null,
       metricsDataset: metrics?.dataset ?? null,
-      unseenAccuracy: ev?.unseen?.accuracy ?? null,
       field: { recent: field.recent, previous: field.previous },
       agreement,
-      samples: Object.values(counts).reduce((a, c) => a + c.train + c.val, 0),
       usage: usage(m, ctx),
       health: health(m, field, agreement),
     };

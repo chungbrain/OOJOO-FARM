@@ -72,12 +72,6 @@ app.get('/admin', (req, res) => {
   res.type('html').send(adminPage);
 });
 
-// model-manager — 검출/종 모델의 학습 사진·라벨·학습·배포·성능 (데이터는 /api/models)
-app.get('/model-manager', (req, res) => {
-  // 개발 중 수정이 바로 보이게 매번 읽는다 (작은 정적 파일)
-  res.type('html').send(readFileSync(path.join(here, 'model-manager.html')));
-});
-
 app.use('/api/users', users);
 app.use('/api/pairing', pairing);
 app.use('/api/plants', plants);

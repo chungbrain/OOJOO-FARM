@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OOJOO 모델 관리</title>
+<title>OOJOO 모델 관리 (로컬)</title>
 <style>
 :root{
   color-scheme:light;
@@ -113,11 +113,13 @@ tr.click:hover td{background:var(--surface-2)}
 <body>
 <header>
   <div>
-    <h1>🧠 모델 관리</h1>
-    <div class="sub">Farmer 온디바이스 모델 — 학습 사진·라벨 · 학습 · 배포 · 성능</div>
+    <h1>🧠 모델 관리 <span class="badge">이 PC</span></h1>
+    <div class="sub">학습 사진·라벨 · 로컬 학습 · 성능 → 서버 배포 · GitHub</div>
   </div>
   <div class="sp"></div>
   <span id="jobsBadge" class="small muted"></span>
+  <span id="srvBadge" class="small"></span>
+  <button onclick="settingsDialog()">설정</button>
   <button onclick="route()">새로고침</button>
 </header>
 <main id="app"><div class="empty">불러오는 중…</div></main>
@@ -130,22 +132,54 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (v, d = 0) => (v == null || Number.isNaN(v) ? '—' : `${(v * 100).toFixed(d)}%`);
 const fmtDate = (s) => (s ? String(s).slice(0, 16).replace('T', ' ') : '—');
-let token = '';
-try { token = localStorage.getItem('mm-token') || ''; } catch { /* storage 차단 */ }
-const withToken = (url) => (token ? url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) : url);
-
+// 로컬 서버(127.0.0.1) 전용 — 쓰기 요청은 x-mm-local 헤더가 있어야 받는다 (다른 사이트의 요청 위조 차단)
 async function api(path, opts = {}) {
-  const headers = { ...(opts.headers || {}) };
-  if (token) headers['x-admin-token'] = token;
+  const headers = { 'x-mm-local': '1', ...(opts.headers || {}) };
   if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
   const res = await fetch(path, { method: opts.method || 'GET', headers, body: opts.body });
-  if (res.status === 401) {
-    const t = prompt('모델 관리 토큰을 입력하세요 (서버 MODEL_MANAGER_TOKEN)');
-    if (t) { token = t; try { localStorage.setItem('mm-token', t); } catch { /* noop */ } return api(path, opts); }
-  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+function setServerBadge(reachable, url, error) {
+  const el = $('#srvBadge');
+  if (!el) return;
+  el.innerHTML = reachable
+    ? `<span class="st ok"><i aria-hidden="true">✓</i>서버 연결됨</span>`
+    : `<span class="st warn" title="${esc(error || '')}"><i aria-hidden="true">!</i>서버 연결 안 됨</span>`;
+  el.title = url || '';
+}
+
+async function settingsDialog() {
+  const c = await api('/api/config');
+  openModal(`<h2>설정</h2>
+    <p class="muted small">이 PC 에만 저장됩니다 (ml/model-manager/.local — GitHub 에 올라가지 않음).</p>
+    <label class="f">서버 주소<input id="cfUrl" value="${esc(c.serverUrl)}" placeholder="http://34.50.40.104:4000"></label>
+    <label class="f" style="margin-top:8px">업로드 토큰 (서버 MODEL_MANAGER_TOKEN)<input id="cfToken" type="password" placeholder="${c.hasToken ? '설정됨 — 바꿀 때만 입력' : '없음'}"></label>
+    <div class="row" style="margin-top:8px">
+      <label class="f">GitHub 커밋 이름<input id="cfGitName" value="${esc(c.gitName)}" placeholder="git 설정 사용"></label>
+      <label class="f">GitHub 커밋 이메일<input id="cfGitEmail" value="${esc(c.gitEmail)}" placeholder="git 설정 사용"></label>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button onclick="closeModal()">취소</button><button class="primary" onclick="saveSettings()">저장</button></div>`);
+}
+async function saveSettings() {
+  try {
+    await api('/api/config', { method: 'PUT', json: { serverUrl: $('#cfUrl').value, token: $('#cfToken').value, gitName: $('#cfGitName').value, gitEmail: $('#cfGitEmail').value } });
+    closeModal(); toast('설정을 저장했어요'); route();
+  } catch (e) { toast(e.message); }
+}
+
+async function publishGithub(models) {
+  const msg = prompt('GitHub 커밋 메시지', models.length === 1 ? `model(${models[0]}): 라벨·학습 사진·버전 갱신` : `model-manager: ${models.length}개 모델 갱신`);
+  if (msg == null) return;
+  toast('GitHub 에 올리는 중…', 4000);
+  try {
+    const r = await api('/api/github/publish', { method: 'POST', json: { models, message: msg } });
+    toast(r.commit ? `커밋 ${r.commit} (${r.files}개 파일) → ${r.branch} push 완료` : `바뀐 파일 없음 — ${r.branch} push 확인`, 5000);
+    route();
+  } catch (e) { toast(e.message, 6000); }
 }
 
 function toast(msg, ms = 2600) {
@@ -172,6 +206,7 @@ function reasonText(r) {
     case 'new_samples': return `학습에 쓰지 않은 새 사진 ${r.n}장 — 재학습하면 반영됩니다`;
     case 'new_labels': return `아직 학습되지 않은 라벨: ${r.labels.map((l) => (window.__labelName ? window.__labelName(l) : l)).join(', ')}`;
     case 'no_version': return '아직 학습된 버전이 없습니다 — 사진을 넣고 학습하세요';
+    case 'newer_than_server': return `로컬 v${r.version} 이 서버 배포 버전(v${r.server})보다 새롭습니다 — 지표를 확인하고 업로드·배포하세요`;
     default: return r.code;
   }
 }
@@ -179,7 +214,7 @@ const KIND = { detector: '검출 모듈', species: '식물 종' };
 // 종 모델의 현장 판독은 관수 모듈 결과(dry/ok/wet)라 라벨 이름이 따로다
 const WATER_LABELS = { dry: '물 부족', ok: '적정', wet: '물 과다' };
 const fieldLabelName = (lid) => (cur?.detail.model.kind === 'species' ? WATER_LABELS[lid] || lid : window.__labelName(lid));
-const SOURCE = { bundled: '앱 내장', trained: '학습' };
+const SOURCE = { bundled: '앱 내장', trained: '로컬 학습' };
 const DATASET = { synthetic: '합성 이미지', samples: '실사진' };
 const SPLIT = { train: '학습', val: '검증' };
 
@@ -198,26 +233,35 @@ async function showList() {
   let data;
   try { data = await api('/api/models'); } catch (e) { app.innerHTML = `<section class="err">${esc(e.message)}</section>`; return; }
   updateJobs(data.jobs);
+  setServerBadge(data.server.reachable, data.server.url, data.server.error);
+  let git = null;
+  try { git = await api('/api/github/status'); } catch { /* git 없음 */ }
+  const changed = git ? Object.entries(git.models).filter(([, s]) => s.changed || s.unpushed).map(([id]) => id) : [];
   const warn = data.models.filter((m) => m.health.status === 'warn').length;
   const rows = (kind) => data.models.filter((m) => m.kind === kind).map((m) => {
-    const f = m.field.recent;
+    const f = m.field?.recent;
+    const g = git?.models[m.id];
     return `<tr class="click" onclick="location.hash='#/model/${m.id}'">
       <td style="min-width:150px">${esc(m.icon || '')} <b>${esc(m.name)}</b> <span class="muted small">${esc(m.id)}</span></td>
-      <td style="white-space:nowrap">${m.activeVersion ? `v${m.activeVersion} <span class="muted small">${SOURCE[m.activeSource] || ''}</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${m.latestVersion ? `v${m.latestVersion}` : '—'}</td>
+      <td class="num">${m.serverVersion ? `v${m.serverVersion}` : `<span class="muted">${data.server.reachable ? '없음' : '?'}</span>`}</td>
       <td class="num">${pct(m.accuracy)} <span class="muted small">${m.metricsDataset ? DATASET[m.metricsDataset] : ''}</span></td>
       <td class="num">${pct(m.unseenAccuracy)}</td>
-      <td class="num">${f.n ? `${pct(f.avgConfidence)} <span class="muted small">${f.n}건</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${f?.n ? `${pct(f.avgConfidence)} <span class="muted small">${f.n}건</span>` : '<span class="muted">—</span>'}</td>
       <td class="num">${m.samples}</td>
-      <td class="num">${m.usage}</td>
+      <td class="num">${m.usage ?? '—'}</td>
+      <td class="small">${g ? (g.changed ? `변경 ${g.changed}` : g.unpushed ? 'push 전' : '✓') : ''}</td>
       <td>${statusHtml(m.health.status)}</td></tr>`;
   }).join('');
-  const head = `<tr><th>모델</th><th>배포 버전</th><th class="num">검증 정확도</th><th class="num">새 사진 정확도</th><th class="num">현장 신뢰도(7일)</th><th class="num">학습 사진</th><th class="num">사용 식물</th><th>상태</th></tr>`;
+  const head = `<tr><th>모델</th><th class="num">로컬 최신</th><th class="num">서버 배포</th><th class="num">검증 정확도</th><th class="num">새 사진 정확도</th><th class="num">현장 신뢰도(7일)</th><th class="num">학습 사진</th><th class="num">사용 식물</th><th>GitHub</th><th>상태</th></tr>`;
   app.innerHTML = `
     <section>
       <div class="row"><h2 style="margin:0">모델 ${data.models.length}개</h2><span class="sp" style="flex:1"></span>
         ${warn ? `<span class="st warn"><i>!</i>재학습 권장 ${warn}개</span>` : ''}
+        ${changed.length ? `<button onclick='publishGithub(${esc(JSON.stringify(changed))})'>⬆ GitHub 에 올리기 (${changed.length}개 모델)</button>` : ''}
         <button class="primary" onclick="newModelDialog()">＋ 새 모델</button></div>
-      <p class="muted small" style="margin:6px 0 0">검증 정확도는 배포 버전을 만들 때의 검증 사진 기준입니다(앱 내장 모델은 합성 이미지). 새 사진 정확도는 배포 뒤 추가한 사진으로 '다시 평가'한 결과입니다.</p>
+      <p class="muted small" style="margin:6px 0 0">학습은 이 PC 에서 하고, 결과(모델·라벨·학습/검증 사진·지표)는 <code>ml/registry/</code> 에 저장됩니다. 버전을 서버에 업로드·배포하면 Farmer 가 받고, GitHub 에 올리면 저장소에 남습니다.
+        현장 신뢰도·사용 식물·모델 없는 종은 서버에서 가져옵니다${data.server.reachable ? '' : ' — 지금은 서버에 연결되지 않았습니다'}.</p>
     </section>
     ${data.unmatchedSpecies.length ? `<section><h2>모델이 없는 식물 종</h2>
       <p class="muted small" style="margin-top:0">이 종의 식물은 관수 모듈이 잎 색으로만 추정합니다. 종 모델을 만들고 사진을 넣어 학습하세요.</p>
@@ -277,7 +321,7 @@ function nmKind() {
   $('#nmHelp').textContent = kind === 'species'
     ? '새 식물 종의 진단 모델입니다. 기반 종과 같은 진단 라벨(건강·물 부족·물 과다·햇빛 부족·해충·더위)로 시작하고, 이 종의 사진으로 미세조정합니다.'
     : 'master 식물 카드에서 추가할 수 있는 새 검출 모듈입니다. 학습·배포하면 Farmer가 앱 업데이트 없이 받아서 판독합니다.';
-  const models = (window.__allModels || []).filter((m) => m.activeVersion && m.kind === kind);
+  const models = (window.__allModels || []).filter((m) => m.latestVersion && m.kind === kind);
   const def = kind === 'species' ? 'basil' : 'health_grade';
   $('#nmBase').innerHTML = models.map((m) => `<option value="${m.id}" ${m.id === def ? 'selected' : ''}>${esc(m.icon || '')} ${esc(m.name)} (${m.id})</option>`).join('');
 }
@@ -315,7 +359,8 @@ async function showModel(id, tab) {
   let d;
   try { d = await api(`/api/models/${id}`); } catch (e) { app.innerHTML = `<section class="err">${esc(e.message)} — <a href="#/">목록</a></section>`; return; }
   const keepVersion = cur && cur.detail.model.id === id ? cur.perfVersion : null;
-  cur = { detail: d, tab, perfVersion: keepVersion ?? d.model.activeVersion ?? d.versions[0]?.version ?? null };
+  setServerBadge(d.server.reachable, '', d.server.error);
+  cur = { detail: d, tab, perfVersion: keepVersion ?? (d.server.activeVersion && d.versions.some((v) => v.version === d.server.activeVersion) ? d.server.activeVersion : d.versions[0]?.version) ?? null };
   const m = d.model;
   const labelName = (lid) => m.labels.find((l) => l.id === lid)?.ko || lid;
   window.__labelName = labelName;
@@ -328,8 +373,10 @@ async function showModel(id, tab) {
       </div>
       <div class="muted small" style="margin-top:4px">${esc(m.description || '')}</div>
       <div class="row small" style="margin-top:8px">
-        <span>배포: <b>${m.activeVersion ? 'v' + m.activeVersion : '없음'}</b></span>
-        <span>· 사용 식물 <b>${d.usage}</b></span>
+        <span>로컬 최신: <b>${d.versions[0] ? 'v' + d.versions[0].version : '없음'}</b></span>
+        <span>· 서버 배포: <b>${d.server.reachable ? (d.server.activeVersion ? 'v' + d.server.activeVersion : '없음') : '연결 안 됨'}</b></span>
+        ${d.server.reachable ? `<span>· 사용 식물 <b>${d.server.usage}</b></span>` : ''}
+        ${d.git && !d.git.error ? `<span class="muted">· GitHub: ${d.git.changed ? `올리지 않은 변경 ${d.git.changed}개` : d.git.unpushed ? 'push 전 커밋 있음' : '최신'}</span>` : ''}
         ${m.kind === 'species' ? `<span class="muted">· 종 이름: ${esc((m.aliases || []).join(', '))}</span>` : ''}
         ${m.baseModel ? `<span class="muted">· 기반 모델 ${esc(m.baseModel)}</span>` : ''}
       </div>
@@ -350,14 +397,18 @@ async function showModel(id, tab) {
 function renderPerf() {
   const d = cur.detail;
   const v = d.versions.find((x) => x.version === cur.perfVersion) || d.versions[0];
-  const f = d.field;
-  const active = d.versions.find((x) => x.active);
+  const empty = { recent: { n: 0, avgConfidence: null, lowRate: null }, previous: { n: 0, avgConfidence: null }, daily: [], byVersion: [], labels: [] };
+  const f = d.server.field || empty;
+  d.agreement = d.server.agreement;
+  // 성능의 기준 버전: 서버에 배포된 버전 (로컬에 있으면), 없으면 로컬 최신
+  const active = d.versions.find((x) => x.version === d.server.activeVersion) || d.versions[0];
   const ev = active?.eval;
   const dConf = f.recent.avgConfidence != null && f.previous.avgConfidence != null ? f.recent.avgConfidence - f.previous.avgConfidence : null;
   const tab = $('#tab');
-  tab.innerHTML = `
+  tab.innerHTML = `${d.server.reachable ? '' : `<p class="small err">서버에 연결되지 않아 현장 성능은 비어 있습니다 (${esc(d.server.error || '이 모델이 서버에 아직 없음')}).</p>`}`
+    + `
     <div class="kpis">
-      <div class="kpi"><div class="l">검증 정확도 (배포 v${active?.version ?? '—'})</div><div class="v">${pct(active?.metrics?.accuracy)}</div><div class="d">${active?.metrics ? `${DATASET[active.metrics.dataset] || ''} ${active.metrics.n}장 · macro-F1 ${pct(active.metrics.macroF1)}` : '검증 사진 없음'}</div></div>
+      <div class="kpi"><div class="l">검증 정확도 (${d.server.activeVersion === active?.version ? '배포' : '최신'} v${active?.version ?? '—'})</div><div class="v">${pct(active?.metrics?.accuracy)}</div><div class="d">${active?.metrics ? `${DATASET[active.metrics.dataset] || ''} ${active.metrics.n}장 · macro-F1 ${pct(active.metrics.macroF1)}` : '검증 사진 없음'}</div></div>
       <div class="kpi"><div class="l">새 사진 정확도</div><div class="v">${pct(ev?.unseen?.accuracy)}</div><div class="d">${ev ? `배포 뒤 추가된 ${ev.unseen?.n ?? 0}장 · ${fmtDate(ev.at)} 평가` : '학습 탭에서 \'다시 평가\''}</div></div>
       <div class="kpi"><div class="l">현장 평균 신뢰도 (7일)</div><div class="v">${pct(f.recent.avgConfidence)}</div><div class="d">${f.recent.n}건${dConf != null ? ` · 그 전 7일 대비 ${dConf >= 0 ? '▲' : '▼'} ${Math.abs(dConf * 100).toFixed(0)}%p` : ''}</div></div>
       <div class="kpi"><div class="l">신뢰도 60% 미만 (7일)</div><div class="v">${pct(f.recent.lowRate)}</div><div class="d">낮을수록 좋음</div></div>
@@ -370,7 +421,7 @@ function renderPerf() {
 
     <div class="grid2" style="margin-top:6px">
       <div>
-        <h3>라벨별 재현율 — <select id="pv" onchange="cur.perfVersion=Number(this.value);renderPerf()">${d.versions.map((x) => `<option value="${x.version}" ${x.version === v?.version ? 'selected' : ''}>v${x.version} ${SOURCE[x.source]}${x.active ? ' (배포 중)' : ''}</option>`).join('')}</select></h3>
+        <h3>라벨별 재현율 — <select id="pv" onchange="cur.perfVersion=Number(this.value);renderPerf()">${d.versions.map((x) => `<option value="${x.version}" ${x.version === v?.version ? 'selected' : ''}>v${x.version} ${SOURCE[x.source]}${x.server.active ? ' (서버 배포 중)' : ''}</option>`).join('')}</select></h3>
         <p class="muted small" style="margin:0 0 4px">${v?.metrics ? `${DATASET[v.metrics.dataset] || ''} 검증 ${v.metrics.n}장${v.baseline ? ` — 같은 사진에서 ${v.baseline.from?.modelId !== d.model.id ? esc(v.baseline.from?.modelId) + ' ' : ''}v${v.baseline.from?.version}와 비교` : ''}` : '이 버전은 검증 사진이 없어 지표가 없습니다'}</p>
         <div id="recall"></div>
       </div>
@@ -569,7 +620,7 @@ async function upload(files) {
   $('#upMsg').textContent = `${list.length}장 올리는 중…`;
   try {
     const r = await api(`/api/models/${cur.detail.model.id}/samples`, { method: 'POST', body: fd });
-    $('#upMsg').innerHTML = `<span class="ok">${r.accepted}장 추가</span>${r.rejected.length ? ` · <span class="err">${r.rejected.length}장 제외: ${esc(r.rejected.map((x) => `${x.name} (${x.error})`).join(', '))}</span>` : ''}`;
+    $('#upMsg').innerHTML = `<span class="ok">${r.added}장 추가</span>${r.duplicates ? ` · 같은 사진 ${r.duplicates}장은 건너뜀` : ''}${r.rejected.length ? ` · <span class="err">${r.rejected.length}장 제외: ${esc(r.rejected.map((x) => `${x.name} (${x.error})`).join(', '))}</span>` : ''}`;
     dataState.label = $('#upLabel').value;
     const d = await api(`/api/models/${cur.detail.model.id}`); cur.detail = d;
     loadGallery();
@@ -596,7 +647,8 @@ async function importPhotos() {
   if (!dataState.selected.size) { toast('사진을 골라 주세요'); return; }
   const label = $('#cLabel').value;
   try {
-    const r = await api(`/api/models/${cur.detail.model.id}/samples/import`, { method: 'POST', json: { photos: [...dataState.selected].map((photoId) => ({ photoId, label })) } });
+    toast('서버에서 사진을 받아 RoI 로 자르는 중…');
+    const r = await api(`/api/models/${cur.detail.model.id}/samples/import`, { method: 'POST', json: { plantId: dataState.plantId, photos: [...dataState.selected].map((photoId) => ({ photoId, label })) } });
     toast(`가져옴 ${r.imported} · 라벨 변경 ${r.relabeled}${r.failed.length ? ` · 실패 ${r.failed.length}` : ''}`);
     dataState.selected = new Set();
     cur.detail = await api(`/api/models/${cur.detail.model.id}`);
@@ -619,7 +671,7 @@ async function loadGallery() {
   const r = await api(`/api/models/${m.id}/samples?${q}`);
   $('#gTotal').textContent = `${r.total}장`;
   const g = $('#gallery');
-  g.innerHTML = r.samples.length ? r.samples.map((s) => `<div class="tile" data-id="${s.id}" title="${esc(s.note || '')}"><img loading="lazy" src="${esc(withToken(s.url))}" alt=""><div class="cap">${esc(window.__labelName(s.label))} · ${SPLIT[s.split]}</div></div>`).join('') : '<div class="empty">사진이 없습니다</div>';
+  g.innerHTML = r.samples.length ? r.samples.map((s) => `<div class="tile" data-id="${s.id}" title="${esc(s.note || '')}"><img loading="lazy" src="${esc(s.url)}" alt=""><div class="cap">${esc(window.__labelName(s.label))} · ${SPLIT[s.split]}</div></div>`).join('') : '<div class="empty">사진이 없습니다</div>';
   g.querySelectorAll('.tile').forEach((t) => t.addEventListener('click', () => sampleDialog(r.samples.find((s) => s.id === t.dataset.id))));
   $('#gPrev').disabled = dataState.offset === 0;
   $('#gNext').disabled = dataState.offset + 48 >= r.total;
@@ -629,7 +681,7 @@ async function loadGallery() {
 
 function sampleDialog(s) {
   const m = cur.detail.model;
-  openModal(`<h2>학습 사진</h2><img src="${esc(withToken(s.url))}" alt="" style="max-width:100%;border-radius:6px">
+  openModal(`<h2>학습 사진</h2><img src="${esc(s.url)}" alt="" style="max-width:100%;border-radius:6px">
     <p class="small muted">${{ upload: '직접 추가', farmer_photo: 'Farmer 사진', diagnosis: '영상 진단' }[s.source] || s.source} · ${SPLIT[s.split]}용 · ${s.width}×${s.height} · ${fmtDate(s.createdAt)}${s.note ? ' · ' + esc(s.note) : ''}</p>
     <div class="row"><label class="f">라벨<select id="sdLabel">${m.labels.map((l) => `<option value="${l.id}" ${l.id === s.label ? 'selected' : ''}>${esc(l.ko)}</option>`).join('')}</select></label>
     <span style="flex:1"></span><button class="danger" onclick="delSample('${s.id}')">삭제</button><button onclick="closeModal()">닫기</button><button class="primary" onclick="relabel('${s.id}')">라벨 저장</button></div>`);
@@ -638,39 +690,64 @@ async function relabel(id) {
   try { await api(`/api/models/${cur.detail.model.id}/samples/${id}`, { method: 'PUT', json: { label: $('#sdLabel').value } }); closeModal(); toast('라벨을 바꿨어요'); cur.detail = await api(`/api/models/${cur.detail.model.id}`); loadGallery(); } catch (e) { toast(e.message); }
 }
 async function delSample(id) {
-  if (!confirm('이 사진을 학습 데이터에서 지울까요?')) return;
+  if (!confirm('이 사진을 학습 데이터에서 뺄까요? (이미 어떤 버전 학습에 쓰인 사진 파일은 기록으로 남깁니다)')) return;
   try { await api(`/api/models/${cur.detail.model.id}/samples/${id}`, { method: 'DELETE' }); closeModal(); cur.detail = await api(`/api/models/${cur.detail.model.id}`); loadGallery(); } catch (e) { toast(e.message); }
 }
 
-// ---------- 학습 · 배포 ----------
+// ---------- 학습 · 업로드 · 배포 ----------
 function renderTrain() {
   const d = cur.detail; const m = d.model;
-  const active = d.versions.find((v) => v.active);
+  const latest = d.versions[0];
   const counts = d.samples;
   const total = Object.values(counts).reduce((a, c) => a + c.train, 0);
-  const activeLabels = active?.labels || [];
-  const newLabels = m.labels.filter((l) => !activeLabels.includes(l.id));
+  const newLabels = m.labels.filter((l) => !(latest?.labels || []).includes(l.id));
   const live = d.jobs.find((j) => j.status === 'queued' || j.status === 'running');
+  const deployed = d.server.activeVersion;
+  const srvCell = (v) => {
+    if (v.source === 'bundled') return v.server.active ? '<span class="badge">배포 중</span>' : '<span class="muted small">앱 내장(서버에 있음)</span>';
+    if (!d.server.reachable) return '<span class="muted small">?</span>';
+    if (!v.server.uploaded) return '<span class="muted small">업로드 전</span>';
+    if (!v.server.sameFile) return '<span class="err small">서버와 파일 다름</span>';
+    return v.server.active ? '<span class="badge">배포 중</span>' : '<span class="small">업로드됨</span>';
+  };
+  const actions = (v) => {
+    const b = [];
+    if (v.source !== 'bundled' && d.server.reachable && !v.server.uploaded) {
+      b.push(`<button onclick="uploadVersion(${v.version}, false)">서버 업로드</button>`);
+      b.push(`<button class="primary" onclick="uploadVersion(${v.version}, true)">업로드+배포</button>`);
+    } else if (d.server.reachable && (v.server.uploaded || v.source === 'bundled') && !v.server.active) {
+      b.push(`<button onclick="activate(${v.version})">${deployed && v.version < deployed ? '롤백' : '배포'}</button>`);
+    }
+    b.push(`<button onclick="cur.perfVersion=${v.version};location.hash='#/model/${m.id}/perf'">지표</button>`);
+    b.push(`<a class="btn" href="/api/models/${m.id}/versions/${v.version}/download">⬇</a>`);
+    return b.join(' ');
+  };
   const tab = $('#tab');
   tab.innerHTML = `
     <div class="grid2">
       <div>
-        <h3 style="margin-top:0">새 버전 학습</h3>
+        <h3 style="margin-top:0">새 버전 학습 <span class="muted">(이 PC)</span></h3>
         <div class="row">
           <label class="f">시작 모델<select id="tFrom">
-            ${active ? `<option value="active">배포 중 v${active.version}에서 이어서</option>` : ''}
-            ${m.baseModel ? `<option value="base" ${active ? '' : 'selected'}>기반 모델 ${esc(m.baseModel)}에서</option>` : ''}</select></label>
+            ${d.versions.map((v) => `<option value="${v.version}" ${v.version === (deployed && d.versions.some((x) => x.version === deployed) ? deployed : latest?.version) ? 'selected' : ''}>v${v.version}에서 이어서${v.version === deployed ? ' (서버 배포 중)' : ''}</option>`).join('')}
+            ${m.baseModel ? `<option value="base" ${latest ? '' : 'selected'}>기반 모델 ${esc(m.baseModel)}에서</option>` : ''}</select></label>
           <label class="f">에폭<input id="tEpochs" type="number" min="1" max="60" value="15" style="width:70px"></label>
           <label class="f">학습률<input id="tLr" type="number" step="0.001" min="0.0005" max="0.1" value="0.01" style="width:80px"></label>
         </div>
         <p class="small muted">학습 사진 ${total}장 · 검증 사진 ${Object.values(counts).reduce((a, c) => a + c.val, 0)}장${newLabels.length ? ` · 새 라벨 ${newLabels.map((l) => `${esc(l.ko)} ${counts[l.id]?.train ?? 0}장`).join(', ')} (3장 이상 필요)` : ''}</p>
-        <p class="small muted">기존 가중치에서 크게 벗어나지 않게 학습해, 사진이 적은 라벨의 기존 판독 능력을 지킵니다. 학습이 끝나면 같은 검증 사진에서 이전 버전과 비교한 뒤 배포를 결정하세요.</p>
+        <p class="small muted">기존 가중치에서 크게 벗어나지 않게 학습해, 사진이 적은 라벨의 기존 판독 능력을 지킵니다. 학습이 끝나면 같은 검증 사진에서 시작 버전과 비교한 뒤 업로드·배포를 결정하세요.</p>
         <div class="row"><button class="primary" id="tGo" ${live ? 'disabled' : ''} onclick="startTrain()">학습 시작</button>
-          <button id="eGo" ${live || !active ? 'disabled' : ''} onclick="startEval()">배포 버전 다시 평가</button></div>
+          <button id="eGo" ${live || !latest ? 'disabled' : ''} onclick="startEval()">v${cur.perfVersion ?? latest?.version ?? ''} 다시 평가</button></div>
         <div id="job" style="margin-top:10px"></div>
       </div>
       <div>
-        <h3 style="margin-top:0">최근 작업</h3>
+        <h3 style="margin-top:0">GitHub</h3>
+        ${d.git && !d.git.error ? `<p class="small">${d.git.branch} 브랜치 · ${d.git.changed ? `<b>올리지 않은 변경 ${d.git.changed}개</b>` : '변경 없음'}${d.git.unpushed ? ` · push 전 커밋 ${d.git.unpushed}개` : ''}<br>
+          <span class="muted">마지막 커밋: ${d.git.lastCommit ? `${esc(d.git.lastCommit.hash)} ${esc(d.git.lastCommit.date)} ${esc(d.git.lastCommit.subject)}` : '없음'}</span></p>
+          <button ${d.git.changed || d.git.unpushed ? '' : 'disabled'} onclick='publishGithub(${esc(JSON.stringify([m.id]))})'>⬆ GitHub 에 올리기</button>
+          <p class="small muted"><code>ml/registry/${esc(m.id)}/</code> (모델 정의·라벨·학습/검증 사진·버전)만 커밋하고 현재 브랜치를 push 합니다.</p>`
+          : `<p class="small err">${esc(d.git?.error || 'git 상태를 읽지 못했습니다')}</p>`}
+        <h3>최근 작업</h3>
         <div class="tablewrap"><table class="small"><tr><th>작업</th><th>상태</th><th>결과</th><th>시각</th></tr>
         ${d.jobs.map((j) => `<tr><td>${j.type === 'train' ? '학습' : '평가'}</td><td>${{ queued: '대기', running: '진행 중', done: '완료', failed: '실패' }[j.status]}</td><td>${esc(jobSummary(j))}</td><td>${fmtDate(j.createdAt)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">작업 없음</td></tr>'}
         </table></div>
@@ -678,22 +755,30 @@ function renderTrain() {
     </div>
     <h3>버전</h3>
     <div class="tablewrap"><table>
-      <tr><th>버전</th><th>출처</th><th>만든 때</th><th class="num">검증 정확도</th><th class="num">macro-F1</th><th class="num">이전 버전 (같은 사진)</th><th class="num">학습/검증</th><th>라벨</th><th></th></tr>
+      <tr><th>버전</th><th>출처</th><th>만든 때</th><th class="num">검증 정확도</th><th class="num">macro-F1</th><th class="num">시작 버전 (같은 사진)</th><th class="num">학습/검증</th><th>라벨</th><th>서버</th><th></th></tr>
       ${d.versions.map((v) => `<tr>
-        <td style="white-space:nowrap"><b>v${v.version}</b>${v.active ? ' <span class="badge">배포 중</span>' : ''}</td>
-        <td style="white-space:nowrap">${SOURCE[v.source]}</td><td style="white-space:nowrap">${fmtDate(v.createdAt)}</td>
+        <td style="white-space:nowrap"><b>v${v.version}</b></td>
+        <td style="white-space:nowrap">${SOURCE[v.source] || v.source}</td><td style="white-space:nowrap">${fmtDate(v.createdAt)}</td>
         <td class="num">${pct(v.metrics?.accuracy)} <span class="muted small">${v.metrics ? DATASET[v.metrics.dataset] || '' : ''}</span></td>
         <td class="num">${pct(v.metrics?.macroF1)}</td>
-        <td class="num">${v.baseline ? `${pct(v.baseline.accuracy)} <span class="muted small">v${v.baseline.from?.version}</span>` : '—'}</td>
+        <td class="num">${v.baseline ? `${pct(v.baseline.accuracy)} <span class="muted small">${v.baseline.from?.modelId !== m.id ? esc(v.baseline.from?.modelId) + ' ' : ''}v${v.baseline.from?.version}</span>` : '—'}</td>
         <td class="num">${v.train?.nTrain != null ? `${v.train.nTrain} / ${v.train.nVal}` : '—'}</td>
         <td class="small">${v.labels.length}</td>
-        <td style="white-space:nowrap">
-          ${v.active ? '' : `<button onclick="activate(${v.version})">${active && v.version < active.version ? '롤백' : '배포'}</button>`}
-          <button onclick="cur.perfVersion=${v.version};location.hash='#/model/${m.id}/perf'">지표</button>
-          <a class="btn" href="${esc(withToken(`/api/models/${m.id}/versions/${v.version}/download`))}">⬇</a></td></tr>`).join('')}
+        <td style="white-space:nowrap">${srvCell(v)}</td>
+        <td style="white-space:nowrap">${actions(v)}</td></tr>`).join('')}
     </table></div>
-    <p class="small muted">배포하면 Farmer들에게 바로 재동기화 명령이 가서, 각 Farmer가 새 모델을 내려받아(sha256 검증) 다음 판독부터 씁니다. 롤백도 같은 방식입니다.</p>`;
+    <p class="small muted">서버 업로드: 모델 파일 + 라벨 + 지표 + 그 버전의 학습·검증 사진(서버에 없는 것만)을 올립니다. 배포하면 Farmer 들에게 바로 재동기화 명령이 가서 새 모델을 내려받아(sha256 검증) 씁니다. 롤백은 이전 버전 배포입니다.</p>`;
   if (live) pollJob(live.id);
+}
+
+async function uploadVersion(version, activateNow) {
+  if (activateNow && !confirm(`v${version}을(를) 서버에 올리고 바로 배포할까요? Farmer들이 이 모델을 내려받아 판독에 씁니다.`)) return;
+  toast('서버에 올리는 중…', 4000);
+  try {
+    const r = await api(`/api/models/${cur.detail.model.id}/versions/${version}/upload`, { method: 'POST', json: { activate: activateNow } });
+    toast(`v${r.version} ${r.status === 'exists' ? '이미 서버에 있음' : '업로드'} · 사진 ${r.uploadedPhotos}/${r.datasetSize}장 전송${r.activated ? ` · 배포 (Farmer ${r.activated.notified}대 알림)` : ''}`, 5000);
+    route();
+  } catch (e) { toast(e.message, 6000); }
 }
 
 function jobSummary(j) {
@@ -705,21 +790,22 @@ function jobSummary(j) {
 }
 
 async function startTrain() {
-  const body = { from: $('#tFrom').value, epochs: Number($('#tEpochs').value), lr: Number($('#tLr').value) };
+  const fromVal = $('#tFrom').value;
+  const body = { from: fromVal === 'base' ? 'base' : Number(fromVal), epochs: Number($('#tEpochs').value), lr: Number($('#tLr').value) };
   try { const r = await api(`/api/models/${cur.detail.model.id}/train`, { method: 'POST', json: body }); $('#tGo').disabled = true; pollJob(r.jobId); } catch (e) { toast(e.message, 4000); }
 }
 async function startEval() {
-  try { const r = await api(`/api/models/${cur.detail.model.id}/evaluate`, { method: 'POST', json: {} }); pollJob(r.jobId); } catch (e) { toast(e.message, 4000); }
+  try { const r = await api(`/api/models/${cur.detail.model.id}/evaluate`, { method: 'POST', json: { version: cur.perfVersion ?? cur.detail.versions[0]?.version } }); pollJob(r.jobId); } catch (e) { toast(e.message, 4000); }
 }
 async function pollJob(id) {
   clearTimeout(pollTimer);
   let j;
-  try { j = await api(`/api/models/jobs/${id}`); } catch { return; }
+  try { j = await api(`/api/jobs/${id}`); } catch { return; }
   const box = $('#job');
   if (box) box.innerHTML = `<div class="small">${j.type === 'train' ? '학습' : '평가'} ${{ queued: '대기 중', running: '진행 중', done: '완료', failed: '실패' }[j.status]} — ${esc(j.status === 'done' ? jobSummary(j) : j.message || '')}</div><div class="progress" role="progressbar" aria-valuenow="${Math.round(j.progress * 100)}"><div style="width:${Math.round(j.progress * 100)}%"></div></div>`;
   $('#jobsBadge').textContent = j.status === 'running' ? `⏳ ${j.modelId} ${j.type === 'train' ? '학습' : '평가'} ${Math.round(j.progress * 100)}%` : '';
   if (j.status === 'queued' || j.status === 'running') { pollTimer = setTimeout(() => pollJob(id), 1000); return; }
-  if (j.status === 'done') toast(j.type === 'train' ? `v${j.result.version} 학습 완료 — 지표를 확인하고 배포하세요` : '평가 완료');
+  if (j.status === 'done') toast(j.type === 'train' ? `v${j.result.version} 학습 완료 — 지표를 확인하고 서버에 업로드하세요` : '평가 완료');
   else toast(`실패: ${j.message}`, 5000);
   if (cur && cur.detail.model.id === j.modelId) {
     cur.detail = await api(`/api/models/${j.modelId}`);
@@ -727,8 +813,8 @@ async function pollJob(id) {
   }
 }
 async function activate(version) {
-  if (!confirm(`v${version}을(를) 배포할까요? Farmer들이 이 모델을 내려받아 판독에 씁니다.`)) return;
-  try { const r = await api(`/api/models/${cur.detail.model.id}/versions/${version}/activate`, { method: 'POST', json: {} }); toast(`v${r.version} 배포 — Farmer ${r.notified}대에 알림`); route(); } catch (e) { toast(e.message); }
+  if (!confirm(`서버에서 v${version}을(를) 배포할까요? Farmer들이 이 모델을 내려받아 판독에 씁니다.`)) return;
+  try { const r = await api(`/api/models/${cur.detail.model.id}/versions/${version}/activate`, { method: 'POST', json: {} }); toast(`v${r.version} 배포 — Farmer ${r.notified}대에 알림`); route(); } catch (e) { toast(e.message, 5000); }
 }
 
 let resizeT = null;

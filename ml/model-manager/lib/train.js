@@ -7,7 +7,7 @@
 //  - L2-SP: 부모 가중치에서 멀어지는 만큼 벌점 → 사진이 적은 라벨에서 기존 지식을 잃지 않게
 //  - 라벨 불균형은 클래스 가중치(역빈도, 0.5~3)로
 //  - 검증 macro-F1 이 가장 좋은 에폭의 가중치를 결과로 (검증 샘플 없으면 마지막 에폭)
-import { forward, backward, zerosLike, paramArrays, cloneModel, softmax, rng as makeRng } from './ojp1.js';
+import { forward, backward, zerosLike, paramArrays, cloneModel, softmax, rng as makeRng } from '../../../backend/src/ml/ojp1.js';
 import { resampleToFloat } from './image.js';
 
 export const INPUT = 48;

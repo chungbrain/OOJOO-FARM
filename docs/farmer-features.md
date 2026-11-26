@@ -164,7 +164,7 @@ simulation/
 
 ### 8.1 모듈 카탈로그 (서버가 단일 원천 — `backend/src/lib/detectors.js`)
 
-> 2026-11-26 이후: 어떤 모델 파일·라벨을 내려줄지는 model-manager 레지스트리의 배포 버전이 정한다 — 새 버전 배포, 라벨 추가, 새 종 모델(별칭 `speciesAliases`), 새 검출 모듈이 모두 이 카탈로그로 Farmer 에 전달된다. 자세한 내용: [docs/model-manager.md](model-manager.md)
+> 2026-11-26 이후: 어떤 모델 파일·라벨을 내려줄지는 서버 모델 레지스트리의 배포 버전이 정한다 (로컬 model-manager 가 학습해 업로드·배포) — 새 버전 배포, 라벨 추가, 새 종 모델(별칭 `speciesAliases`), 새 검출 모듈이 모두 이 카탈로그로 Farmer 에 전달된다. 자세한 내용: [docs/model-manager.md](model-manager.md)
 
 | id | 이름 | 모델 | 출력 라벨 |
 |---|---|---|---|
