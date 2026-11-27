@@ -48,6 +48,10 @@ ml/plant_health/datasets/*/*/*.png
 
 # tooling / automation
 .tools/
+
+# Claude Code personal settings (end-of-turn auto-commit hook)
+.claude/settings.local.json
+.claude/hooks/auto-commit.sh
 .opencode/*
 !.opencode/skills/
 .vscode/
