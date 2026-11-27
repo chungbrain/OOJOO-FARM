@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import db from './db.js';
 import { sweepOfflineSlaves } from './lib/sweeper.js';
+import { sweepOrphanMedia } from './lib/communityMedia.js';
 
 dotenv.config();
 
@@ -23,6 +24,17 @@ if (process.env.NODE_ENV !== 'test') {
     }
   }, 60_000);
   sweeper.unref();
+
+  // 이웃 글에 붙지 않은 업로드(작성 취소·실패) 정리 — 1시간마다, 24시간 지난 것
+  const mediaSweeper = setInterval(() => {
+    try {
+      const n = sweepOrphanMedia();
+      if (n) console.log(`[OOJOO] sweeper: ${n} orphan community media removed`);
+    } catch (e) {
+      console.error('media sweeper error:', e);
+    }
+  }, 3_600_000);
+  mediaSweeper.unref();
 }
 
 // Graceful shutdown: 새 연결 중단 → in-flight 완료 대기 → SSE 등 남은 소켓 끊음 → DB close (WAL checkpoint)

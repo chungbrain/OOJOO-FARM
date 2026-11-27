@@ -1,7 +1,14 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'node:path';
 import { nanoid } from 'nanoid';
 import db from '../db.js';
 import { validCoord } from '../lib/validate.js';
+import {
+  MEDIA_DIR, MAX_PHOTO_BYTES, MAX_VIDEO_BYTES, MAX_THUMB_BYTES, PHOTO_TYPES,
+  mediaKindOf, extensionOf, toMedia, mediaForPosts, checkAttachable, attachMedia,
+  removeFiles, deleteMediaRow, mimeForFilename,
+} from '../lib/communityMedia.js';
 const r = Router();
 
 const TYPES = ['share', 'sell', 'buy'];
@@ -37,6 +44,8 @@ function bumpReputation(userId, delta) {
 }
 
 function decorate(rows) {
+  // 첨부 사진·동영상 — 글 목록 전체를 쿼리 한 번으로
+  const media = mediaForPosts(rows.map((p) => p.id));
   return rows.map((p) => {
     // PRD 6.7 — 정밀 좌표 비공개: 응답에서 lat/lon 을 뺀다 (지역은 region 필드로)
     const { lat: _lat, lon: _lon, ...rest } = p;
@@ -53,7 +62,10 @@ function decorate(rows) {
       const v = db.prepare('SELECT filename FROM videos WHERE id=?').get(p.video_id);
       if (v) video_url = `/api/videos/file/${v.filename}`;
     }
-    return { ...rest, author_name: u?.nickname || '이웃', author_score: rep?.score || 0, author_deals: rep?.deals || 0, plant_name, plant_species, video_url };
+    return {
+      ...rest, author_name: u?.nickname || '이웃', author_score: rep?.score || 0, author_deals: rep?.deals || 0,
+      plant_name, plant_species, video_url, media: media.get(p.id) || [],
+    };
   });
 }
 
@@ -106,13 +118,16 @@ r.get('/posts/:id', (req, res) => {
   res.json({ post: decorate([post])[0], comments });
 });
 
-// 게시물 작성 (lat/lon + 식물카드: plantId/videoId)
+// 게시물 작성 (lat/lon + 식물카드: plantId/videoId + 직접 올린 사진·동영상: mediaIds)
 r.post('/posts', (req, res) => {
-  const { userId, type, title, crop, quantity, price, region, description, image, lat, lon, plantId, videoId } = req.body;
+  const { userId, type, title, crop, quantity, price, region, description, image, lat, lon, plantId, videoId, mediaIds } = req.body;
   if (!userId || !type || !title) return res.status(400).json({ error: 'userId, type, title required' });
   if (!TYPES.includes(type)) return res.status(400).json({ error: 'invalid type' });
   const coordErr = validCoord(lat, lon);
   if (coordErr) return res.status(400).json({ error: coordErr });
+  // 첨부 — 이 사용자가 POST /media 로 올렸고 아직 다른 글에 붙지 않은 것만
+  const mediaErr = checkAttachable(userId, mediaIds);
+  if (mediaErr) return res.status(400).json({ error: mediaErr });
   // 식물카드 — 연결 대상이 실제로 존재해야 한다
   let plantRow = null, videoRow = null;
   if (plantId) {
@@ -130,8 +145,93 @@ r.post('/posts', (req, res) => {
       type === 'sell' ? (Number(price) || 0) : null, region || null, description || null, image || null,
       lat != null ? Number(lat) : null, lon != null ? Number(lon) : null,
       plantRow ? plantId : null, videoRow ? videoId : null);
+  attachMedia(id, mediaIds);
   db.prepare('INSERT OR IGNORE INTO community_reputation(user_id, score, deals) VALUES(?,0,0)').run(userId);
   res.json({ postId: id });
+});
+
+// ── 글 첨부 사진·동영상 ──────────────────────────────────────────────
+// 파일 하나씩 업로드 → mediaId. 글 작성 때 mediaIds 로 붙인다 (안 붙은 건 24시간 뒤 정리).
+const mediaUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, MEDIA_DIR),
+    filename: (_req, file, cb) => cb(null, `${nanoid(16)}${extensionOf(file.mimetype) || '.bin'}`),
+  }),
+  limits: { fileSize: MAX_VIDEO_BYTES, files: 2, fields: 10 },
+  fileFilter: (req, file, cb) => {
+    // file: 사진/동영상, thumb: 미리보기 이미지 (동영상 포스터 · 사진 축소본)
+    const ok = file.fieldname === 'thumb' ? Boolean(PHOTO_TYPES[file.mimetype]) : Boolean(mediaKindOf(file.mimetype));
+    if (!ok) (req.rejectedFields ||= []).push(file.fieldname);
+    cb(null, ok);
+  },
+}).fields([{ name: 'file', maxCount: 1 }, { name: 'thumb', maxCount: 1 }]);
+
+function receiveMedia(req, res, next) {
+  mediaUpload(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      // multer 가 받다 만 파일은 스스로 지운다
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'file too large' });
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  });
+}
+
+function posInt(v, max) {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 && n <= max ? n : null;
+}
+
+r.post('/media', receiveMedia, (req, res) => {
+  const file = req.files?.file?.[0] || null;
+  let thumb = req.files?.thumb?.[0] || null;
+  const discard = () => removeFiles(file?.filename, thumb?.filename);
+  if (!file) {
+    discard();
+    if (req.rejectedFields?.includes('file')) return res.status(415).json({ error: 'unsupported media type' });
+    return res.status(400).json({ error: 'file required' });
+  }
+  const { userId, width, height, durationMs } = req.body || {};
+  if (!userId || !db.prepare('SELECT id FROM users WHERE id=?').get(userId)) {
+    discard();
+    return res.status(400).json({ error: 'valid userId required' });
+  }
+  const kind = mediaKindOf(file.mimetype);
+  if (kind === 'photo' && file.size > MAX_PHOTO_BYTES) {
+    discard();
+    return res.status(413).json({ error: 'file too large' });
+  }
+  // 미리보기는 선택 — 너무 크면 버리고 원본만 받는다
+  if (thumb && thumb.size > MAX_THUMB_BYTES) { removeFiles(thumb.filename); thumb = null; }
+  const id = nanoid(12);
+  db.prepare(`INSERT INTO community_media(id, user_id, kind, filename, thumb_filename, mime, size, width, height, duration_ms)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, userId, kind, file.filename, thumb ? thumb.filename : null, file.mimetype, file.size,
+      posInt(width, 20000), posInt(height, 20000), kind === 'video' ? posInt(durationMs, 24 * 3600 * 1000) : null);
+  res.json(toMedia(db.prepare('SELECT * FROM community_media WHERE id=?').get(id)));
+});
+
+// 파일 서빙 — Range 지원(동영상 탐색), 등록된 파일만
+r.get('/media/file/:filename', (req, res) => {
+  const name = path.basename(req.params.filename);
+  const mime = mimeForFilename(name);
+  if (!mime) return res.status(404).json({ error: 'file not found' });
+  res.type(mime);
+  res.sendFile(path.join(MEDIA_DIR, name), { maxAge: '1d', dotfiles: 'allow' }, (err) => {
+    if (err && !res.headersSent) res.status(err.status || err.statusCode || 404).json({ error: 'file not found' });
+  });
+});
+
+// 작성 중 첨부 취소 — 아직 글에 붙지 않은 내 업로드만
+r.delete('/media/:id', (req, res) => {
+  const { userId } = req.body || {};
+  const row = db.prepare('SELECT * FROM community_media WHERE id=?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'not found' });
+  if (!userId || row.user_id !== userId) return res.status(403).json({ error: 'not yours' });
+  if (row.post_id) return res.status(409).json({ error: 'media already attached' });
+  deleteMediaRow(row);
+  res.json({ ok: true });
 });
 
 // 성장스토리 동영상 첨부 — 게시물은 즉시 생성, 동영상은 준비되면 붙인다

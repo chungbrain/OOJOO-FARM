@@ -110,9 +110,12 @@ npm start
 ### 커뮤니티 (지역 나눔/판매/구입)
 | 메서드 | 경로 | 본문/쿼리 | 응답 |
 |--------|------|-----------|------|
-| GET | /api/community/posts | ?region=&type=&q=&viewerId= | { posts[] } (작성자/평판 포함, 차단 제외) |
-| GET | /api/community/posts/:id | | { post, comments[] } |
-| POST | /api/community/posts | { userId, type(share\|sell\|buy), title, crop?, quantity?, price?, region?, description?, image? } | { postId } |
+| GET | /api/community/posts | ?region=&type=&q=&viewerId= | { posts[] } (작성자/평판·첨부 `media[]` 포함, 차단 제외) |
+| GET | /api/community/posts/:id | | { post, comments[] } (`post.media[]` = 첨부 사진·동영상, 표시 순서) |
+| POST | /api/community/posts | { userId, type(share\|sell\|buy), title, crop?, quantity?, price?, region?, description?, image?, mediaIds?[] } | { postId } — mediaIds 는 이 사용자가 올린, 아직 안 붙은 미디어(최대 10) |
+| POST | /api/community/media | multipart: `file`(사진 jpeg/png/webp ≤20MB · 동영상 mp4/3gp/webm/mov/mkv ≤100MB), `thumb`?(이미지 ≤2MB), userId, width?, height?, durationMs? | { id, kind(photo\|video), url, thumb_url, mime, size, width, height, duration_ms } — 413 크기 초과, 415 형식 |
+| GET | /api/community/media/file/:name | Range 지원 | 파일 (등록된 원본·썸네일만) |
+| DELETE | /api/community/media/:id | { userId } | { ok } — 글에 붙기 전 내 업로드만 (붙은 것 409). 안 붙은 업로드는 24시간 뒤 자동 정리 |
 | POST | /api/community/posts/:id/comments | { userId, body } | { commentId } |
 | PATCH | /api/community/posts/:id/status | { status(open\|reserved\|done) } | { ok } (done 시 작성자 평판 +1) |
 | POST | /api/community/report | { reporterId, postId?, targetUserId?, reason? } | { ok } |
@@ -154,6 +157,6 @@ curl -X POST http://localhost:4000/api/pairing/verify -H "Content-Type: applicat
 
 ## 데이터
 - SQLite 파일: `data/oojoo.db` (자동 생성)
-- 테이블: users, slaves, pairings, plants, events, waterings, commands, policies, weather_cache, products, bundles, orders, order_items, affiliate_clicks, community_posts, community_comments, community_reputation, community_reports, community_blocks
-- data 디렉터리는 기동 시 자동 생성됨
+- 테이블: users, slaves, pairings, plants, events, waterings, commands, policies, weather_cache, products, bundles, orders, order_items, affiliate_clicks, community_posts, community_comments, community_reputation, community_reports, community_blocks, community_media
+- data 디렉터리는 기동 시 자동 생성됨 (이웃 글 첨부 파일: `data/community/`, `COMMUNITY_MEDIA_DIR` 로 변경 가능)
 - 마켓 상품/번들은 최초 기동 시 자동 시드됨 (`src/lib/marketSeed.js`)
