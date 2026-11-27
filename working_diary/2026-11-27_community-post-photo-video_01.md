@@ -69,17 +69,31 @@
 
 ## 배포 주의
 
-- **GCP 백엔드(34.50.40.104) 재배포 전에는 첨부가 안 됨** — 구버전 서버는 `POST /api/community/media` 가 404 → 앱이 "업로드에 실패했어요" 안내. 첨부 없는 글쓰기는 구버전 서버에서도 그대로 동작(`mediaIds` 는 무시됨).
-  재배포: VM 에서 `git pull` + `oojoo.service` 재시작 (`.opencode/skills/deploy-backend-gcp`). 새 의존성 없음(multer 기존 사용)
-- 동영상 100MB × 여러 개가 쌓이면 e2-small VM 디스크를 차지함 — 사용량을 보고 상한/보관 정책 조정 필요
+- 구버전 서버는 `POST /api/community/media` 가 404 → 앱이 "업로드에 실패했어요" 안내. 첨부 없는 글쓰기는 구버전 서버에서도 그대로 동작(`mediaIds` 는 무시됨).
+  → 같은 날 GCP 재배포 완료 (아래)
+- 동영상 100MB × 여러 개가 쌓이면 e2-small VM 디스크를 차지함 — 재배포 시점 디스크 8.7G 중 2.4G 남음(73%), `backend/data` 551M.
+  사용량을 보고 상한/보관 정책 조정 필요
 - master APK 서명 키는 이전 빌드와 같음(이 PC 키 d0a5726c) → 2026112601 이후 설치본 위에 업데이트 설치 가능
+
+## GCP 재배포 (같은 날)
+
+- VM `oojoo-backend` 에서 `sudo -u wooju-family git pull --ff-only` → `8fbdabb` → **`305c6f1`**, `npm install`(변경 없음),
+  `systemctl restart oojoo` → `active`, 기동 로그 정상
+- 확인 (이 PC 에서, 운영 DB 에 아무것도 남기지 않는 요청만):
+  - `/health` ok, `/api/detectors` 정상
+  - `GET /api/community/posts` — 기존 글 6개 모두 `media: []` 포함
+  - `POST /api/community/media` — 없는 userId + JPEG → 400 `valid userId required`(받은 파일 삭제됨), text/plain → 415
+  - `GET /api/community/media/file/nothing.jpg` → 404 `file not found`(새 라우트), `POST /posts` 에 없는 mediaId → 400 `media not found`(글 생성 안 됨)
+  - VM `backend/data/community/` 생성됨·비어 있음, `community_media` 0행
+- 실제 사진·동영상 업로드 → 글 → 재생은 앱(2026112701)으로 확인 필요
 
 ## 커밋
 
 - `d158140 feat(backend): photo/video attachments for community posts`
 - `90d28ec feat(master): attach photos and videos to Neighbor posts and view them in the post`
 - `d70b700 build: debug APKs 2026112701 with Neighbor post photos and videos`
-- `docs: README, API docs, code graph and working_diary for Neighbor post media (2026-11-27)`
+- `305c6f1 docs: README, API docs, code graph and working_diary for Neighbor post media (2026-11-27)`
+- `docs: GCP redeploy of 305c6f1 with Neighbor post media (2026-11-27)`
 
 ## 환경 메모
 
@@ -89,7 +103,6 @@
 ## 남은 작업
 
 - 실기기에서 사진 선택기(Android 13+ / 구형 문서 선택기), 세로 사진 EXIF 회전, 동영상 포스터·재생·탐색, 큰 동영상 업로드 진행률 확인
-- GCP 백엔드 재배포
 - 동영상은 원본을 그대로 올림 — Android 10 미만 기기에서 고른 동영상은 메타데이터(촬영 위치 등)가 남을 수 있음(Android 10+ 는 MediaProvider 가 위치 정보를 가려서 줌). 필요하면 앱에서 재인코딩/메타데이터 제거 검토
 - 글 수정·삭제 기능이 아직 없음 — 첨부도 글과 함께 지울 수 있게 하려면 글 삭제 API 부터 필요
 - 카메라로 바로 촬영해 첨부하기(현재는 갤러리 선택만)
