@@ -5,11 +5,11 @@
 
 | 그래프 | 규모 |
 |---|---|
-| 백엔드 모듈 | 42 모듈, import 44개 (db.js 로 가는 것·app.js 라우터 마운트 제외) |
+| 백엔드 모듈 | 43 모듈, import 45개 (db.js 로 가는 것·app.js 라우터 마운트 제외) |
 | 로컬 model-manager 모듈 | 10 모듈, import 15개 |
-| Master 앱 | Kotlin 41 파일, 파일 간 참조 182개 |
+| Master 앱 | Kotlin 44 파일, 파일 간 참조 192개 |
 | Farmer 앱 | Kotlin 40 파일, 파일 간 참조 97개 |
-| API 지도 | 백엔드 라우트 122개, 앱 → 라우트 매칭 실패 0개 |
+| API 지도 | 백엔드 라우트 125개, 앱 → 라우트 매칭 실패 0개 |
 
 ## 1. 백엔드
 
@@ -25,6 +25,7 @@ flowchart LR
     backend_src_server_js["server.js"]
   end
   subgraph g_backend_lib["lib"]
+    backend_src_lib_communityMedia_js["communityMedia.js"]
     backend_src_lib_detectors_js["detectors.js"]
     backend_src_lib_household_js["household.js"]
     backend_src_lib_marketSeed_js["marketSeed.js"]
@@ -81,6 +82,7 @@ flowchart LR
   backend_src_routes_commands_js --> backend_src_middleware_auth_js
   backend_src_routes_commands_js --> backend_src_lib_validate_js
   backend_src_routes_community_js --> backend_src_lib_validate_js
+  backend_src_routes_community_js --> backend_src_lib_communityMedia_js
   backend_src_routes_detectors_js --> backend_src_middleware_auth_js
   backend_src_routes_detectors_js --> backend_src_routes_commands_js
   backend_src_routes_detectors_js --> backend_src_lib_detectors_js
@@ -169,31 +171,31 @@ Kotlin 은 같은 패키지끼리 import 없이 쓰므로, **다른 파일의 �
 ```mermaid
 flowchart LR
   master_p__root_["master (2)"]
-  master_p_data["master.data (7)"]
+  master_p_data["master.data (8)"]
   master_p_model["master.model (1)"]
-  master_p_network["master.network (3)"]
+  master_p_network["master.network (4)"]
   master_p_push["master.push (1)"]
-  master_p_ui["master.ui (27)"]
+  master_p_ui["master.ui (28)"]
   master_p__root_ -- 5 --> master_p_data
   master_p__root_ -- 1 --> master_p_model
   master_p__root_ -- 1 --> master_p_network
   master_p__root_ -- 1 --> master_p_push
   master_p__root_ -- 21 --> master_p_ui
   master_p_data -- 2 --> master_p_model
-  master_p_network -- 1 --> master_p_model
+  master_p_network -- 2 --> master_p_model
   master_p_push -- 1 --> master_p__root_
   master_p_push -- 4 --> master_p_data
   master_p_push -- 1 --> master_p_model
   master_p_push -- 1 --> master_p_network
   master_p_push -- 2 --> master_p_ui
-  master_p_ui -- 37 --> master_p_data
-  master_p_ui -- 24 --> master_p_model
-  master_p_ui -- 23 --> master_p_network
+  master_p_ui -- 39 --> master_p_data
+  master_p_ui -- 25 --> master_p_model
+  master_p_ui -- 25 --> master_p_network
 ```
 
 ### Master 앱 — 파일
 
-★ 허브 파일(대부분의 파일이 참조 — 화살표 생략): `Models.kt` (29개 파일이 참조), `Prefs.kt` (13개 파일이 참조), `Session.kt` (19개 파일이 참조), `ApiClient.kt` (24개 파일이 참조), `Theme.kt` (25개 파일이 참조)
+★ 허브 파일(대부분의 파일이 참조 — 화살표 생략): `Models.kt` (31개 파일이 참조), `Session.kt` (19개 파일이 참조), `ApiClient.kt` (26개 파일이 참조), `Theme.kt` (26개 파일이 참조)
 
 ```mermaid
 flowchart LR
@@ -206,7 +208,8 @@ flowchart LR
     android_master_app_src_main_java_com_oojoo_farm_master_data_Cart_kt["Cart"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_FirebaseCfg_kt["FirebaseCfg"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_LocationHelper_kt["LocationHelper"]
-    android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt["Prefs ★"]
+    android_master_app_src_main_java_com_oojoo_farm_master_data_MediaPrep_kt["MediaPrep"]
+    android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt["Prefs"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_ServerConfig_kt["ServerConfig"]
     android_master_app_src_main_java_com_oojoo_farm_master_data_Session_kt["Session ★"]
   end
@@ -216,6 +219,7 @@ flowchart LR
   subgraph master_s_network["network"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ApiClient_kt["ApiClient ★"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ApiService_kt["ApiService"]
+    android_master_app_src_main_java_com_oojoo_farm_master_network_MediaUploader_kt["MediaUploader"]
     android_master_app_src_main_java_com_oojoo_farm_master_network_ServerEndpoint_kt["ServerEndpoint"]
   end
   subgraph master_s_push["push"]
@@ -223,6 +227,7 @@ flowchart LR
   end
   subgraph master_s_ui["ui"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_AuthScreen_kt["AuthScreen"]
+    android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityMedia_kt["CommunityMedia"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt["CommunityScreen"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt["DetectorModules"]
     android_master_app_src_main_java_com_oojoo_farm_master_ui_DiagnosisReviewScreen_kt["DiagnosisReviewScreen"]
@@ -251,6 +256,7 @@ flowchart LR
     android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt["ThemeEditorScreen"]
   end
   android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt
   android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_AuthScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt
@@ -274,18 +280,27 @@ flowchart LR
   android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_OojooApp_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_OojooApp_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_FirebaseCfg_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_ServerConfig_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_data_Session_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_network_ApiClient_kt --> android_master_app_src_main_java_com_oojoo_farm_master_network_ApiService_kt
   android_master_app_src_main_java_com_oojoo_farm_master_network_ApiClient_kt --> android_master_app_src_main_java_com_oojoo_farm_master_network_ServerEndpoint_kt
   android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_MainActivity_kt
   android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_FirebaseCfg_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_NotificationScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_push_FcmService_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_AuthScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_LocationHelper_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_AuthScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityMedia_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_MediaPrep_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityMedia_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_GrowthAlbum_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_LocationHelper_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_MediaPrep_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_network_MediaUploader_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityMedia_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_CommunityScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_EventStats_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_GrowthAlbum_kt
@@ -293,20 +308,26 @@ flowchart LR
   android_master_app_src_main_java_com_oojoo_farm_master_ui_DiagnosisReviewScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_EventStats_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_GrowthAlbum_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_EventStats_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmGrid_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmerListScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmerListScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmGrid_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_GalleryScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_GalleryScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_GalleryScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_RoiEditorScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_HomeScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_HomeScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_LocationHelper_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_HomeScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_HomeScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_LiveCameraScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_LiveCameraScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_MarketScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Cart_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_MessagesScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_NotificationScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_EventStats_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantDetailScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmGrid_kt
@@ -316,11 +337,13 @@ flowchart LR
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantListScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_DetectorModules_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantListScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantListScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantRegistrationScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantRegistrationScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FarmGrid_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_PlantRegistrationScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_FilamentViewer_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_ProfileScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_SubscriptionScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_ui_LocalizedMessages_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_AppLocale_kt
+  android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_data_Prefs_kt
   android_master_app_src_main_java_com_oojoo_farm_master_ui_ThemeEditorScreen_kt --> android_master_app_src_main_java_com_oojoo_farm_master_network_ServerEndpoint_kt
 ```
 

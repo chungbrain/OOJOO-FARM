@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-Material3-42A5F5?logo=jetpackcompose&logoColor=white" />
   <img src="https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/AI-On--device%20CNN%20(OJP1)-FF6F00" />
-  <img src="https://img.shields.io/badge/build-2026112604-blue" />
+  <img src="https://img.shields.io/badge/build-2026112701-blue" />
   <img src="https://img.shields.io/badge/backend-GCP%2034.50.40.104-4285F4?logo=googlecloud&logoColor=white" />
 </p>
 
@@ -50,7 +50,13 @@ The two devices are linked by a randomly generated pairing code — no complex s
 
 ---
 
-## What's New (Builds 2026112012 – 2026112604)
+## What's New (Builds 2026112012 – 2026112701)
+
+**Photos and videos in Neighbor posts** (build 2026112701)
+- When writing a Neighbor (community) post, tap **Add** to pick up to 10 photos and videos from the gallery with the system photo picker (no storage permission). Each item shows a thumbnail (videos with their length) and can be removed before posting.
+- Photos are resized to 1920 px and re-encoded as JPEG on the phone (EXIF orientation applied, location and other EXIF dropped); videos (mp4 / 3gp / webm / mov / mkv, up to 100 MB) are streamed as they are, with a poster frame. Uploads show per-item and overall progress; if one fails, posting again resumes with the items not yet uploaded.
+- The published post opens right away: a swipeable gallery with a thumbnail strip at the top, and a full-screen viewer with pinch-zoom for photos and play / pause / seek for videos. Feed cards show the first attachment with a +N count, and the feed refreshes after posting.
+- Backend: `POST /api/community/media` (upload, type/size checks), `mediaIds` on `POST /api/community/posts`, `media[]` on every post, Range-enabled file serving, and an hourly sweep of uploads never attached to a post.
 
 **On-device detector modules — added and removed per plant from the Master** (build 2026112603)
 - Every plant runs a set of on-device detection modules: 🌿 **health check** (5 grades), 🐛 **pest detection** (4 levels) and 💧 **watering cycle** (dry / ok / overwatered, plus how long the plant takes to dry out after watering and when it will need water next). Detector modules created in the model-manager show up in the same list.
@@ -182,7 +188,7 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 - **Farmer Management** — Device status (online/offline), autonomous policy settings, pause/resume
 - **Pairing** — Generate a random 6-digit code or QR; valid for 10 minutes
 - **Remote Commands** — Queue watering or mode-change instructions for offline Farmers
-- **Community** — Neighbor feed for **share / sell / buy** posts (crop, quantity, price) around the farm's location (my location and nearby search too), plant-card posts with the growth-story video, comments, reserve/complete with reputation, and report/block moderation
+- **Community** — Neighbor feed for **share / sell / buy** posts (crop, quantity, price) around the farm's location (my location and nearby search too), up to 10 photos/videos per post (gallery + full-screen viewer), plant-card posts with the growth-story video, comments, reserve/complete with reputation, and report/block moderation
 - **Marketplace** — Category-browsable supplies (fertilizer, seeds, valves, ESP32, sensors, recommended slave phones), search, plant-based recommendations, curated bundle kits, cart & checkout with order history, and affiliate links (CPS/CPA) for external items
 - **Localization** — Full Korean / English UI with in-app language switching
 
@@ -212,7 +218,7 @@ Every garden on OOJOO FARM is a small act of self-reliance. Together, those gard
 - **Autonomous policy API** — Master sets per-Farmer policy (auto-water / fan / laser approval / capture interval / region); Slave syncs it on boot
 - **Weather API** — Open-Meteo integration with 30-minute cache and watering-factor calculation
 - **Marketplace API** — Products (categories/search), curated bundles, plant-based recommendations, affiliate click tracking, cart checkout (orders + stock decrement) & order history
-- **Community API** — Region-scoped feed (share/sell/buy) with filters & search, comments, status (reserve/complete) with reputation scoring, and report/block moderation
+- **Community API** — Region-scoped feed (share/sell/buy) with filters & search, photo/video attachments (`/api/community/media`), comments, status (reserve/complete) with reputation scoring, and report/block moderation
 - **Detector API** (`/api/detectors`) — Module catalog with model URL / SHA-256 / labels per deployed version, model file download, per-plant module add/remove (pushes a re-sync command to the Farmer), reading results and model-readiness reports
 - **Model API** (`/api/models`) — Receives versions from the local model-manager (model + labels + metrics + train/val photos, `MODEL_MANAGER_TOKEN` required), deploy/rollback, field performance per model and version, Farmer photo candidates for labeling
 - **Events window** — `GET /api/events/:slaveId?days=N` returns every event in the window for the Master's statistics
@@ -559,7 +565,7 @@ gcloud compute ssh oojoo-backend --zone=asia-northeast3-a --command="cd /opt/ooj
 Ready-to-install debug APKs for both apps live in [`dist/`](dist/):
 
 ```
-dist/oojoo-farm-master-debug.apk    # build 2026112603 — AI detector modules on plant cards
+dist/oojoo-farm-master-debug.apk    # build 2026112701 — photos & videos in Neighbor posts
 dist/oojoo-farm-farmer-debug.apk    # build 2026112604 — detector modules, per-version model labels
 ```
 
