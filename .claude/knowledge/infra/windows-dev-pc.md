@@ -9,14 +9,14 @@ sources:
     resource: "Claude Code session on the Windows dev PC, 2026-11-27 (명령 실행 결과로 확인)"
     title: 2026-11-27 세션 관찰
   - id: build-skill
-    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.opencode/skills/build-apk-dist/SKILL.md
+    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.claude/skills/build-apk-dist/SKILL.md
     title: build-apk-dist 스킬
   - id: diary-2026-11-27
     resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/working_diary/2026-11-27_community-post-photo-video_01.md
     title: 2026-11-27 이웃 글 사진·동영상 첨부 일지
 ---
 
-저장소는 `C:\Users\samsung\dev\OOJOO-FARM` 에 있다.[^session-2026-11-27] `.opencode/skills/*` 에 적힌 `C:\OOJOO-FARM` 경로와 Android Studio `jbr` JAVA_HOME은 다른 PC 기준이라 이 PC에서는 맞지 않는다.[^build-skill]
+저장소는 `C:\Users\samsung\dev\OOJOO-FARM` 에 있다.[^session-2026-11-27] `.claude/skills/*` (옛 `.opencode/skills`)에 적힌 `C:\OOJOO-FARM` 경로와 Android Studio `jbr` JAVA_HOME은 다른 PC 기준이라 이 PC에서는 맞지 않는다.[^build-skill]
 
 | 도구 | 이 PC |
 |---|---|

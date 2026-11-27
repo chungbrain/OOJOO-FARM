@@ -9,7 +9,7 @@ sources:
     resource: "Claude Code session on the Windows dev PC, 2026-11-27 (명령 실행 결과로 확인)"
     title: 2026-11-27 세션 관찰
   - id: build-skill
-    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.opencode/skills/build-apk-dist/SKILL.md
+    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.claude/skills/build-apk-dist/SKILL.md
     title: build-apk-dist 스킬
   - id: diary-2026-11-27
     resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/working_diary/2026-11-27_community-post-photo-video_01.md

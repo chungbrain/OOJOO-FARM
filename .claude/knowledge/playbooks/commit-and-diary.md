@@ -6,7 +6,7 @@ tags: [git, docs, convention]
 generated: { by: "claude-code/claude-opus-5-5", at: "2026-11-27T04:58:00Z" }
 sources:
   - id: commit-skill
-    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.opencode/skills/commit-push-diary/SKILL.md
+    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.claude/skills/commit-push-diary/SKILL.md
     title: commit-push-diary 스킬
   - id: diary-2026-11-27
     resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/working_diary/2026-11-27_community-post-photo-video_01.md

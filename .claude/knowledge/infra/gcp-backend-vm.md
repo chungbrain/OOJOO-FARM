@@ -7,7 +7,7 @@ tags: [backend, gcp, infra]
 generated: { by: "claude-code/claude-opus-5-5", at: "2026-11-27T04:58:00Z" }
 sources:
   - id: deploy-skill
-    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.opencode/skills/deploy-backend-gcp/SKILL.md
+    resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/.claude/skills/deploy-backend-gcp/SKILL.md
     title: deploy-backend-gcp 스킬
   - id: diary-2026-11-27
     resource: https://github.com/chungbrain/OOJOO-FARM/blob/main/working_diary/2026-11-27_community-post-photo-video_01.md
