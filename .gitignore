@@ -49,10 +49,10 @@ ml/plant_health/datasets/*/*/*.png
 # tooling / automation
 .tools/
 
-# Claude Code personal settings (end-of-turn hooks: OKF check + auto-commit)
+# Agent environment is committed under .claude/ (see .claude/README.md);
+# only personal overrides and the OKF validator venv stay local
 .claude/settings.local.json
-.claude/hooks/
-.claude/okf/
-.opencode/*
-!.opencode/skills/
+.claude/okf/.venv/
+# OpenCode local state (its skills now live in .claude/skills)
+.opencode/
 .vscode/
