@@ -49,9 +49,10 @@ ml/plant_health/datasets/*/*/*.png
 # tooling / automation
 .tools/
 
-# Claude Code personal settings (end-of-turn auto-commit hook)
+# Claude Code personal settings (end-of-turn hooks: OKF check + auto-commit)
 .claude/settings.local.json
-.claude/hooks/auto-commit.sh
+.claude/hooks/
+.claude/okf/
 .opencode/*
 !.opencode/skills/
 .vscode/
