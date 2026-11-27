@@ -581,4 +581,25 @@
     <string name="detector_water_learning">Watching how long it takes to dry out after watering</string>
     <string name="detector_water_interval">Recent watering interval: %1$s h on average</string>
     <string name="detector_source_heuristic">No dedicated model · estimated from leaf color</string>
+    <!-- Neighbor post photo/video attachments -->
+    <string name="community_media_label">Photos &amp; videos (optional) %1$d/%2$d</string>
+    <string name="community_media_add">Add</string>
+    <string name="community_media_hint">Pick from your gallery · up to %1$d · videos up to 100 MB</string>
+    <string name="community_media_limit">You can attach up to %1$d photos and videos</string>
+    <string name="community_media_too_large">Videos over 100 MB can\'t be uploaded</string>
+    <string name="community_media_unsupported">This file type isn\'t supported</string>
+    <string name="community_media_unreadable">Couldn\'t open this file</string>
+    <string name="community_media_fix_first">Remove the items marked ⚠️ and try again</string>
+    <string name="community_media_upload_failed">Upload failed. Tap again to resume</string>
+    <string name="community_media_uploading">Uploading %1$d/%2$d · %3$d%%</string>
+    <string name="community_media_remove">Remove attachment</string>
+    <string name="community_media_photo">Photo</string>
+    <string name="community_media_video">Video</string>
+    <string name="community_media_summary">📷 %1$d · 🎬 %2$d · Tap to view full screen</string>
+    <string name="community_media_play">Play</string>
+    <string name="community_media_pause">Pause</string>
+    <string name="community_media_video_error">This video can\'t be played</string>
+    <string name="community_media_counter">%1$d / %2$d</string>
+    <string name="community_media_more">+%1$d</string>
+    <string name="community_media_open">View full screen</string>
 </resources>

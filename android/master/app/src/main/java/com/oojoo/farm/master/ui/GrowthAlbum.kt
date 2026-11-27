@@ -675,7 +675,8 @@ private fun PhotoViewerDialog(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 ZoomableImage(
-                    photo = photos[page],
+                    fullUrl = photos[page].fullUrl(),
+                    thumbUrl = photos[page].thumb_url?.let { photos[page].thumbUrl() },
                     description = photoCaption(photos[page], fmt),
                     onZoomChanged = { if (page == pagerState.currentPage) zoomed = it },
                     onTap = { chrome = !chrome }
@@ -761,13 +762,14 @@ private fun PhotoViewerDialog(
 }
 
 /**
- * 확대 가능한 사진. 한 손가락 드래그는 확대 전에는 페이저(좌우 넘김)에 양보하고,
+ * 확대 가능한 사진 (성장 사진첩·이웃 글 뷰어 공용). 한 손가락 드래그는 확대 전에는 페이저(좌우 넘김)에 양보하고,
  * 두 손가락이거나 이미 확대된 상태일 때만 직접 처리(확대/이동)한다.
  */
 @Composable
-private fun ZoomableImage(
-    photo: PlantPhoto,
-    description: String,
+internal fun ZoomableImage(
+    fullUrl: String,
+    thumbUrl: String?,
+    description: String?,
     onZoomChanged: (Boolean) -> Unit,
     onTap: () -> Unit
 ) {
@@ -827,9 +829,10 @@ private fun ZoomableImage(
             scaleX = scale; scaleY = scale
             translationX = offset.x; translationY = offset.y
         }
-        if (photo.thumb_url != null) {
-            AsyncImage(model = photo.thumbUrl(), contentDescription = null, contentScale = ContentScale.Fit, modifier = layer)
+        // 썸네일을 먼저 깔아 두고 원본이 오면 덮는다
+        if (thumbUrl != null) {
+            AsyncImage(model = thumbUrl, contentDescription = null, contentScale = ContentScale.Fit, modifier = layer)
         }
-        AsyncImage(model = photo.fullUrl(), contentDescription = description, contentScale = ContentScale.Fit, modifier = layer)
+        AsyncImage(model = fullUrl, contentDescription = description, contentScale = ContentScale.Fit, modifier = layer)
     }
 }

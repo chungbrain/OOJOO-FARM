@@ -148,6 +148,10 @@ interface ApiService {
     @PATCH("api/community/posts/{id}/video")
     suspend fun communityAttachVideo(@Path("id") id: String, @Body body: AttachVideoRequest): OkResponse
 
+    // 글쓰기 중 첨부 취소 — 업로드(MediaUploader)는 했지만 아직 글에 붙지 않은 것
+    @HTTP(method = "DELETE", path = "api/community/media/{id}", hasBody = true)
+    suspend fun communityMediaDelete(@Path("id") id: String, @Body body: MediaDeleteRequest): OkResponse
+
     @POST("api/community/posts/{id}/comments")
     suspend fun communityComment(@Path("id") id: String, @Body body: CommentRequest): CommentIdResponse
 

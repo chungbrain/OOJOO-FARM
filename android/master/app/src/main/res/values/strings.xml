@@ -581,4 +581,25 @@
     <string name="detector_water_learning">관수 후 다시 마를 때까지 지켜보는 중</string>
     <string name="detector_water_interval">최근 관수 간격 평균 %1$s시간</string>
     <string name="detector_source_heuristic">전용 모델 없음 · 잎 색 기반 추정</string>
+    <!-- 이웃 글 사진·동영상 첨부 -->
+    <string name="community_media_label">사진·동영상 (선택) %1$d/%2$d</string>
+    <string name="community_media_add">추가</string>
+    <string name="community_media_hint">갤러리에서 골라 올려요 · 최대 %1$d개 · 동영상은 100MB까지</string>
+    <string name="community_media_limit">사진·동영상은 최대 %1$d개까지 올릴 수 있어요</string>
+    <string name="community_media_too_large">100MB가 넘는 동영상은 올릴 수 없어요</string>
+    <string name="community_media_unsupported">올릴 수 없는 파일 형식이에요</string>
+    <string name="community_media_unreadable">파일을 열 수 없어요</string>
+    <string name="community_media_fix_first">⚠️ 표시된 항목을 빼고 다시 눌러 주세요</string>
+    <string name="community_media_upload_failed">업로드에 실패했어요. 다시 누르면 이어서 올려요</string>
+    <string name="community_media_uploading">올리는 중 %1$d/%2$d · %3$d%%</string>
+    <string name="community_media_remove">첨부 빼기</string>
+    <string name="community_media_photo">사진</string>
+    <string name="community_media_video">동영상</string>
+    <string name="community_media_summary">📷 %1$d · 🎬 %2$d · 탭하면 크게 봐요</string>
+    <string name="community_media_play">재생</string>
+    <string name="community_media_pause">일시정지</string>
+    <string name="community_media_video_error">이 동영상을 재생할 수 없어요</string>
+    <string name="community_media_counter">%1$d / %2$d</string>
+    <string name="community_media_more">+%1$d</string>
+    <string name="community_media_open">크게 보기</string>
 </resources>

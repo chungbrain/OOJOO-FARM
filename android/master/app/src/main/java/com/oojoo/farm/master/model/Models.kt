@@ -337,8 +337,27 @@ data class CommunityPost(
     val plant_id: String? = null,
     val plant_name: String? = null,
     val plant_species: String? = null,
-    val video_url: String? = null
+    val video_url: String? = null,
+    // 글쓰기에서 직접 올린 사진·동영상 (표시 순서)
+    val media: List<CommunityMedia> = emptyList()
 )
+/** 이웃 글 첨부 — kind: photo | video. url/thumb_url 은 서버 기준 상대 경로. */
+@Serializable
+data class CommunityMedia(
+    val id: String,
+    val kind: String,
+    val url: String,
+    val thumb_url: String? = null,
+    val mime: String? = null,
+    val size: Long? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val duration_ms: Long? = null
+) {
+    val isVideo: Boolean get() = kind == "video"
+}
+@Serializable
+data class MediaDeleteRequest(val userId: String)
 @Serializable
 data class CommunityPostsResponse(val posts: List<CommunityPost>)
 @Serializable
@@ -368,7 +387,9 @@ data class CreatePostRequest(
     val videoId: String? = null,
     // 장소 — 기본 farmer(농장) 위치. master가 현재 위치로 바꾸면 그 좌표
     val lat: Double? = null,
-    val lon: Double? = null
+    val lon: Double? = null,
+    // 먼저 POST api/community/media 로 올려 받은 id — 이 순서대로 글에 붙는다
+    val mediaIds: List<String> = emptyList()
 )
 @Serializable
 data class PostIdResponse(val postId: String)

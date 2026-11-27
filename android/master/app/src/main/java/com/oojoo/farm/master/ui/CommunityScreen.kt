@@ -1,6 +1,10 @@
 package com.oojoo.farm.master.ui
 
 import android.app.Application
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,15 +42,30 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import com.oojoo.farm.master.R
 import com.oojoo.farm.master.data.AppStrings
 import com.oojoo.farm.master.data.LocalAppStrings
 import com.oojoo.farm.master.data.LocationHelper
+import com.oojoo.farm.master.data.MediaKind
+import com.oojoo.farm.master.data.MediaPrep
+import com.oojoo.farm.master.data.MediaProblem
+import com.oojoo.farm.master.data.MediaRules
 import com.oojoo.farm.master.data.Session
 import com.oojoo.farm.master.model.*
 import com.oojoo.farm.master.network.ApiClient
+import com.oojoo.farm.master.network.MediaUploader
+import com.oojoo.farm.master.network.UploadException
+import com.oojoo.farm.master.network.UploadSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
+
+/** 글쓰기 → 등록 완료 시 피드(이전 화면)에 남기는 표시 — 돌아오면 피드를 다시 불러온다. */
+internal const val COMMUNITY_POSTED_KEY = "community_posted"
 
 private fun typeLabel(t: String?, S: AppStrings) = when (t) { "share" -> S.share; "sell" -> S.sell; "buy" -> S.buy; else -> t ?: "" }
 private fun statusLabel(s: String?, S: AppStrings) = when (s) { "reserved" -> S.reserved; "done" -> S.tradedone; else -> "" }
@@ -142,7 +162,11 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) vm.regionChanged()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // 방금 글을 올리고 돌아왔으면 새 글이 보이게 다시 로드
+                val posted = (lifecycleOwner as? NavBackStackEntry)?.savedStateHandle?.remove<String>(COMMUNITY_POSTED_KEY) != null
+                if (posted) vm.load() else vm.regionChanged()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -185,42 +209,48 @@ fun CommunityScreen(nav: NavController, vm: CommunityViewModel = viewModel()) {
             }
             items(vm.posts) { post ->
                 Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape).clickable { nav.navigate("community_post/${post.id}") }, shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(shape = RoundedCornerShape(50), color = if (post.type == "sell") Color(0xFFFFF3E0) else Color(0xFFE8F5E9)) {
-                                Text(typeLabel(post.type, S), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(50), color = if (post.type == "sell") Color(0xFFFFF3E0) else Color(0xFFE8F5E9)) {
+                                    Text(typeLabel(post.type, S), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (post.type == "sell") Color(0xFFE65100) else OojooTheme.GreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(post.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = OojooTheme.Ink)
+                                if (post.type == "sell" && (post.price ?: 0) > 0) Text(won(post.price ?: 0), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
                             }
-                            Spacer(Modifier.width(8.dp))
-                            Text(post.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = OojooTheme.Ink)
-                            if (post.type == "sell" && (post.price ?: 0) > 0) Text(won(post.price ?: 0), color = OojooTheme.Green, fontWeight = FontWeight.ExtraBold)
-                        }
-                        Text(listOfNotNull(post.crop, post.quantity).joinToString(" · ").ifBlank { post.description ?: "" }, color = OojooTheme.Muted, fontSize = 12.sp)
-                        // 식물카드 배지 — 원본 식물 + 성장스토리 동영상 유무
-                        if (post.plant_name != null || post.video_url != null) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                post.plant_name?.let { pn ->
-                                    Surface(
-                                        shape = OojooTheme.PillShape,
-                                        color = OojooTheme.GreenBg,
-                                        border = BorderStroke(1.dp, OojooTheme.GreenDark)
-                                    ) {
-                                        Text("🌱 $pn", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.GreenDark, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(listOfNotNull(post.crop, post.quantity).joinToString(" · ").ifBlank { post.description ?: "" }, color = OojooTheme.Muted, fontSize = 12.sp)
+                            // 식물카드 배지 — 원본 식물 + 성장스토리 동영상 유무
+                            if (post.plant_name != null || post.video_url != null) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    post.plant_name?.let { pn ->
+                                        Surface(
+                                            shape = OojooTheme.PillShape,
+                                            color = OojooTheme.GreenBg,
+                                            border = BorderStroke(1.dp, OojooTheme.GreenDark)
+                                        ) {
+                                            Text("🌱 $pn", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.GreenDark, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    if (post.video_url != null) {
+                                        Surface(
+                                            shape = OojooTheme.PillShape,
+                                            color = OojooTheme.Yellow,
+                                            border = BorderStroke(1.dp, OojooTheme.Amber)
+                                        ) {
+                                            Text("🎬 ${S.feedVideoBadge}", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
-                                if (post.video_url != null) {
-                                    Surface(
-                                        shape = OojooTheme.PillShape,
-                                        color = OojooTheme.Yellow,
-                                        border = BorderStroke(1.dp, OojooTheme.Amber)
-                                    ) {
-                                        Text("🎬 ${S.feedVideoBadge}", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = OojooTheme.Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
+                            }
+                            Row {
+                                Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · 📍 ${post.region ?: "-"} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                statusLabel(post.status, S).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
                             }
                         }
-                        Row {
-                            Text("${post.image ?: "🙂"} ${post.author_name ?: S.neighbor} · 📍 ${post.region ?: "-"} · ⭐${post.author_score} (${post.author_deals})", color = OojooTheme.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            statusLabel(post.status, S).takeIf { it.isNotBlank() }?.let { Text(it, color = OojooTheme.Red, fontSize = 11.sp) }
+                        if (post.media.isNotEmpty()) {
+                            Spacer(Modifier.width(12.dp))
+                            FeedMediaThumb(post.media)
                         }
                     }
                 }
@@ -265,6 +295,8 @@ fun CommunityPostScreen(nav: NavController, postId: String, vm: PostDetailViewMo
         val post = d.post
         val isAuthor = post.user_id == Session.userId
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 글쓴이가 직접 올린 사진·동영상
+            PostMediaGallery(post.media)
             Card(Modifier.fillMaxWidth().shadow(OojooTheme.ShadowOffset, OojooTheme.CardShape).border(2.dp, OojooTheme.Ink, OojooTheme.CardShape).clip(OojooTheme.CardShape), shape = OojooTheme.CardShape, colors = CardDefaults.cardColors(containerColor = OojooTheme.Card)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -389,15 +421,117 @@ class WritePostViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun submit(onDone: () -> Unit) {
+    // ── 사진·동영상 첨부 ──
+    // 고르면 바로 썸네일·길이를 읽고, 등록할 때 하나씩 올린 뒤(POST api/community/media) mediaIds 로 글에 붙인다.
+    // 올리다 실패하면 이미 올라간 것은 그대로 두고, 다시 누르면 남은 것만 이어서 올린다.
+    val media = mutableStateListOf<DraftMedia>()
+    var mediaNotice by mutableStateOf<Int?>(null) // @StringRes
+    var uploadStep by mutableStateOf<Pair<Int, Int>?>(null) // (지금 몇 번째, 모두 몇 개)
+    val mediaPreparing: Boolean get() = media.any { it.prepared == null }
+
+    fun addMedia(uris: List<Uri>) {
+        if (loading) return
+        mediaNotice = null
+        val fresh = uris.distinct().filter { u -> media.none { it.uri == u } }
+        val room = MediaRules.MAX_ITEMS - media.size
+        if (fresh.size > room) mediaNotice = R.string.community_media_limit
+        val ctx = getApplication<Application>()
+        fresh.take(room.coerceAtLeast(0)).forEach { uri ->
+            val d = DraftMedia(uri)
+            media.add(d)
+            viewModelScope.launch {
+                val p = withContext(Dispatchers.IO) { MediaPrep.prepare(ctx, uri) }
+                d.thumb = p.thumb?.asImageBitmap()
+                d.problem = MediaRules.problemOf(p.kind, p.sizeBytes)
+                d.prepared = p
+            }
+        }
+    }
+
+    fun removeMedia(d: DraftMedia) {
+        if (loading) return
+        media.remove(d)
+        if (media.none { it.problem != null }) mediaNotice = null
+        // 이미 올라간 것 — 서버에서도 지운다 (실패해도 24시간 뒤 서버가 정리)
+        d.uploaded?.let { up ->
+            viewModelScope.launch { try { api.communityMediaDelete(up.id, MediaDeleteRequest(Session.userId)) } catch (_: Exception) {} }
+        }
+    }
+
+    /** 아직 안 올라간 첨부를 순서대로 올리고, 화면 순서대로 mediaId 목록을 돌려준다. */
+    private suspend fun uploadPendingMedia(): List<String> {
+        val ctx = getApplication<Application>()
+        val todo = media.filter { it.uploaded == null }
+        todo.forEachIndexed { i, d ->
+            uploadStep = (i + 1) to todo.size
+            val p = d.prepared ?: throw IllegalStateException("media not ready")
+            val kind = p.kind ?: throw IllegalStateException("unsupported media")
+            d.problem = null
+            d.progress = 0f
+            d.uploading = true
+            try {
+                val thumbJpeg = p.thumb?.let { withContext(Dispatchers.Default) { MediaPrep.jpeg(it, MediaRules.THUMB_QUALITY) } }
+                val index = media.indexOf(d)
+                d.uploaded = when (kind) {
+                    MediaKind.PHOTO -> {
+                        val photo = withContext(Dispatchers.IO) { MediaPrep.encodePhoto(ctx, d.uri) }
+                            ?: run { d.problem = MediaProblem.UNREADABLE; throw MediaUploadFailed(MediaProblem.UNREADABLE) }
+                        MediaUploader.uploadCommunityMedia(
+                            Session.userId,
+                            UploadSource.Bytes(photo.jpeg, "image/jpeg", MediaRules.uploadFileName(kind, "image/jpeg", index)),
+                            thumbJpeg, photo.width, photo.height, null
+                        ) { d.progress = it }
+                    }
+                    MediaKind.VIDEO -> {
+                        val mime = p.mime ?: "video/mp4"
+                        MediaUploader.uploadCommunityMedia(
+                            Session.userId,
+                            UploadSource.Content(ctx.contentResolver, d.uri, mime, MediaRules.uploadFileName(kind, mime, index), p.sizeBytes),
+                            thumbJpeg, p.width, p.height, p.durationMs
+                        ) { d.progress = it }
+                    }
+                }
+                d.progress = 1f
+            } catch (e: UploadException) {
+                d.problem = when {
+                    e.tooLarge -> MediaProblem.TOO_LARGE
+                    e.unsupported -> MediaProblem.UNSUPPORTED
+                    else -> MediaProblem.UPLOAD_FAILED
+                }
+                throw MediaUploadFailed(d.problem!!)
+            } catch (e: IOException) {
+                d.problem = MediaProblem.UPLOAD_FAILED
+                throw MediaUploadFailed(MediaProblem.UPLOAD_FAILED)
+            } finally {
+                d.uploading = false
+            }
+        }
+        return media.mapNotNull { it.uploaded?.id }
+    }
+
+    private class MediaUploadFailed(val problem: MediaProblem) : Exception(problem.name)
+
+    fun submit(onPosted: (postId: String) -> Unit) {
         if (title.isBlank()) { error = "제목을 입력하세요"; return }
-        if (locBusy) return
-        loading = true; error = null
+        if (locBusy || loading || mediaPreparing) return
+        // 고를 때 이미 걸러진 항목(형식·크기)은 빼야 등록할 수 있다 — 업로드 실패만 재시도 대상
+        if (media.any { it.problem != null && it.problem != MediaProblem.UPLOAD_FAILED }) {
+            mediaNotice = R.string.community_media_fix_first
+            return
+        }
+        loading = true; error = null; mediaNotice = null
         viewModelScope.launch {
             try {
-                api.communityCreate(CreatePostRequest(Session.userId, type, title.trim(), crop.trim().ifBlank { null }, quantity.trim().ifBlank { null }, if (type == "sell") price.trim().toIntOrNull() else null, postRegion, description.trim().ifBlank { null }, image, lat = postLat, lon = postLon))
-                onDone()
+                val mediaIds = uploadPendingMedia()
+                uploadStep = null
+                val created = api.communityCreate(CreatePostRequest(Session.userId, type, title.trim(), crop.trim().ifBlank { null }, quantity.trim().ifBlank { null }, if (type == "sell") price.trim().toIntOrNull() else null, postRegion, description.trim().ifBlank { null }, image, lat = postLat, lon = postLon, mediaIds = mediaIds))
+                onPosted(created.postId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: MediaUploadFailed) {
+                mediaNotice = if (e.problem == MediaProblem.UPLOAD_FAILED) R.string.community_media_upload_failed else R.string.community_media_fix_first
             } catch (e: Exception) { error = e.message ?: "등록 실패" }
+            uploadStep = null
             loading = false
         }
     }
@@ -408,6 +542,10 @@ class WritePostViewModel(app: Application) : AndroidViewModel(app) {
 fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel()) {
     val S = LocalAppStrings.current
     val emojis = listOf("🥬", "🍅", "🌿", "🌱", "🥕", "🌶️", "🍓", "🙂")
+    // 시스템 사진 선택기 — 권한 없이 갤러리의 사진·동영상을 고른다 (구형 기기는 문서 선택기로 대체)
+    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MediaRules.MAX_ITEMS)) { uris ->
+        if (uris.isNotEmpty()) vm.addMedia(uris)
+    }
     Scaffold(topBar = { TopAppBar(title = { Text(S.writePost, color = Color.White, fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = { nav.navigateUp() }) { Text("‹", color = Color.White, fontSize = 20.sp) } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = OojooTheme.Green)) }, containerColor = OojooTheme.Bg) { p ->
         Column(Modifier.fillMaxSize().padding(p).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(S.typeLabelGeneric, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
@@ -425,6 +563,13 @@ fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel(
             if (vm.type == "sell") { Text(S.priceWon, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted); OojooField(vm.price, { vm.price = it.filter { c -> c.isDigit() } }, "5000") }
             Text(S.description, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             OojooField(vm.description, { vm.description = it }, S.descriptionPh)
+            DraftMediaSection(
+                items = vm.media,
+                enabled = !vm.loading,
+                notice = vm.mediaNotice,
+                onAdd = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+                onRemove = { vm.removeMedia(it) }
+            )
             Text(S.emoji, style = MaterialTheme.typography.labelMedium, color = OojooTheme.Muted)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 emojis.forEach { e -> OojooChip(vm.image == e, { vm.image = e }, e) }
@@ -442,7 +587,25 @@ fun CommunityWriteScreen(nav: NavController, vm: WritePostViewModel = viewModel(
                 vm.farmSlave != null -> Text("🌱 ${S.writeLocationFarmOf.format(vm.farmSlave!!.name)}", color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 else -> Text(S.writeLocationNoFarmer, color = OojooTheme.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            GradientButton(text = S.postButton, onClick = { vm.submit { nav.navigateUp() } }, enabled = !vm.loading && !vm.locBusy && vm.title.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            vm.uploadStep?.let { (n, total) ->
+                val progress = vm.media.firstOrNull { it.uploading }?.progress ?: 0f
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.community_media_uploading, n, total, (progress * 100).toInt()), color = OojooTheme.GreenDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(progress = { progress }, color = OojooTheme.Green, trackColor = OojooTheme.Line, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            GradientButton(
+                text = S.postButton,
+                onClick = {
+                    vm.submit { postId ->
+                        // 피드가 돌아왔을 때 새로고침하도록 표시하고, 올린 글을 바로 보여준다
+                        nav.previousBackStackEntry?.savedStateHandle?.set(COMMUNITY_POSTED_KEY, postId)
+                        nav.navigate("community_post/$postId") { popUpTo("community_write") { inclusive = true } }
+                    }
+                },
+                enabled = !vm.loading && !vm.locBusy && !vm.mediaPreparing && vm.title.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            )
             vm.error?.let { Text("⚠️ ${localizeMasterMessage(it, S)}", color = OojooTheme.Red, fontSize = 13.sp) }
         }
     }
